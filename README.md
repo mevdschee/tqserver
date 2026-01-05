@@ -102,6 +102,43 @@ pages:
     directory: "pages" # Pages directory path
 ```
 
+### Per-Path Worker Configuration
+
+You can configure different resource limits for specific routes using the
+`workers.paths` section. This allows you to:
+
+- Limit resource usage for certain endpoints (e.g., public APIs)
+- Allocate more resources to critical paths (e.g., webhooks)
+- Apply different restart policies per route
+
+**Example:**
+
+```yaml
+workers:
+    default:
+        num_procs: 1
+        max_requests: 0
+        memory_limit_mb: 512
+
+    paths:
+        "/api": # More conservative limits for API endpoints
+            num_procs: 2
+            max_requests: 5000
+            request_timeout_seconds: 15
+            memory_limit_mb: 256
+
+        "/webhooks": # More generous for webhooks
+            num_procs: 1
+            max_requests: 20000
+            memory_limit_mb: 1024
+```
+
+Path matching uses the most specific prefix match:
+
+- Exact matches take priority: `/api` exactly matches `/api`
+- Prefix matches work: `/api` matches `/api/users`, `/api/posts`, etc.
+- Falls back to default settings if no match found
+
 ## Documentation
 
 See [project_brief.md](project_brief.md) for complete architecture

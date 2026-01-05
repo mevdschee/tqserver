@@ -112,7 +112,7 @@ project-root/
 │   ├── proxy.go
 │   └── router.go
 ├── config/
-│   └── settings.yaml
+│   └── server.yaml
 ├── templates/
 │   └── email.html
 ├── pages/
@@ -125,7 +125,7 @@ project-root/
 
 ```go
 // Working directory is project-root/, so paths are relative to root
-config, _ := os.ReadFile("config/settings.yaml")  // ✅ Works
+config, _ := os.ReadFile("config/server.yaml")     // ✅ Works
 template, _ := os.ReadFile("templates/email.html") // ✅ Works
 ```
 
