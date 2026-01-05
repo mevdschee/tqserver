@@ -38,7 +38,7 @@ workers:
     idle_timeout_seconds: 180 # Default: 120 - Idle timeout for workers
     memory_limit_mb: 512 # Default: 0 (unlimited) - Memory limit per worker in MB
     log_file: "logs/worker_{name}_{date}.log" # Default: logs/worker_{name}_{date}.log
-  # Placeholders: {name} = worker name, {date} = unix timestamp
+                                               # Placeholders: {name} = worker name, {date} = YYYY-MM-DD date
 
   # Per-path worker configuration overrides (optional)
   # Use this to apply different resource limits to specific routes

@@ -20,8 +20,7 @@ sub-second hot reloads with native Go performance.
 ### 1. Build the server
 
 ```bash
-cd server
-go build -o ../tqserver
+go build -o ./tqserver ./server
 ```
 
 ### 2. Configure (optional)
