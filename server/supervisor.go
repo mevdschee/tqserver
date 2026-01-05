@@ -207,6 +207,11 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 	s.mu.Lock()
 	port := s.nextPort
 	s.nextPort++
+	// Check if we've exceeded the port range
+	if s.nextPort > s.config.Workers.PortRangeEnd {
+		log.Printf("Warning: Exceeded worker port range, wrapping back to start")
+		s.nextPort = s.config.Workers.PortRangeStart
+	}
 	s.mu.Unlock()
 
 	worker.Port = port
@@ -250,7 +255,7 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 	}()
 
 	// Give it a moment to start
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(s.config.GetStartupDelay())
 
 	return nil
 }
@@ -285,11 +290,13 @@ func (s *Supervisor) restartWorker(worker *Worker) error {
 	}
 
 	// Stop old worker after a brief delay
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(s.config.GetRestartDelay())
 	if oldProcess != nil {
 		log.Printf("Stopping old worker on port %d", oldPort)
-		time.Sleep(500 * time.Millisecond)
+		oldProcess.Signal(os.Interrupt)
 
+		// Wait a bit for graceful shutdown
+		time.Sleep(s.config.GetShutdownGracePeriod())
 		// Force kill if still running
 		oldProcess.Kill()
 	}

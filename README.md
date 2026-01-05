@@ -24,18 +24,27 @@ cd server
 go build -o ../tqserver
 ```
 
-### 2. Run the server
+### 2. Configure (optional)
+
+Edit `config/server.yaml` to customize:
+- Server port (default: 8080)
+- Worker port range (default: 9000-9999)
+- Timeouts (read, write, idle)
+- Worker startup and restart delays
+- Pages directory location
+
+### 3. Run the server
 
 ```bash
 ./tqserver
 ```
 
-The server will listen on port **8080** by default and serve pages from the
-`pages/` directory.
+The server will listen on port **8080** by default (or as configured) and serve
+pages from the `pages/` directory.
 
 Visit http://localhost:8080 to see it in action!
 
-### 3. Edit and watch hot reload
+### 4. Edit and watch hot reload
 
 Edit `pages/index/main.go` and save. The server will automatically rebuild and
 reload in under 1 second with zero downtime.
