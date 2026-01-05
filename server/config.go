@@ -68,7 +68,7 @@ func LoadConfig(configPath string) (*Config, error) {
 	config.Workers.Default.RequestTimeoutSeconds = 30
 	config.Workers.Default.IdleTimeoutSeconds = 120
 	config.Workers.Default.MemoryLimitMB = 0 // 0 = unlimited
-	config.Workers.Default.LogFile = "logs/worker_{name}_{date}.log"
+	config.Workers.Default.LogFile = "logs/worker_{path}_{date}.log"
 	config.Workers.Paths = make(map[string]WorkerSettings)
 	config.FileWatcher.DebounceMs = 50
 	config.Pages.Directory = "pages"

@@ -226,28 +226,33 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 	// Generate log file path from template
 	logFileTemplate := settings.LogFile
 	if logFileTemplate == "" {
-		logFileTemplate = "logs/worker_{name}_{date}.log"
+		logFileTemplate = "logs/{path}/worker_{date}.log"
 	}
 
-	// Replace placeholders
-	logFilePath := logFileTemplate
-	logFilePath = filepath.Join(s.projectRoot, logFilePath)
-	logFilePath = filepath.ToSlash(logFilePath)
-	logFilePath = filepath.Clean(logFilePath)
+	// Replace {path} with relative path from pages directory
+	// Extract relative path: if worker.Path is "pages/api/users", relPath becomes "api/users"
+	pagesDir := filepath.Join(s.projectRoot, s.config.Pages.Directory)
+	relPath, err := filepath.Rel(pagesDir, worker.Path)
+	if err != nil {
+		relPath = filepath.Base(worker.Path) // Fallback to just the name
+	}
+	// Normalize to forward slashes for consistent path representation
+	pathForLog := strings.ReplaceAll(relPath, string(filepath.Separator), "/")
 
-	// Replace {name} with worker name
-	workerName := filepath.Base(worker.Path)
-	logFilePath = filepath.Join(
-		filepath.Dir(logFilePath),
-		filepath.Base(strings.ReplaceAll(filepath.Base(logFilePath), "{name}", workerName)),
-	)
+	// Replace placeholders in the template first
+	logFilePath := strings.ReplaceAll(logFileTemplate, "{path}", pathForLog)
 
 	// Replace {date} with current date
 	dateStr := time.Now().Format("2006-01-02")
-	logFilePath = filepath.Join(
-		filepath.Dir(logFilePath),
-		strings.ReplaceAll(filepath.Base(logFilePath), "{date}", dateStr),
-	)
+	logFilePath = strings.ReplaceAll(logFilePath, "{date}", dateStr)
+
+	// Make path absolute if not already
+	if !filepath.IsAbs(logFilePath) {
+		logFilePath = filepath.Join(s.projectRoot, logFilePath)
+	}
+
+	// Clean the path
+	logFilePath = filepath.Clean(logFilePath)
 
 	// Create log directory if it doesn't exist
 	logDir := filepath.Dir(logFilePath)

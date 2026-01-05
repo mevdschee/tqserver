@@ -20,7 +20,7 @@ sub-second hot reloads with native Go performance.
 ### 1. Build the server
 
 ```bash
-go build -o ./tqserver ./server
+go build -o bin/tqserver ./server
 ```
 
 ### 2. Configure (optional)
@@ -36,7 +36,7 @@ Edit `config/server.yaml` to customize:
 ### 3. Run the server
 
 ```bash
-./tqserver
+bin/tqserver
 ```
 
 The server will listen on port **8080** by default (or as configured) and serve

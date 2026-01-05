@@ -33,7 +33,7 @@ workers:
     request_timeout_seconds: 30 # Request timeout for workers
     idle_timeout_seconds: 120 # Idle timeout for workers
     memory_limit_mb: 0 # Memory limit per worker in MB (0 = unlimited)
-    log_file: "logs/worker_{name}_{date}.log" # Log file path template
+    log_file: "logs/{path}/worker_{date}.log" # Log file path template
 
 # Per-path worker configuration overrides (optional)
 # paths:
