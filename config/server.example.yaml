@@ -37,6 +37,8 @@ workers:
     request_timeout_seconds: 60 # Default: 30 - Request timeout for workers
     idle_timeout_seconds: 180 # Default: 120 - Idle timeout for workers
     memory_limit_mb: 512 # Default: 0 (unlimited) - Memory limit per worker in MB
+    log_file: "logs/worker_{name}_{date}.log" # Default: logs/worker_{name}_{date}.log
+  # Placeholders: {name} = worker name, {date} = unix timestamp
 
   # Per-path worker configuration overrides (optional)
   # Use this to apply different resource limits to specific routes
@@ -48,6 +50,7 @@ workers:
       request_timeout_seconds: 15
       idle_timeout_seconds: 60
       memory_limit_mb: 256
+      log_file: "logs/api_{date}.log"
 
     # Example: Allow more resources for webhooks
     "/webhooks":
@@ -56,13 +59,4 @@ workers:
       request_timeout_seconds: 120
       idle_timeout_seconds: 300
       memory_limit_mb: 1024
-
-# File watching settings
-file_watcher:
-  # Debounce delay to avoid multiple rebuilds for rapid file changes (in milliseconds)
-  debounce_ms: 100 # Default: 50
-
-# Pages directory
-pages:
-  # Can be relative to project root or absolute path
-  directory: "pages" # Default: "pages"
+      log_file: "logs/webhooks_{date}.log"

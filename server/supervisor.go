@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -218,6 +220,47 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 
 	log.Printf("Starting worker for %s on port %d", worker.Route, port)
 
+	// Get worker settings for this path
+	settings := s.config.GetWorkerSettings(worker.Route)
+
+	// Generate log file path from template
+	logFileTemplate := settings.LogFile
+	if logFileTemplate == "" {
+		logFileTemplate = "logs/worker_{name}_{date}.log"
+	}
+
+	// Replace placeholders
+	logFilePath := logFileTemplate
+	logFilePath = filepath.Join(s.projectRoot, logFilePath)
+	logFilePath = filepath.ToSlash(logFilePath)
+	logFilePath = filepath.Clean(logFilePath)
+
+	// Replace {name} with worker name
+	workerName := filepath.Base(worker.Path)
+	logFilePath = filepath.Join(
+		filepath.Dir(logFilePath),
+		filepath.Base(strings.ReplaceAll(filepath.Base(logFilePath), "{name}", workerName)),
+	)
+
+	// Replace {date} with current date
+	dateStr := time.Now().Format("2006-01-02")
+	logFilePath = filepath.Join(
+		filepath.Dir(logFilePath),
+		strings.ReplaceAll(filepath.Base(logFilePath), "{date}", dateStr),
+	)
+
+	// Create log directory if it doesn't exist
+	logDir := filepath.Dir(logFilePath)
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return fmt.Errorf("failed to create log directory: %w", err)
+	}
+
+	// Create log file for this worker
+	logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to create log file: %w", err)
+	}
+
 	// Start the worker process
 	cmd := exec.Command(worker.Binary)
 	cmd.Dir = s.projectRoot // Set working directory to project root
@@ -225,8 +268,9 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 		fmt.Sprintf("PORT=%d", port),
 		fmt.Sprintf("ROUTE=%s", worker.Route),
 	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	// Use MultiWriter to write to both log file and stdout/stderr
+	cmd.Stdout = io.MultiWriter(os.Stdout, logFile)
+	cmd.Stderr = io.MultiWriter(os.Stderr, logFile)
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start worker: %w", err)
@@ -236,8 +280,8 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 	worker.StartTime = time.Now()
 	worker.SetHealthy(true)
 
-	log.Printf("✅ Worker started for %s on port %d (PID: %d)",
-		worker.Route, port, cmd.Process.Pid)
+	log.Printf("✅ Worker started for %s on port %d (PID: %d) - logs: %s",
+		worker.Route, port, cmd.Process.Pid, logFilePath)
 
 	// Monitor the process (but don't mark unhealthy on exit if we're restarting)
 	go func() {
