@@ -5,12 +5,12 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 )
 
 func main() {
-	port := flag.Int("port", 8080, "Port to listen on")
-	pagesDir := flag.String("pages", "pages", "Directory containing page handlers")
+	configPath := flag.String("config", "config/server.yaml", "Path to config file")
 	flag.Parse()
 
 	// Get project root (current working directory)
@@ -19,16 +19,25 @@ func main() {
 		log.Fatalf("Failed to get working directory: %v", err)
 	}
 
+	// Load configuration
+	configFile := filepath.Join(projectRoot, *configPath)
+	config, err := LoadConfig(configFile)
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
 	log.Printf("TQServer starting...")
 	log.Printf("Project root: %s", projectRoot)
-	log.Printf("Pages directory: %s", *pagesDir)
-	log.Printf("Listening on port: %d", *port)
+	log.Printf("Config file: %s", configFile)
+	log.Printf("Pages directory: %s", config.Pages.Directory)
+	log.Printf("Listening on port: %d", config.Server.Port)
+	log.Printf("Worker port range: %d-%d", config.Workers.PortRangeStart, config.Workers.PortRangeEnd)
 
 	// Initialize router
-	router := NewRouter(*pagesDir, projectRoot)
+	router := NewRouter(config.Pages.Directory, projectRoot)
 
 	// Initialize supervisor
-	supervisor := NewSupervisor(*pagesDir, projectRoot, router)
+	supervisor := NewSupervisor(config, projectRoot, router)
 
 	// Start supervisor (watches for changes and builds workers)
 	if err := supervisor.Start(); err != nil {
@@ -36,7 +45,7 @@ func main() {
 	}
 
 	// Initialize and start HTTP proxy/load balancer
-	proxy := NewProxy(*port, router)
+	proxy := NewProxy(config, router)
 
 	// Start proxy in a goroutine
 	go func() {
@@ -45,7 +54,7 @@ func main() {
 		}
 	}()
 
-	log.Printf("✅ TQServer ready on http://localhost:%d", *port)
+	log.Printf("✅ TQServer ready on http://localhost:%d", config.Server.Port)
 
 	// Wait for interrupt signal
 	sigChan := make(chan os.Signal, 1)

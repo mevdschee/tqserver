@@ -7,21 +7,20 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"sync"
-	"time"
 )
 
 // Proxy handles incoming HTTP requests and routes them to backend workers
 type Proxy struct {
-	port   int
+	config *Config
 	router *Router
 	server *http.Server
 	mu     sync.RWMutex
 }
 
 // NewProxy creates a new reverse proxy
-func NewProxy(port int, router *Router) *Proxy {
+func NewProxy(config *Config, router *Router) *Proxy {
 	return &Proxy{
-		port:   port,
+		config: config,
 		router: router,
 	}
 }
@@ -32,14 +31,14 @@ func (p *Proxy) Start() error {
 	mux.HandleFunc("/", p.handleRequest)
 
 	p.server = &http.Server{
-		Addr:         fmt.Sprintf(":%d", p.port),
+		Addr:         fmt.Sprintf(":%d", p.config.Server.Port),
 		Handler:      mux,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		ReadTimeout:  p.config.GetReadTimeout(),
+		WriteTimeout: p.config.GetWriteTimeout(),
+		IdleTimeout:  p.config.GetIdleTimeout(),
 	}
 
-	log.Printf("Proxy listening on http://localhost:%d", p.port)
+	log.Printf("Proxy listening on http://localhost:%d", p.config.Server.Port)
 	return p.server.ListenAndServe()
 }
 

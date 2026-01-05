@@ -1,0 +1,33 @@
+# TQServer Configuration
+
+# Server settings
+server:
+  # Port for the main HTTP server to listen on
+  port: 8080
+
+  # Timeouts for HTTP server
+  read_timeout_seconds: 30
+  write_timeout_seconds: 30
+  idle_timeout_seconds: 120
+
+# Worker settings
+workers:
+  # Port range for worker processes
+  port_range_start: 9000
+  port_range_end: 9999
+
+  # Worker startup settings
+  startup_delay_ms: 100 # Time to wait for worker to start
+
+  # Graceful restart settings
+  restart_delay_ms: 100 # Delay before stopping old worker
+  shutdown_grace_period_ms: 500 # Time to wait for graceful shutdown
+
+# File watching settings
+file_watcher:
+  # Debounce delay to avoid multiple rebuilds for rapid file changes
+  debounce_ms: 50
+
+# Pages directory
+pages:
+  directory: "pages"

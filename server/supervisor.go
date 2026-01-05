@@ -14,7 +14,7 @@ import (
 
 // Supervisor manages worker lifecycle: building, starting, stopping, and restarting
 type Supervisor struct {
-	pagesDir    string
+	config      *Config
 	projectRoot string
 	router      *Router
 	watcher     *fsnotify.Watcher
@@ -25,12 +25,12 @@ type Supervisor struct {
 }
 
 // NewSupervisor creates a new supervisor
-func NewSupervisor(pagesDir, projectRoot string, router *Router) *Supervisor {
+func NewSupervisor(config *Config, projectRoot string, router *Router) *Supervisor {
 	return &Supervisor{
-		pagesDir:    pagesDir,
+		config:      config,
 		projectRoot: projectRoot,
 		router:      router,
-		nextPort:    9000, // Start workers on port 9000+
+		nextPort:    config.Workers.PortRangeStart,
 		stopChan:    make(chan struct{}),
 	}
 }
@@ -64,7 +64,7 @@ func (s *Supervisor) Start() error {
 	s.watcher = watcher
 
 	// Watch pages directory
-	pagesPath := filepath.Join(s.projectRoot, s.pagesDir)
+	pagesPath := filepath.Join(s.projectRoot, s.config.Pages.Directory)
 	if err := s.watchDirectory(pagesPath); err != nil {
 		return fmt.Errorf("failed to watch directory: %w", err)
 	}
