@@ -4,10 +4,20 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
+
+// WorkerSettings represents per-worker configuration
+type WorkerSettings struct {
+	NumProcs              int `yaml:"num_procs"`
+	MaxRequests           int `yaml:"max_requests"`
+	RequestTimeoutSeconds int `yaml:"request_timeout_seconds"`
+	IdleTimeoutSeconds    int `yaml:"idle_timeout_seconds"`
+	MemoryLimitMB         int `yaml:"memory_limit_mb"`
+}
 
 // Config represents the server configuration
 type Config struct {
@@ -19,16 +29,13 @@ type Config struct {
 	} `yaml:"server"`
 
 	Workers struct {
-		PortRangeStart        int `yaml:"port_range_start"`
-		PortRangeEnd          int `yaml:"port_range_end"`
-		StartupDelayMs        int `yaml:"startup_delay_ms"`
-		RestartDelayMs        int `yaml:"restart_delay_ms"`
-		ShutdownGracePeriodMs int `yaml:"shutdown_grace_period_ms"`
-		NumProcs              int `yaml:"num_procs"`
-		MaxRequests           int `yaml:"max_requests"`
-		RequestTimeoutSeconds int `yaml:"request_timeout_seconds"`
-		IdleTimeoutSeconds    int `yaml:"idle_timeout_seconds"`
-		MemoryLimitMB         int `yaml:"memory_limit_mb"`
+		PortRangeStart        int                       `yaml:"port_range_start"`
+		PortRangeEnd          int                       `yaml:"port_range_end"`
+		StartupDelayMs        int                       `yaml:"startup_delay_ms"`
+		RestartDelayMs        int                       `yaml:"restart_delay_ms"`
+		ShutdownGracePeriodMs int                       `yaml:"shutdown_grace_period_ms"`
+		Default               WorkerSettings            `yaml:"default"`
+		Paths                 map[string]WorkerSettings `yaml:"paths"`
 	} `yaml:"workers"`
 
 	FileWatcher struct {
@@ -53,11 +60,12 @@ func LoadConfig(configPath string) (*Config, error) {
 	config.Workers.StartupDelayMs = 100
 	config.Workers.RestartDelayMs = 100
 	config.Workers.ShutdownGracePeriodMs = 500
-	config.Workers.NumProcs = 1
-	config.Workers.MaxRequests = 0 // 0 = unlimited
-	config.Workers.RequestTimeoutSeconds = 30
-	config.Workers.IdleTimeoutSeconds = 120
-	config.Workers.MemoryLimitMB = 0 // 0 = unlimited
+	config.Workers.Default.NumProcs = 1
+	config.Workers.Default.MaxRequests = 0 // 0 = unlimited
+	config.Workers.Default.RequestTimeoutSeconds = 30
+	config.Workers.Default.IdleTimeoutSeconds = 120
+	config.Workers.Default.MemoryLimitMB = 0 // 0 = unlimited
+	config.Workers.Paths = make(map[string]WorkerSettings)
 	config.FileWatcher.DebounceMs = 50
 	config.Pages.Directory = "pages"
 
@@ -113,12 +121,36 @@ func (c *Config) GetDebounceDelay() time.Duration {
 
 // GetWorkerRequestTimeout returns the worker request timeout as a time.Duration
 func (c *Config) GetWorkerRequestTimeout() time.Duration {
-	return time.Duration(c.Workers.RequestTimeoutSeconds) * time.Second
+	return time.Duration(c.Workers.Default.RequestTimeoutSeconds) * time.Second
 }
 
 // GetWorkerIdleTimeout returns the worker idle timeout as a time.Duration
 func (c *Config) GetWorkerIdleTimeout() time.Duration {
-	return time.Duration(c.Workers.IdleTimeoutSeconds) * time.Second
+	return time.Duration(c.Workers.Default.IdleTimeoutSeconds) * time.Second
+}
+
+// GetWorkerSettings returns the worker settings for a given path.
+// It checks for exact matches first, then prefix matches, and falls back to default settings.
+func (c *Config) GetWorkerSettings(path string) WorkerSettings {
+	// Check for exact match
+	if settings, ok := c.Workers.Paths[path]; ok {
+		return settings
+	}
+
+	// Check for prefix matches (e.g., /api matches /api/users)
+	bestMatch := ""
+	for configPath := range c.Workers.Paths {
+		if strings.HasPrefix(path, configPath) && len(configPath) > len(bestMatch) {
+			bestMatch = configPath
+		}
+	}
+
+	if bestMatch != "" {
+		return c.Workers.Paths[bestMatch]
+	}
+
+	// Fall back to default settings
+	return c.Workers.Default
 }
 
 // GetPagesPath returns the absolute path to the pages directory

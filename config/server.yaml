@@ -23,12 +23,22 @@ workers:
   restart_delay_ms: 100 # Delay before stopping old worker
   shutdown_grace_period_ms: 500 # Time to wait for graceful shutdown
 
-  # Per-worker configuration
-  num_procs: 1 # Number of processes per worker route
-  max_requests: 0 # Restart worker after N requests (0 = unlimited)
-  request_timeout_seconds: 30 # Request timeout for workers
-  idle_timeout_seconds: 120 # Idle timeout for workers
-  memory_limit_mb: 0 # Memory limit per worker in MB (0 = unlimited)
+  # Default per-worker configuration (applies to all workers unless overridden)
+  default:
+    num_procs: 1 # Number of processes per worker route
+    max_requests: 0 # Restart worker after N requests (0 = unlimited)
+    request_timeout_seconds: 30 # Request timeout for workers
+    idle_timeout_seconds: 120 # Idle timeout for workers
+    memory_limit_mb: 0 # Memory limit per worker in MB (0 = unlimited)
+
+# Per-path worker configuration overrides (optional)
+# paths:
+#   "/api":
+#     num_procs: 2
+#     max_requests: 5000
+#     request_timeout_seconds: 15
+#     idle_timeout_seconds: 60
+#     memory_limit_mb: 256
 
 # File watching settings
 file_watcher:

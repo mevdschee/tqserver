@@ -78,7 +78,7 @@ workers:
     startup_delay_ms: 100 # Wait time after starting worker
     restart_delay_ms: 100 # Delay before stopping old worker
     shutdown_grace_period_ms: 500 # Grace period for shutdown
-    
+
     # Per-worker settings
     num_procs: 1 # Number of processes per worker route
     max_requests: 0 # Restart worker after N requests (0 = unlimited)
