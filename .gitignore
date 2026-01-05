@@ -15,6 +15,7 @@ tqserver
 # TQServer generated files
 .tqserver/
 logs/
+bin/
 
 # Go workspace file
 go.work
