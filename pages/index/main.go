@@ -2,11 +2,16 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/mevdschee/tqtemplate"
 )
+
+var tmpl *tqtemplate.Template
 
 func main() {
 	port := os.Getenv("PORT")
@@ -19,59 +24,78 @@ func main() {
 		route = "/"
 	}
 
+	// Initialize templates with file loader
+	loader := func(name string) (string, error) {
+		content, err := os.ReadFile(name)
+		return string(content), err
+	}
+	tmpl = tqtemplate.NewTemplateWithLoader(loader)
+
+	// Index route
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%s %s", r.Method, r.URL.Path)
 
+		// Set content type first
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, `<!DOCTYPE html>
-<html>
-<head>
-    <title>Welcome to TQServer</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            max-width: 800px;
-            margin: 50px auto;
-            padding: 20px;
-            line-height: 1.6;
-        }
-        h1 { color: #2c3e50; }
-        .info { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0; }
-        .success { color: #27ae60; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <h1>✅ TQServer is running!</h1>
-    
-    <div class="info">
-        <p><strong>Route:</strong> %s</p>
-        <p><strong>Worker Port:</strong> %s</p>
-        <p><strong>Request Method:</strong> %s</p>
-        <p><strong>Request Path:</strong> %s</p>
-        <p><strong>Time:</strong> %s</p>
-    </div>
 
-    <h2>About TQServer</h2>
-    <p>TQServer is a high-performance function execution platform built with Go.</p>
-    <p>This page is served by a worker process that was automatically built and started by the supervisor.</p>
-    
-    <h3>Features:</h3>
-    <ul>
-        <li>Sub-second hot reloads</li>
-        <li>Filesystem-based routing</li>
-        <li>Graceful worker restarts</li>
-        <li>Native Go performance</li>
-    </ul>
+		data := map[string]interface{}{
+			"Route":     route,
+			"Port":      port,
+			"Method":    r.Method,
+			"Path":      r.URL.Path,
+			"Time":      time.Now().Format("2006-01-02 15:04:05"),
+			"PageTitle": "Welcome to TQServer",
+		}
 
-    <p class="success">Try editing pages/index/main.go and watch it reload automatically!</p>
-</body>
-</html>`, route, port, r.Method, r.URL.Path, time.Now().Format("2006-01-02 15:04:05"))
+		content, err := os.ReadFile("pages/index/index.html")
+		if err != nil {
+			log.Printf("Failed to read index.html: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		output, err := tmpl.Render(string(content), data)
+		if err != nil {
+			log.Printf("Template error: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(output)))
+		io.WriteString(w, output)
+	})
+
+	// Hello world route
+	http.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%s %s", r.Method, r.URL.Path)
+
+		// Set content type first
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+		data := map[string]interface{}{
+			"PageTitle": "Hello World",
+			"Message":   "Hello, World! This is a simple route.",
+			"Time":      time.Now().Format("2006-01-02 15:04:05"),
+		}
+
+		content, err := os.ReadFile("pages/index/hello.html")
+		if err != nil {
+			log.Printf("Failed to read index.html: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		output, err := tmpl.Render(string(content), data)
+		if err != nil {
+			log.Printf("Template error: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(output)))
+		io.WriteString(w, output)
 	})
 
 	// Health check endpoint
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "OK")
+		w.Write([]byte("OK"))
 	})
 
 	log.Printf("Worker listening on port %s for route %s", port, route)
