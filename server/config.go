@@ -24,6 +24,11 @@ type Config struct {
 		StartupDelayMs        int `yaml:"startup_delay_ms"`
 		RestartDelayMs        int `yaml:"restart_delay_ms"`
 		ShutdownGracePeriodMs int `yaml:"shutdown_grace_period_ms"`
+		NumProcs              int `yaml:"num_procs"`
+		MaxRequests           int `yaml:"max_requests"`
+		RequestTimeoutSeconds int `yaml:"request_timeout_seconds"`
+		IdleTimeoutSeconds    int `yaml:"idle_timeout_seconds"`
+		MemoryLimitMB         int `yaml:"memory_limit_mb"`
 	} `yaml:"workers"`
 
 	FileWatcher struct {
@@ -48,6 +53,11 @@ func LoadConfig(configPath string) (*Config, error) {
 	config.Workers.StartupDelayMs = 100
 	config.Workers.RestartDelayMs = 100
 	config.Workers.ShutdownGracePeriodMs = 500
+	config.Workers.NumProcs = 1
+	config.Workers.MaxRequests = 0 // 0 = unlimited
+	config.Workers.RequestTimeoutSeconds = 30
+	config.Workers.IdleTimeoutSeconds = 120
+	config.Workers.MemoryLimitMB = 0 // 0 = unlimited
 	config.FileWatcher.DebounceMs = 50
 	config.Pages.Directory = "pages"
 
@@ -99,6 +109,16 @@ func (c *Config) GetShutdownGracePeriod() time.Duration {
 // GetDebounceDelay returns the debounce delay as a time.Duration
 func (c *Config) GetDebounceDelay() time.Duration {
 	return time.Duration(c.FileWatcher.DebounceMs) * time.Millisecond
+}
+
+// GetWorkerRequestTimeout returns the worker request timeout as a time.Duration
+func (c *Config) GetWorkerRequestTimeout() time.Duration {
+	return time.Duration(c.Workers.RequestTimeoutSeconds) * time.Second
+}
+
+// GetWorkerIdleTimeout returns the worker idle timeout as a time.Duration
+func (c *Config) GetWorkerIdleTimeout() time.Duration {
+	return time.Duration(c.Workers.IdleTimeoutSeconds) * time.Second
 }
 
 // GetPagesPath returns the absolute path to the pages directory

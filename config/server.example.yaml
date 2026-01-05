@@ -26,6 +26,13 @@ workers:
   restart_delay_ms: 200 # Default: 100 - Delay before stopping old worker
   shutdown_grace_period_ms: 1000 # Default: 500 - Time to wait for graceful shutdown
 
+  # Per-worker configuration
+  num_procs: 2 # Default: 1 - Number of processes per worker route
+  max_requests: 10000 # Default: 0 (unlimited) - Restart worker after N requests
+  request_timeout_seconds: 60 # Default: 30 - Request timeout for workers
+  idle_timeout_seconds: 180 # Default: 120 - Idle timeout for workers
+  memory_limit_mb: 512 # Default: 0 (unlimited) - Memory limit per worker in MB
+
 # File watching settings
 file_watcher:
   # Debounce delay to avoid multiple rebuilds for rapid file changes (in milliseconds)

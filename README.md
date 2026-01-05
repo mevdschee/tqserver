@@ -78,6 +78,13 @@ workers:
     startup_delay_ms: 100 # Wait time after starting worker
     restart_delay_ms: 100 # Delay before stopping old worker
     shutdown_grace_period_ms: 500 # Grace period for shutdown
+    
+    # Per-worker settings
+    num_procs: 1 # Number of processes per worker route
+    max_requests: 0 # Restart worker after N requests (0 = unlimited)
+    request_timeout_seconds: 30 # Request timeout for workers
+    idle_timeout_seconds: 120 # Idle timeout for workers
+    memory_limit_mb: 0 # Memory limit per worker in MB (0 = unlimited)
 
 file_watcher:
     debounce_ms: 50 # Debounce for file changes

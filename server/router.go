@@ -11,14 +11,15 @@ import (
 
 // Worker represents a running worker process
 type Worker struct {
-	Path      string // Path to the page directory (e.g., "pages/api/users")
-	Route     string // URL route (e.g., "/api/users")
-	Port      int    // Port the worker listens on
-	Binary    string // Path to compiled binary
-	Process   *os.Process
-	StartTime time.Time
-	healthy   bool
-	mu        sync.RWMutex
+	Path         string // Path to the page directory (e.g., "pages/api/users")
+	Route        string // URL route (e.g., "/api/users")
+	Port         int    // Port the worker listens on
+	Binary       string // Path to compiled binary
+	Process      *os.Process
+	StartTime    time.Time
+	RequestCount int // Number of requests handled
+	healthy      bool
+	mu           sync.RWMutex
 }
 
 // IsHealthy checks if the worker is healthy
@@ -26,6 +27,14 @@ func (w *Worker) IsHealthy() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.healthy
+}
+
+// IncrementRequestCount increments the request counter and returns the new count
+func (w *Worker) IncrementRequestCount() int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.RequestCount++
+	return w.RequestCount
 }
 
 // SetHealthy sets the worker health status
