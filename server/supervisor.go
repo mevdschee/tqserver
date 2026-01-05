@@ -172,7 +172,7 @@ func (s *Supervisor) buildWorker(worker *Worker) error {
 	defer s.mu.Unlock()
 
 	// Create temp directory for binaries if it doesn't exist
-	tempDir := filepath.Join(s.projectRoot, ".tqserver", "bin")
+	tempDir := s.config.Workers.TempDir
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}

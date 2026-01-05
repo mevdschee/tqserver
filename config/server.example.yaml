@@ -13,6 +13,10 @@ server:
 
 # Worker settings
 workers:
+  # Directory for temporary worker binaries
+  # Can be absolute path or relative to project root
+  temp_dir: "/tmp/tqserver/bin" # Default: /tmp/tqserver/bin
+
   # Port range for worker processes
   # Workers are assigned ports sequentially from this range
   # Make sure the range is large enough for all your pages

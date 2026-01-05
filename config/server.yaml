@@ -12,6 +12,9 @@ server:
 
 # Worker settings
 workers:
+  # Directory for temporary worker binaries
+  temp_dir: "/tmp/tqserver/bin" # System temp directory
+
   # Port range for worker processes
   port_range_start: 9000
   port_range_end: 9999
