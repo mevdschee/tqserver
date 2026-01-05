@@ -6,7 +6,7 @@ toolchain go1.24.11
 
 require (
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/mevdschee/tqtemplate v1.0.0
+	github.com/mevdschee/tqtemplate v1.1.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

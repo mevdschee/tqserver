@@ -47,13 +47,7 @@ func main() {
 			"PageTitle": "Welcome to TQServer",
 		}
 
-		content, err := os.ReadFile("pages/index/index.html")
-		if err != nil {
-			log.Printf("Failed to read index.html: %v", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-		output, err := tmpl.Render(string(content), data)
+		output, err := tmpl.RenderFile("pages/index/index.html", data)
 		if err != nil {
 			log.Printf("Template error: %v", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -76,13 +70,7 @@ func main() {
 			"Time":      time.Now().Format("2006-01-02 15:04:05"),
 		}
 
-		content, err := os.ReadFile("pages/index/hello.html")
-		if err != nil {
-			log.Printf("Failed to read index.html: %v", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-		output, err := tmpl.Render(string(content), data)
+		output, err := tmpl.RenderFile("pages/index/hello.html", data)
 		if err != nil {
 			log.Printf("Template error: %v", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)

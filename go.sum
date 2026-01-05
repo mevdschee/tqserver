@@ -4,6 +4,8 @@ github.com/mevdschee/tqtemplate v0.0.0-20260105022742-49f70f9faa36 h1:MA1TzrTEu6
 github.com/mevdschee/tqtemplate v0.0.0-20260105022742-49f70f9faa36/go.mod h1:RqhSMTyndlXs6zHe0f3FLtbJGjQgbxg5KIul18X1Ngs=
 github.com/mevdschee/tqtemplate v1.0.0 h1:9d15xW2ltenrphfd6sr0Y65Gib0nqdErDeNnIsp0XLg=
 github.com/mevdschee/tqtemplate v1.0.0/go.mod h1:ZxHKBPrpjW0DKcVEICxdmZbNaPyjwuwJAmcwJXRsndg=
+github.com/mevdschee/tqtemplate v1.1.0 h1:qyi0I8xYPnyi+L+KjhnObIiIOQ/OQe1GOEAjUhYcozY=
+github.com/mevdschee/tqtemplate v1.1.0/go.mod h1:ZxHKBPrpjW0DKcVEICxdmZbNaPyjwuwJAmcwJXRsndg=
 golang.org/x/sys v0.13.0 h1:Af8nKPmuFypiUBjVoU9V20FiaFXOcuZI21p0ycVYYGE=
 golang.org/x/sys v0.13.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
