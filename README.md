@@ -5,15 +5,15 @@ sub-second hot reloads with native Go performance.
 
 ## Features
 
-- ✅ **Sub-second hot reloads** - Changes to page code are automatically
-  detected, rebuilt, and deployed in ~0.3-1.0 seconds
-- ✅ **Filesystem-based routing** - URL structure mirrors your filesystem layout
-- ✅ **Graceful worker restarts** - Zero-downtime deployments with automatic
+- **Sub-second hot reloads** - Changes to page code are automatically detected,
+  rebuilt, and deployed in ~0.3-1.0 seconds
+- **Filesystem-based routing** - URL structure mirrors your filesystem layout
+- **Graceful worker restarts** - Zero-downtime deployments with automatic
   traffic switching
-- ✅ **Native Go performance** - Workers are compiled Go binaries, not
-  interpreted scripts
-- ✅ **Process isolation** - Each route runs in its own process
-- ✅ **Automatic builds** - File watching and automatic compilation on changes
+- **Native Go performance** - Workers are compiled Go binaries, not interpreted
+  scripts
+- **Process isolation** - Each route runs in its own process
+- **Automatic builds** - File watching and automatic compilation on changes
 
 ## Quick Start
 
@@ -27,6 +27,7 @@ go build -o ../tqserver
 ### 2. Configure (optional)
 
 Edit `config/server.yaml` to customize:
+
 - Server port (default: 8080)
 - Worker port range (default: 9000-9999)
 - Timeouts (read, write, idle)
@@ -55,10 +56,34 @@ reload in under 1 second with zero downtime.
 ./tqserver [options]
 
 Options:
-  -port int
-        Port to listen on (default 8080)
-  -pages string
-        Directory containing page handlers (default "pages")
+  -config string
+        Path to config file (default "config/server.yaml")
+```
+
+## Configuration
+
+The server uses a YAML configuration file (`config/server.yaml`) with the
+following options:
+
+```yaml
+server:
+    port: 8080 # HTTP server port
+    read_timeout_seconds: 30 # HTTP read timeout
+    write_timeout_seconds: 30 # HTTP write timeout
+    idle_timeout_seconds: 120 # HTTP idle timeout
+
+workers:
+    port_range_start: 9000 # First port for workers
+    port_range_end: 9999 # Last port for workers
+    startup_delay_ms: 100 # Wait time after starting worker
+    restart_delay_ms: 100 # Delay before stopping old worker
+    shutdown_grace_period_ms: 500 # Grace period for shutdown
+
+file_watcher:
+    debounce_ms: 50 # Debounce for file changes
+
+pages:
+    directory: "pages" # Pages directory path
 ```
 
 ## Documentation
