@@ -44,7 +44,7 @@ workers:
       request_timeout_seconds: 15
       idle_timeout_seconds: 60
       memory_limit_mb: 256
-    
+
     # Example: Allow more resources for webhooks
     "/webhooks":
       num_procs: 1
