@@ -115,43 +115,43 @@ following options:
 
 ```yaml
 server:
-    port: 8080 # HTTP server port
-    read_timeout_seconds: 30 # HTTP read timeout
-    write_timeout_seconds: 30 # HTTP write timeout
-    idle_timeout_seconds: 120 # HTTP idle timeout
+  port: 8080 # HTTP server port
+  read_timeout_seconds: 30 # HTTP read timeout
+  write_timeout_seconds: 30 # HTTP write timeout
+  idle_timeout_seconds: 120 # HTTP idle timeout
 
 workers:
-    port_range_start: 9000 # First port for workers
-    port_range_end: 9999 # Last port for workers
-    startup_delay_ms: 100 # Wait time after starting worker
-    restart_delay_ms: 100 # Delay before stopping old worker
-    shutdown_grace_period_ms: 500 # Grace period for shutdown
+  port_range_start: 9000 # First port for workers
+  port_range_end: 9999 # Last port for workers
+  startup_delay_ms: 100 # Wait time after starting worker
+  restart_delay_ms: 100 # Delay before stopping old worker
+  shutdown_grace_period_ms: 500 # Grace period for shutdown
 
-    # Default per-worker settings (applies to all workers unless overridden)
-    default:
-        gomaxprocs: 1 # CPU threads (0 = NumCPU)
-        max_requests: 0 # Restart worker after N requests (0 = unlimited)
-        read_timeout_seconds: 30 # HTTP read timeout for workers
-        write_timeout_seconds: 30 # HTTP write timeout for workers
-        idle_timeout_seconds: 120 # HTTP idle timeout for workers
-        gomemlimit: "" # Memory limit (e.g., "512MiB", empty = unlimited)
-        log_file: "logs/{path}/worker_{date}.log" # Log file path template
+  # Default per-worker settings (applies to all workers unless overridden)
+  default:
+    go_max_procs: 1 # CPU threads (0 = NumCPU)
+    max_requests: 0 # Restart worker after N requests (0 = unlimited)
+    read_timeout_seconds: 30 # HTTP read timeout for workers
+    write_timeout_seconds: 30 # HTTP write timeout for workers
+    idle_timeout_seconds: 120 # HTTP idle timeout for workers
+    go_mem_limit: "" # Memory limit (e.g., "512MiB", empty = unlimited)
+    log_file: "logs/{path}/worker_{date}.log" # Log file path template
 
-    # Per-path worker overrides (optional)
-    paths:
-        "/api":
-            gomaxprocs: 2
-            max_requests: 5000
-            read_timeout_seconds: 15
-            write_timeout_seconds: 15
-            idle_timeout_seconds: 60
-            gomemlimit: "256MiB"
+  # Per-path worker overrides (optional)
+  paths:
+    "/api":
+      go_max_procs: 2
+      max_requests: 5000
+      read_timeout_seconds: 15
+      write_timeout_seconds: 15
+      idle_timeout_seconds: 60
+      go_mem_limit: "256MiB"
 
 file_watcher:
-    debounce_ms: 50 # Debounce for file changes
+  debounce_ms: 50 # Debounce for file changes
 
 pages:
-    directory: "pages" # Pages directory path
+  directory: "pages" # Pages directory path
 ```
 
 ### Per-Path Worker Configuration
@@ -167,23 +167,23 @@ You can configure different resource limits for specific routes using the
 
 ```yaml
 workers:
-    default:
-        gomaxprocs: 1
-        max_requests: 0
-        gomemlimit: "512MiB"
+  default:
+    go_max_procs: 1
+    max_requests: 0
+    go_mem_limit: "512MiB"
 
-    paths:
-        "/api": # More conservative limits for API endpoints
-            gomaxprocs: 2
-            max_requests: 5000
-            read_timeout_seconds: 15
-            write_timeout_seconds: 15
-            gomemlimit: "256MiB"
+  paths:
+    "/api": # More conservative limits for API endpoints
+      go_max_procs: 2
+      max_requests: 5000
+      read_timeout_seconds: 15
+      write_timeout_seconds: 15
+      go_mem_limit: "256MiB"
 
-        "/webhooks": # More generous for webhooks
-            gomaxprocs: 1
-            max_requests: 20000
-            gomemlimit: "1GiB"
+    "/webhooks": # More generous for webhooks
+      go_max_procs: 1
+      max_requests: 20000
+      go_mem_limit: "1GiB"
 ```
 
 Path matching uses the most specific prefix match:

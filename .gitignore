@@ -1,5 +1,4 @@
 # Binaries
-tqserver
 *.exe
 *.exe~
 *.dll
@@ -13,7 +12,6 @@ tqserver
 *.out
 
 # TQServer generated files
-.tqserver/
 logs/
 bin/
 

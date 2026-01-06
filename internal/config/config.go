@@ -12,12 +12,12 @@ import (
 
 // WorkerSettings represents per-worker configuration
 type WorkerSettings struct {
-	GoMaxProcs          int    `yaml:"gomaxprocs"`
+	GoMaxProcs          int    `yaml:"go_max_procs"`
 	MaxRequests         int    `yaml:"max_requests"`
 	ReadTimeoutSeconds  int    `yaml:"read_timeout_seconds"`
 	WriteTimeoutSeconds int    `yaml:"write_timeout_seconds"`
 	IdleTimeoutSeconds  int    `yaml:"idle_timeout_seconds"`
-	GoMemLimit          string `yaml:"gomemlimit"`
+	GoMemLimit          string `yaml:"go_mem_limit"`
 	LogFile             string `yaml:"log_file"`
 }
 
