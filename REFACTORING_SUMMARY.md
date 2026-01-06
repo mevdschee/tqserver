@@ -10,7 +10,9 @@ This document tracks the complete refactoring of TQServer's deployment and build
    - `workers/index/src/` - Contains main.go (worker source code)
    - `workers/index/bin/` - Contains compiled `index` binary
    - `workers/index/public/` - For public assets (CSS, JS, images)
-   - `workers/index/private/views/` - Contains index.html and hello.html templates
+   - `workers/index/views/` - Contains HTML templates (index.html, hello.html, base.html)
+   - `workers/index/config/` - Worker-specific configuration
+   - `workers/index/data/` - Worker data files
 
 2. **Created new server structure:**
    - `server/src/` - Contains all server source files
@@ -18,7 +20,6 @@ This document tracks the complete refactoring of TQServer's deployment and build
    - `server/src/router/` - Router package files  
    - `server/bin/` - Contains compiled `tqserver` binary
    - `server/public/` - For server public assets
-   - `server/private/` - For server private resources
 
 3. **Created build scripts:**
    - `scripts/build-dev.sh` - Development build with timestamp checking
@@ -26,7 +27,8 @@ This document tracks the complete refactoring of TQServer's deployment and build
 
 4. **Migrated files:**
    - Copied `pages/index/main.go` → `workers/index/src/main.go`
-   - Copied `pages/index/*.html` → `workers/index/private/views/`
+   - Copied `pages/index/*.html` → `workers/index/views/`
+   - Moved `templates/base.html` → `workers/index/views/base.html`
    - Moved `cmd/tqserver/main.go` → `server/src/main.go`
    - Moved `internal/` package files → `server/src/<package>/`
 
@@ -160,10 +162,10 @@ Health Checker
 - ✅ `cmd/` - Old command structure (now `server/src/`)
 - ✅ `internal/` - Old internal packages (now `server/src/`)
 - ✅ `pages/` - Old worker structure (now `workers/*/`)
-- ✅ `templates/` - Moved to `workers/index/private/templates/`
+- ✅ `templates/` - Moved to `workers/index/views/`
 
 **Updated template references:**
-- Changed from `templates/base.html` to `private/templates/base.html`
+- Changed from `templates/base.html` to `views/base.html`
 - All worker HTML files updated
 
 ## ✅ Completed Phase 6: Deployment Scripts
@@ -258,14 +260,15 @@ tqserver/
 ├── server/                  # Main server
 │   ├── src/                 # Server source
 │   ├── bin/                 # Server binary
-│   ├── public/              # Server public assets
-│   └── private/             # Server private resources
+│   └── public/              # Server public assets
 ├── workers/                 # All workers
 │   └── index/
 │       ├── src/             # Worker source
 │       ├── bin/             # Worker binary
 │       ├── public/          # Public assets
-│       └── private/         # Private resources & templates
+│       ├── views/           # HTML templates
+│       ├── config/          # Worker-specific config
+│       └── data/            # Worker data files
 ├── pkg/                     # Shared packages
 │   ├── supervisor/          # Timestamp, registry, health checks
 │   ├── watcher/             # File watching

@@ -214,7 +214,7 @@ The worker:
 
 ```go
 // Render template
-tmpl := template.Must(template.ParseFiles("private/views/page.html"))
+tmpl := template.Must(template.ParseFiles("views/page.html"))
 tmpl.Execute(w, data)
 ```
 

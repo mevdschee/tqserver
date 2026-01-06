@@ -460,35 +460,34 @@ Workers can access these via `worker.NewRuntime()` or directly from
 
 ```
 tqserver/
-├── cmd/
-│   └── tqserver/           # Main application entry point
-│       └── main.go
-├── internal/               # Private application code
-│   ├── config/             # Configuration management
-│   │   └── config.go
-│   ├── proxy/              # HTTP reverse proxy
-│   │   └── proxy.go
-│   ├── router/             # Route discovery and worker tracking
-│   │   ├── router.go
-│   │   └── worker.go
-│   └── supervisor/         # Worker lifecycle management
-│       ├── supervisor.go   # Main supervisor logic
-│       ├── ports.go        # Port pool management
-│       ├── healthcheck.go  # Health monitoring
-│       └── cleanup.go      # Binary cleanup
-├── pkg/
-│   └── worker/             # Public worker runtime library
-│       └── runtime.go      # Shared worker initialization
-├── config/
-│   ├── server.yaml         # Active configuration
-│   └── server.example.yaml # Example configuration
-├── pages/                  # Worker pages directory
-│   └── index/
-│       ├── main.go         # Worker entry point
-│       ├── index.html      # Page template
-│       └── hello.html      # Additional template
-└── templates/
-    └── base.html           # Shared template base
+├── server/                 # Main server application
+│   ├── src/                # Server source code
+│   │   ├── main.go        # Entry point
+│   │   ├── config/        # Configuration
+│   │   ├── proxy/         # HTTP reverse proxy
+│   │   ├── router/        # Route discovery
+│   │   └── supervisor/    # Worker lifecycle
+│   ├── bin/               # Compiled server binary
+│   └── public/            # Public server assets
+├── workers/               # Worker applications
+│   └── {name}/           # Individual worker
+│       ├── src/          # Worker source code
+│       ├── bin/          # Compiled worker binary
+│       ├── public/       # Public web assets
+│       ├── views/        # HTML templates
+│       ├── config/       # Worker-specific config
+│       └── data/         # Worker data files
+├── pkg/                   # Shared packages
+│   ├── supervisor/       # Timestamp, registry, health
+│   ├── watcher/          # File watching
+│   ├── builder/          # Build automation
+│   ├── devmode/          # Dev mode controller
+│   ├── prodmode/         # Prod mode controller
+│   ├── modecontroller/   # Mode switching
+│   └── coordinator/      # Reload coordination
+├── scripts/              # Build & deployment
+├── config/               # Configuration files
+└── docs/                 # Documentation
 ```
 
 ## Cluster Deployment Architecture

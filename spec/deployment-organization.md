@@ -561,13 +561,15 @@ echo "  ssh $SERVER 'tail -f $DEPLOY_PATH/logs/server_*.log'"
 1. **Reorganize worker directories**
    - Create `workers/` top-level directory
    - Move `pages/index/` → `workers/index/`
-   - Create `src/`, `bin/`, `public/`, `private/` in each worker
+   - Create `src/`, `bin/`, `public/`, `views/`, `config/`, `data/` in each worker
    - Move `.go` files to `src/`
-   - Move `.html` to `private/views/`
+   - Move `.html` to `views/`
    - Move static assets to `public/`
+   - Worker configs to `config/`
+   - Worker data to `data/`
 
 2. **Reorganize server**
-   - Create `server/src/`, `server/bin/`, `server/public/`, `server/private/`
+   - Create `server/src/`, `server/bin/`, `server/public/`
    - Move `cmd/tqserver/*.go` and `internal/**/*.go` to `server/src/`
    - Create `server/public/admin/` for admin UI
 
@@ -687,8 +689,9 @@ echo "  ssh $SERVER 'tail -f $DEPLOY_PATH/logs/server_*.log'"
    ```bash
    mkdir -p workers/index/src
    cp pages/index/*.go workers/index/src/
-   mkdir -p workers/index/private/views
-   cp pages/index/*.html workers/index/private/views/
+   mkdir -p workers/index/views
+   cp pages/index/*.html workers/index/views/
+   mkdir -p workers/index/{config,data,public}
    # ... reorganize other files
    ```
 

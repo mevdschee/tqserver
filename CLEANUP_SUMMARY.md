@@ -31,7 +31,7 @@ checker.Start(ctx)
 - Worker binaries: `workers/*/bin/*`
 - Server source: `server/src/`
 - Worker source: `workers/*/src/`
-- Shared templates: `workers/*/private/templates/`
+- Templates: `workers/*/views/`
 
 ### 3. Updated Template References
 
@@ -42,12 +42,12 @@ Changed all worker HTML files from:
 
 To:
 ```html
-{% extends "private/templates/base.html" %}
+{% extends "views/base.html" %}
 ```
 
 Files updated:
-- `workers/index/private/views/index.html`
-- `workers/index/private/views/hello.html`
+- `workers/index/views/index.html`
+- `workers/index/views/hello.html`
 
 ### 4. Created Cleanup Script
 

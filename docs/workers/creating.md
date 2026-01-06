@@ -38,7 +38,7 @@ Let's create a simple blog worker:
 ### Step 1: Create Directory Structure
 
 ```bash
-mkdir -p workers/blog/{src,bin,private/views,public/css}
+mkdir -p workers/blog/{src,bin,views,config,data,public/css}
 ```
 
 ### Step 2: Create Main File
@@ -172,8 +172,8 @@ type Post struct {
 // Home page handler
 func homeHandler(w http.ResponseWriter, r *http.Request) {
     tmpl := template.Must(template.ParseFiles(
-        "private/views/layout.html",
-        "private/views/home.html",
+        "views/layout.html",
+        "views/home.html",
     ))
     
     data := map[string]interface{}{
@@ -197,8 +197,8 @@ func postsHandler(w http.ResponseWriter, r *http.Request) {
     
     // Return HTML for browser requests
     tmpl := template.Must(template.ParseFiles(
-        "private/views/layout.html",
-        "private/views/posts.html",
+        "views/layout.html",
+        "views/posts.html",
     ))
     
     data := map[string]interface{}{
@@ -307,7 +307,7 @@ func createUserHandler(w http.ResponseWriter, r *http.Request) {
 
 ### Template Structure
 
-Create `workers/blog/private/views/layout.html`:
+Create `workers/blog/views/layout.html`:
 
 ```html
 {{define "layout"}}
@@ -338,7 +338,7 @@ Create `workers/blog/private/views/layout.html`:
 {{end}}
 ```
 
-Create `workers/blog/private/views/home.html`:
+Create `workers/blog/views/home.html`:
 
 ```html
 {{define "content"}}
@@ -367,8 +367,8 @@ import (
 
 func renderTemplate(w http.ResponseWriter, name string, data interface{}) {
     tmpl := template.Must(template.ParseFiles(
-        "private/views/layout.html",
-        "private/views/" + name + ".html",
+        "views/layout.html",
+        "views/" + name + ".html",
     ))
     
     if err := tmpl.ExecuteTemplate(w, "layout", data); err != nil {

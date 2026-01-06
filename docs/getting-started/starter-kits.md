@@ -149,7 +149,7 @@ myapp/
 ├── workers/
 │   ├── web/              # Frontend
 │   │   ├── src/
-│   │   ├── private/views/
+│   │   ├── views/
 │   │   └── public/assets/
 │   └── api/              # Backend API
 │       └── src/
@@ -233,7 +233,9 @@ go get github.com/mevdschee/tqserver@latest
 
 # Create directory structure
 mkdir -p workers/index/src
-mkdir -p workers/index/private/views
+mkdir -p workers/index/views
+mkdir -p workers/index/config
+mkdir -p workers/index/data
 mkdir -p workers/index/public/css
 mkdir -p config
 mkdir -p bin
@@ -385,7 +387,7 @@ func respondError(w http.ResponseWriter, status int, message string) {
 
 ```bash
 # Create worker structure
-mkdir -p workers/admin/{src,private/views,public/css}
+mkdir -p workers/admin/{src,views,config,data,public/css}
 
 # Create main.go
 cat > workers/admin/src/main.go << 'EOF'

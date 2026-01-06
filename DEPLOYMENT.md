@@ -15,6 +15,11 @@ scripts/
 config/
   deployment.yaml     # Deployment configuration
   server.yaml         # Server configuration
+workers/
+  {name}/
+    config/           # Worker-specific configuration
+    views/            # HTML templates
+    data/             # Worker data files
 ```
 
 ## Configuration
@@ -180,7 +185,9 @@ The remote server should have this structure:
       bin/
         tqworker_index
       public/
-      private/
+      views/
+      config/
+      data/
   config/
     server.yaml
   logs/

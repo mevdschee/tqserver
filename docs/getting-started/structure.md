@@ -300,7 +300,7 @@ public/
 - **Public assets**: Directly accessible URLs
   - `public/css/style.css` → `/css/style.css`
 - **Private assets**: Only accessible via server code
-  - `private/views/home.html` → Rendered by handlers
+  - `views/home.html` → Rendered by handlers
 
 ## Next Steps
 
