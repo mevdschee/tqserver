@@ -69,7 +69,13 @@ The following features are planned but not yet implemented:
 - **Cluster support** - See also Load Balancing, but also take deployment into
   account
 - **State management** - Database and cache should be suported
-- **Session management** - Session storage should be suported
+- **Session management** - Session storage should be suported, session key
+  should be passed on
+- **Proxy outgoing HTTP** - For logging + debugging purposes
+- **websocket protocol** - proxy into rest
+- **grpc protocol** - proxy into rest
+- **web debugger** - to view request life cycle
+- **database editor** - for debug mode to make database changes
 
 ## Quick Start
 
