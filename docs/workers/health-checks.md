@@ -73,7 +73,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
     http.HandleFunc("/health", healthHandler)
-    http.ListenAndServe(":"+os.Getenv("PORT"), nil)
+    http.ListenAndServe(":"+os.Getenv("WORKER_PORT"), nil)
 }
 ```
 

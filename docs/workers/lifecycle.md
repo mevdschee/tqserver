@@ -304,7 +304,9 @@ func (s *Supervisor) startWorker(worker *Worker) error {
     // Prepare command
     cmd := exec.Command(worker.BinaryPath)
     cmd.Env = append(os.Environ(),
-        fmt.Sprintf("PORT=%d", port),
+        fmt.Sprintf("WORKER_PORT=%d", port),
+        fmt.Sprintf("WORKER_NAME=%s", worker.Name),
+        fmt.Sprintf("WORKER_ROUTE=%s", worker.Route),
         fmt.Sprintf("WORKER_NAME=%s", worker.Name),
         fmt.Sprintf("WORKER_PATH=%s", worker.Path),
     )
@@ -684,7 +686,7 @@ func main() {
     sigChan := make(chan os.Signal, 1)
     signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
     
-    server := &http.Server{Addr: ":"+os.Getenv("PORT")}
+    server := &http.Server{Addr: ":"+os.Getenv("WORKER_PORT")}
     
     go func() {
         <-sigChan

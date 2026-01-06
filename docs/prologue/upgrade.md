@@ -318,7 +318,7 @@ Before upgrading, ensure:
    port := "9000"  // Hardcoded
    
    // New (0.8.0)
-   port := os.Getenv("PORT")  // Dynamic
+   port := os.Getenv("WORKER_PORT")  // Dynamic
    ```
 
 ## Rollback Procedures

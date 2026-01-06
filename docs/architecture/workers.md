@@ -113,7 +113,7 @@ import (
 
 func main() {
     // Port assigned by TQServer
-    port := os.Getenv("PORT")
+    port := os.Getenv("WORKER_PORT")
     
     // Register handlers
     http.HandleFunc("/", handleRequest)
@@ -130,17 +130,18 @@ func main() {
 TQServer communicates configuration to workers via environment variables:
 
 ```bash
-PORT=9000              # Assigned port
-WORKER_NAME=api        # Worker name
-WORKER_ROUTE=/api      # Worker route
-TQ_MODE=development    # Deployment mode
+WORKER_PORT=9000        # Assigned port
+WORKER_NAME=api         # Worker name
+WORKER_ROUTE=/api       # Worker route
+WORKER_MODE=development # Deployment mode
 ```
 
 **Accessing in Worker**:
 ```go
-port := os.Getenv("PORT")
+workerPort := os.Getenv("WORKER_PORT")
 workerName := os.Getenv("WORKER_NAME")
-mode := os.Getenv("TQ_MODE")
+workerRoute := os.Getenv("WORKER_ROUTE")
+workerMode := os.Getenv("WORKER_MODE")
 ```
 
 ### Signal Handling

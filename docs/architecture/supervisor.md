@@ -104,7 +104,9 @@ func (s *Supervisor) StartWorker(name string) error {
     // Prepare command
     cmd := exec.Command(config.BinaryPath)
     cmd.Env = append(os.Environ(),
-        fmt.Sprintf("PORT=%d", port),
+        fmt.Sprintf("WORKER_PORT=%d", port),
+        fmt.Sprintf("WORKER_NAME=%s", worker.Name),
+        fmt.Sprintf("WORKER_ROUTE=%s", worker.Route),
         fmt.Sprintf("WORKER_NAME=%s", name),
     )
     cmd.Dir = filepath.Join("workers", name)

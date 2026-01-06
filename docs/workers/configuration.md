@@ -308,7 +308,10 @@ WORKER_NAME=api              # Worker name
 WORKER_PATH=/app/workers/api # Worker directory
 
 # Network
-PORT=9000                    # Assigned port
+WORKER_PORT=9000             # Assigned port
+WORKER_NAME=api              # Worker name
+WORKER_ROUTE=/api            # Route path
+WORKER_MODE=development      # Deployment mode
 HOST=0.0.0.0                 # Listen host
 
 # Paths
@@ -357,7 +360,7 @@ import (
 
 func main() {
     // Standard variables
-    port := os.Getenv("PORT")
+    port := os.Getenv("WORKER_PORT")
     workerName := os.Getenv("WORKER_NAME")
     
     // Custom variables

@@ -24,6 +24,8 @@ sub-second hot reloads with native Go performance.
   changes without server restart
 - **Structured logging** - Server and worker logs with date-based rotation
 - **Quiet mode** - Suppress console output for production deployments
+- **Environment variables** - Workers receive WORKER_PORT, WORKER_NAME,
+  WORKER_ROUTE, and WORKER_MODE for runtime configuration
 
 ## Missing Features / To Be Implemented
 

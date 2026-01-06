@@ -323,8 +323,10 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 	cmd := exec.Command(worker.Binary)
 	cmd.Dir = workerRoot // Set working directory to worker root (e.g., workers/index/)
 	envVars := []string{
-		fmt.Sprintf("PORT=%d", port),
-		fmt.Sprintf("ROUTE=%s", worker.Route),
+		fmt.Sprintf("WORKER_PORT=%d", port),
+		fmt.Sprintf("WORKER_NAME=%s", worker.Name),
+		fmt.Sprintf("WORKER_ROUTE=%s", worker.Route),
+		fmt.Sprintf("WORKER_MODE=%s", "development"), // TODO: Make configurable
 	}
 	cmd.Env = append(os.Environ(), envVars...)
 	cmd.Stdout = os.Stdout

@@ -57,7 +57,7 @@ import (
 
 func main() {
     // Get port from environment (set by TQServer)
-    port := os.Getenv("PORT")
+    port := os.Getenv("WORKER_PORT")
     if port == "" {
         port = "9000"
     }

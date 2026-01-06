@@ -61,7 +61,7 @@ func main() {
     http.HandleFunc("/users/", userDetailHandler)
     
     // Start server
-    port := os.Getenv("PORT")
+    port := os.Getenv("WORKER_PORT")
     http.ListenAndServe(":" + port, nil)
 }
 
@@ -141,7 +141,7 @@ func main() {
     r.HandleFunc("/users/{id}", userHandler)
     r.HandleFunc("/posts/{year:[0-9]+}/{month:[0-9]+}", postsHandler)
     
-    port := os.Getenv("PORT")
+    port := os.Getenv("WORKER_PORT")
     http.ListenAndServe(":" + port, r)
 }
 
@@ -225,7 +225,7 @@ func main() {
     http.HandleFunc("/admin/users", adminUsersHandler)
     http.HandleFunc("/admin/settings", settingsHandler)
     
-    port := os.Getenv("PORT")
+    port := os.Getenv("WORKER_PORT")
     http.ListenAndServe(":" + port, nil)
 }
 ```
@@ -249,7 +249,7 @@ func main() {
     admin.HandleFunc("/dashboard", dashboardHandler)
     admin.HandleFunc("/users", adminUsersHandler)
     
-    port := os.Getenv("PORT")
+    port := os.Getenv("WORKER_PORT")
     http.ListenAndServe(":" + port, r)
 }
 ```
@@ -285,7 +285,7 @@ func main() {
     // Fallback for undefined routes
     http.HandleFunc("/", notFoundHandler)
     
-    port := os.Getenv("PORT")
+    port := os.Getenv("WORKER_PORT")
     http.ListenAndServe(":" + port, nil)
 }
 

@@ -20,12 +20,12 @@ type Runtime struct {
 
 // NewRuntime creates a new runtime with configuration from environment variables
 func NewRuntime() *Runtime {
-	port := os.Getenv("PORT")
+	port := os.Getenv("WORKER_PORT")
 	if port == "" {
 		port = "9000"
 	}
 
-	route := os.Getenv("ROUTE")
+	route := os.Getenv("WORKER_ROUTE")
 	if route == "" {
 		route = "/"
 	}
