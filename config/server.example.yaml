@@ -38,6 +38,7 @@ workers:
     idle_timeout_seconds: 180 # Default: 120 - Idle timeout for workers
     gomemlimit: "512MiB" # Default: "" (unlimited) - Go's GOMEMLIMIT (e.g., "512MiB", "2GiB")
     # Placeholders: {path} = worker path (e.g., api/users), {date} = YYYY-MM-DD date
+    # Use null, empty string, or ~ to disable file logging (only log to stdout/stderr)
     log_file: "logs/{path}/worker_{date}.log" # Default: logs/{path}/worker_{date}.log
 
   # Per-path worker configuration overrides (optional)

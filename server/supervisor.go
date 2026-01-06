@@ -229,45 +229,48 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 
 	// Generate log file path from template
 	logFileTemplate := settings.LogFile
-	if logFileTemplate == "" {
-		logFileTemplate = "logs/{path}/worker_{date}.log"
-	}
 
-	// Replace {path} with relative path from pages directory
-	// Extract relative path: if worker.Path is "pages/api/users", relPath becomes "api/users"
-	pagesDir := filepath.Join(s.projectRoot, s.config.Pages.Directory)
-	relPath, err := filepath.Rel(pagesDir, worker.Path)
-	if err != nil {
-		relPath = filepath.Base(worker.Path) // Fallback to just the name
-	}
-	// Normalize to forward slashes for consistent path representation
-	pathForLog := strings.ReplaceAll(relPath, string(filepath.Separator), "/")
+	// Check if logging to file is disabled (~ or empty string means no file logging)
+	var logFile *os.File
+	var logFilePath string
+	if logFileTemplate != "~" && logFileTemplate != "" {
+		// Replace {path} with relative path from pages directory
+		// Extract relative path: if worker.Path is "pages/api/users", relPath becomes "api/users"
+		pagesDir := filepath.Join(s.projectRoot, s.config.Pages.Directory)
+		relPath, relErr := filepath.Rel(pagesDir, worker.Path)
+		if relErr != nil {
+			relPath = filepath.Base(worker.Path) // Fallback to just the name
+		}
+		// Normalize to forward slashes for consistent path representation
+		pathForLog := strings.ReplaceAll(relPath, string(filepath.Separator), "/")
 
-	// Replace placeholders in the template first
-	logFilePath := strings.ReplaceAll(logFileTemplate, "{path}", pathForLog)
+		// Replace placeholders in the template first
+		logFilePath = strings.ReplaceAll(logFileTemplate, "{path}", pathForLog)
 
-	// Replace {date} with current date
-	dateStr := time.Now().Format("2006-01-02")
-	logFilePath = strings.ReplaceAll(logFilePath, "{date}", dateStr)
+		// Replace {date} with current date
+		dateStr := time.Now().Format("2006-01-02")
+		logFilePath = strings.ReplaceAll(logFilePath, "{date}", dateStr)
 
-	// Make path absolute if not already
-	if !filepath.IsAbs(logFilePath) {
-		logFilePath = filepath.Join(s.projectRoot, logFilePath)
-	}
+		// Make path absolute if not already
+		if !filepath.IsAbs(logFilePath) {
+			logFilePath = filepath.Join(s.projectRoot, logFilePath)
+		}
 
-	// Clean the path
-	logFilePath = filepath.Clean(logFilePath)
+		// Clean the path
+		logFilePath = filepath.Clean(logFilePath)
 
-	// Create log directory if it doesn't exist
-	logDir := filepath.Dir(logFilePath)
-	if err := os.MkdirAll(logDir, 0755); err != nil {
-		return fmt.Errorf("failed to create log directory: %w", err)
-	}
+		// Create log directory if it doesn't exist
+		logDir := filepath.Dir(logFilePath)
+		if mkdirErr := os.MkdirAll(logDir, 0755); mkdirErr != nil {
+			return fmt.Errorf("failed to create log directory: %w", mkdirErr)
+		}
 
-	// Create log file for this worker
-	logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to create log file: %w", err)
+		// Create log file for this worker
+		var openErr error
+		logFile, openErr = os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if openErr != nil {
+			return fmt.Errorf("failed to create log file: %w", openErr)
+		}
 	}
 
 	// Start the worker process
@@ -276,19 +279,28 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 	envVars := []string{
 		fmt.Sprintf("PORT=%d", port),
 		fmt.Sprintf("ROUTE=%s", worker.Route),
-		fmt.Sprintf("GOMAXPROCS=%d", settings.GOMAXPROCS),
 		fmt.Sprintf("READ_TIMEOUT_SECONDS=%d", settings.RequestTimeoutSeconds),
 		fmt.Sprintf("WRITE_TIMEOUT_SECONDS=%d", settings.RequestTimeoutSeconds),
 		fmt.Sprintf("IDLE_TIMEOUT_SECONDS=%d", settings.IdleTimeoutSeconds),
+	}
+	// Set GOMAXPROCS if configured
+	if settings.GOMAXPROCS > 0 {
+		envVars = append(envVars, fmt.Sprintf("GOMAXPROCS=%d", settings.GOMAXPROCS))
 	}
 	// Set GOMEMLIMIT if configured
 	if settings.GOMEMLIMIT != "" {
 		envVars = append(envVars, fmt.Sprintf("GOMEMLIMIT=%s", settings.GOMEMLIMIT))
 	}
 	cmd.Env = append(os.Environ(), envVars...)
-	// Use MultiWriter to write to both log file and stdout/stderr
-	cmd.Stdout = io.MultiWriter(os.Stdout, logFile)
-	cmd.Stderr = io.MultiWriter(os.Stderr, logFile)
+
+	// Configure output: log to file if configured, otherwise just stdout/stderr
+	if logFile != nil {
+		cmd.Stdout = io.MultiWriter(os.Stdout, logFile)
+		cmd.Stderr = io.MultiWriter(os.Stderr, logFile)
+	} else {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start worker: %w", err)
@@ -298,8 +310,13 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 	worker.StartTime = time.Now()
 	worker.SetHealthy(true)
 
-	log.Printf("✅ Worker started for %s on port %d (PID: %d) - logs: %s",
-		worker.Route, port, cmd.Process.Pid, logFilePath)
+	if logFilePath != "" {
+		log.Printf("✅ Worker started for %s on port %d (PID: %d) - logs: %s",
+			worker.Route, port, cmd.Process.Pid, logFilePath)
+	} else {
+		log.Printf("✅ Worker started for %s on port %d (PID: %d) - no file logging",
+			worker.Route, port, cmd.Process.Pid)
+	}
 
 	// Monitor the process (but don't mark unhealthy on exit if we're restarting)
 	go func() {
