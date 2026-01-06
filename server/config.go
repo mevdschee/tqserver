@@ -12,11 +12,11 @@ import (
 
 // WorkerSettings represents per-worker configuration
 type WorkerSettings struct {
-	NumProcs              int    `yaml:"num_procs"`
+	GOMAXPROCS            int    `yaml:"gomaxprocs"`
 	MaxRequests           int    `yaml:"max_requests"`
 	RequestTimeoutSeconds int    `yaml:"request_timeout_seconds"`
 	IdleTimeoutSeconds    int    `yaml:"idle_timeout_seconds"`
-	MemoryLimitMB         int    `yaml:"memory_limit_mb"`
+	GOMEMLIMIT            string `yaml:"gomemlimit"`
 	LogFile               string `yaml:"log_file"`
 }
 
@@ -63,11 +63,11 @@ func LoadConfig(configPath string) (*Config, error) {
 	config.Workers.StartupDelayMs = 100
 	config.Workers.RestartDelayMs = 100
 	config.Workers.ShutdownGracePeriodMs = 500
-	config.Workers.Default.NumProcs = 1
+	config.Workers.Default.GOMAXPROCS = 1
 	config.Workers.Default.MaxRequests = 0 // 0 = unlimited
 	config.Workers.Default.RequestTimeoutSeconds = 30
 	config.Workers.Default.IdleTimeoutSeconds = 120
-	config.Workers.Default.MemoryLimitMB = 0 // 0 = unlimited
+	config.Workers.Default.GOMEMLIMIT = "" // empty = unlimited
 	config.Workers.Default.LogFile = "logs/worker_{path}_{date}.log"
 	config.Workers.Paths = make(map[string]WorkerSettings)
 	config.FileWatcher.DebounceMs = 50

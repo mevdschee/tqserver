@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"runtime"
 	"strconv"
 	"time"
 
@@ -16,14 +15,6 @@ import (
 var tmpl *tqtemplate.Template
 
 func main() {
-	// Set GOMAXPROCS from environment variable if provided
-	if gomaxprocs := os.Getenv("GOMAXPROCS"); gomaxprocs != "" {
-		if n, err := strconv.Atoi(gomaxprocs); err == nil && n > 0 {
-			runtime.GOMAXPROCS(n)
-			log.Printf("Set GOMAXPROCS to %d", n)
-		}
-	}
-
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "9000"
@@ -32,6 +23,28 @@ func main() {
 	route := os.Getenv("ROUTE")
 	if route == "" {
 		route = "/"
+	}
+
+	// Get timeout settings from environment
+	readTimeout := 30 * time.Second
+	if val := os.Getenv("READ_TIMEOUT_SECONDS"); val != "" {
+		if n, err := strconv.Atoi(val); err == nil && n > 0 {
+			readTimeout = time.Duration(n) * time.Second
+		}
+	}
+
+	writeTimeout := 30 * time.Second
+	if val := os.Getenv("WRITE_TIMEOUT_SECONDS"); val != "" {
+		if n, err := strconv.Atoi(val); err == nil && n > 0 {
+			writeTimeout = time.Duration(n) * time.Second
+		}
+	}
+
+	idleTimeout := 120 * time.Second
+	if val := os.Getenv("IDLE_TIMEOUT_SECONDS"); val != "" {
+		if n, err := strconv.Atoi(val); err == nil && n > 0 {
+			idleTimeout = time.Duration(n) * time.Second
+		}
 	}
 
 	// Initialize templates with file loader
@@ -96,9 +109,18 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	log.Printf("Worker listening on port %s for route %s", port, route)
+	log.Printf("Worker listening on port %s for route %s (read:%v write:%v idle:%v)",
+		port, route, readTimeout, writeTimeout, idleTimeout)
 
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	server := &http.Server{
+		Addr:         ":" + port,
+		Handler:      nil, // Use default ServeMux
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+		IdleTimeout:  idleTimeout,
+	}
+
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

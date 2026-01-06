@@ -37,6 +37,13 @@ func (w *Worker) IncrementRequestCount() int {
 	return w.RequestCount
 }
 
+// GetRequestCount returns the current request count
+func (w *Worker) GetRequestCount() int {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.RequestCount
+}
+
 // SetHealthy sets the worker health status
 func (w *Worker) SetHealthy(healthy bool) {
 	w.mu.Lock()

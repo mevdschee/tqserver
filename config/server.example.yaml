@@ -32,11 +32,11 @@ workers:
 
   # Default per-worker configuration (applies to all workers unless overridden)
   default:
-    num_procs: 2 # Default: 1 - Sets Go's GOMAXPROCS for the worker (CPU threads)
+    gomaxprocs: 2 # Default: 1 - Sets Go's GOMAXPROCS (CPU threads, 0 = NumCPU)
     max_requests: 10000 # Default: 0 (unlimited) - Restart worker after N requests
     request_timeout_seconds: 60 # Default: 30 - Request timeout for workers
     idle_timeout_seconds: 180 # Default: 120 - Idle timeout for workers
-    memory_limit_mb: 512 # Default: 0 (unlimited) - Memory limit per worker in MB
+    gomemlimit: "512MiB" # Default: "" (unlimited) - Go's GOMEMLIMIT (e.g., "512MiB", "2GiB")
     # Placeholders: {path} = worker path (e.g., api/users), {date} = YYYY-MM-DD date
     log_file: "logs/{path}/worker_{date}.log" # Default: logs/{path}/worker_{date}.log
 
@@ -45,18 +45,18 @@ workers:
   paths:
     # Example: Limit resources for API endpoints
     "/api":
-      num_procs: 2
+      gomaxprocs: 2
       max_requests: 5000
       request_timeout_seconds: 15
       idle_timeout_seconds: 60
-      memory_limit_mb: 256
+      gomemlimit: "256MiB"
       log_file: "logs/api_{date}.log"
 
     # Example: Allow more resources for webhooks
     "/webhooks":
-      num_procs: 1
+      gomaxprocs: 1
       max_requests: 20000
       request_timeout_seconds: 120
       idle_timeout_seconds: 300
-      memory_limit_mb: 1024
+      gomemlimit: "1GiB"
       log_file: "logs/webhooks_{date}.log"

@@ -75,6 +75,10 @@ func (s *Supervisor) Start() error {
 	s.wg.Add(1)
 	go s.watchForChanges()
 
+	// Start monitoring worker request counts for max_requests enforcement
+	s.wg.Add(1)
+	go s.monitorWorkerLimits()
+
 	return nil
 }
 
@@ -269,11 +273,19 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 	// Start the worker process
 	cmd := exec.Command(worker.Binary)
 	cmd.Dir = s.projectRoot // Set working directory to project root
-	cmd.Env = append(os.Environ(),
+	envVars := []string{
 		fmt.Sprintf("PORT=%d", port),
 		fmt.Sprintf("ROUTE=%s", worker.Route),
-		fmt.Sprintf("GOMAXPROCS=%d", settings.NumProcs),
-	)
+		fmt.Sprintf("GOMAXPROCS=%d", settings.GOMAXPROCS),
+		fmt.Sprintf("READ_TIMEOUT_SECONDS=%d", settings.RequestTimeoutSeconds),
+		fmt.Sprintf("WRITE_TIMEOUT_SECONDS=%d", settings.RequestTimeoutSeconds),
+		fmt.Sprintf("IDLE_TIMEOUT_SECONDS=%d", settings.IdleTimeoutSeconds),
+	}
+	// Set GOMEMLIMIT if configured
+	if settings.GOMEMLIMIT != "" {
+		envVars = append(envVars, fmt.Sprintf("GOMEMLIMIT=%s", settings.GOMEMLIMIT))
+	}
+	cmd.Env = append(os.Environ(), envVars...)
 	// Use MultiWriter to write to both log file and stdout/stderr
 	cmd.Stdout = io.MultiWriter(os.Stdout, logFile)
 	cmd.Stderr = io.MultiWriter(os.Stderr, logFile)
@@ -329,10 +341,51 @@ func (s *Supervisor) stopWorker(worker *Worker) error {
 	return nil
 }
 
+// monitorWorkerLimits periodically checks if workers need to be restarted due to limits
+func (s *Supervisor) monitorWorkerLimits() {
+	defer s.wg.Done()
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-s.stopChan:
+			return
+		case <-ticker.C:
+			workers := s.router.GetAllWorkers()
+			for _, worker := range workers {
+				if !worker.IsHealthy() {
+					continue
+				}
+
+				settings := s.config.GetWorkerSettings(worker.Route)
+
+				// Check max_requests limit
+				if settings.MaxRequests > 0 {
+					requestCount := worker.GetRequestCount()
+					if requestCount >= settings.MaxRequests {
+						log.Printf("Worker for %s reached max requests (%d/%d), restarting",
+							worker.Route, requestCount, settings.MaxRequests)
+						if err := s.restartWorker(worker); err != nil {
+							log.Printf("Failed to restart worker for %s: %v", worker.Route, err)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 // restartWorker performs a graceful restart of a worker
 func (s *Supervisor) restartWorker(worker *Worker) error {
 	oldProcess := worker.Process
 	oldPort := worker.Port
+
+	// Reset request count before restarting
+	worker.mu.Lock()
+	worker.RequestCount = 0
+	worker.mu.Unlock()
 
 	// Start new worker on new port
 	if err := s.startWorker(worker); err != nil {
