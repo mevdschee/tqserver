@@ -2,8 +2,18 @@
 set -e
 
 WORKERS_DIR="workers"
+SERVER_DIR="server"
 
-echo "Building workers for development..."
+echo "Building for development..."
+
+# Build server
+echo "Building server..."
+mkdir -p "$SERVER_DIR/bin"
+go build -o "$SERVER_DIR/bin/tqserver" $SERVER_DIR/src/*.go
+echo "✓ Built server"
+
+echo ""
+echo "Building workers..."
 
 for worker_dir in $WORKERS_DIR/*/; do
     worker_name=$(basename "$worker_dir")
@@ -46,4 +56,7 @@ for worker_dir in $WORKERS_DIR/*/; do
     echo "✓ Built $worker_name"
 done
 
+echo ""
 echo "✅ Development build complete"
+echo "Server built to: server/bin/tqserver"
+echo "Workers built to: workers/*/bin/"

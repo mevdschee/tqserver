@@ -53,8 +53,8 @@ cd tqserver
 # Install dependencies
 go mod download
 
-# Build the server
-go build -o bin/tqserver ./cmd/tqserver
+# Build the server and workers
+./scripts/build-dev.sh
 ```
 
 ### Via Git Clone
@@ -118,13 +118,19 @@ tqserver/
 │   └── server.yaml          # Server configuration
 ├── workers/                 # Worker applications
 │   └── index/              # Example worker
-│       ├── src/
+│       ├── src/            # Worker source code
 │       │   └── main.go
 │       ├── bin/            # Compiled binaries (auto-created)
+│       ├── config/         # Worker configuration
+│       │   └── worker.yaml
+│       ├── views/          # HTML templates
 │       ├── public/         # Public assets
-│       └── private/        # Private templates/assets
+│       └── data/           # Worker data files
 ├── logs/                   # Log files (auto-created)
-└── bin/                    # Server binary
+└── server/
+    ├── src/                # Server source code
+    └── bin/                # Server binary
+        └── tqserver
 ```
 
 ### Environment Variables
@@ -145,13 +151,10 @@ Start the server:
 
 ```bash
 # Using the binary
-./bin/tqserver
+./server/bin/tqserver
 
 # With custom config
-./bin/tqserver -config=config/server.yaml
-
-# In quiet mode
-./bin/tqserver -quiet
+./server/bin/tqserver -config=config/server.yaml
 
 # Using the start script
 bash start.sh

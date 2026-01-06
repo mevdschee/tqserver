@@ -17,22 +17,31 @@ TQServer follows a well-organized directory structure that separates concerns an
 
 ```
 tqserver/
-├── bin/                    # Compiled binaries
-├── cmd/                    # Application entry points
 ├── config/                 # Configuration files
-├── internal/               # Private application code
+├── docs/                   # Documentation
+├── examples/               # Example code
 ├── logs/                   # Log files
-├── pages/                  # Legacy pages (being phased out)
-├── pkg/                    # Public library code
+├── pkg/                    # Shared library code
 ├── scripts/                # Build and utility scripts
-├── server/                 # Legacy server (being phased out)
+├── server/                 # Main server application
+│   ├── src/                # Server source code
+│   ├── bin/                # Compiled server binary
+│   ├── config/             # Server configuration
+│   ├── views/              # HTML templates
+│   ├── public/             # Public assets
+│   └── data/               # Worker data files
 ├── spec/                   # Design specifications
-├── templates/              # Server-level templates
 ├── workers/                # Worker applications
+│   └── {worker_name}/      # Individual worker directories
+│       ├── src/            # Worker source code
+│       ├── bin/            # Compiled worker binary
+│       ├── config/         # Worker configuration
+│       ├── views/          # HTML templates
+│       ├── public/         # Public assets
+│       └── data/           # Worker data files
 ├── go.mod                  # Go module definition
 ├── go.sum                  # Go dependencies checksum
 ├── README.md               # Project documentation
-├── REFACTORING_SUMMARY.md  # Refactoring notes
 └── start.sh                # Quick start script
 ```
 
@@ -59,78 +68,77 @@ The `workers` directory contains all worker applications. Each worker is a self-
 
 ```
 workers/
-├── index/              # Example worker
-│   ├── bin/           # Compiled binaries (auto-generated)
-│   │   └── index
-│   ├── private/       # Private templates and assets
-│   │   └── views/
-│   │       ├── hello.html
-│   │       └── index.html
-│   ├── public/        # Public static assets
-│   ├── src/           # Source code
+├── index/                  # Example worker
+│   ├── src/                # Source code
 │   │   └── main.go
-│   └── config.yaml    # Worker-specific configuration (optional)
-└── api/               # Another example worker
+│   ├── bin/                # Compiled binaries (auto-generated)
+│   │   └── index
+│   ├── config/             # Worker configuration
+│   │   └── worker.yaml
+│   ├── views/              # HTML templates
+│   │   ├── base.html
+│   │   ├── hello.html
+│   │   └── index.html
+│   ├── public/             # Public static assets (CSS, JS, images)
+│   └── data/               # Worker data files
+└── api/                    # Another example worker
+    ├── src/
     ├── bin/
-    ├── private/
+    ├── config/
+    ├── views/
     ├── public/
-    └── src/
+    └── data/
 ```
 
 ### Worker Naming
 
-- Worker directory names map to URL paths
-- `index` worker handles `/` requests
-- Other workers handle `/{worker-name}/*` requests
+- Worker directory names are used for identification
+- URL paths are configured in each worker's `config/worker.yaml` file
+- The `path` field in worker.yaml determines the route
 
 Examples:
-- `workers/index/` → `http://localhost:8080/`
-- `workers/api/` → `http://localhost:8080/api/*`
-- `workers/admin/` → `http://localhost:8080/admin/*`
+- `workers/index/config/worker.yaml` with `path: "/"` → handles root requests
+- `workers/api/config/worker.yaml` with `path: "/api"` → handles `/api/*` requests
+- `workers/admin/config/worker.yaml` with `path: "/admin"` → handles `/admin/*` requests
 
-## The Internal Directory
+## The Server Directory
 
-The `internal` directory contains private application code that is not intended to be imported by other projects:
+The `server` directory contains the main TQServer application that manages workers:
 
 ```
-internal/
-├── config/            # Configuration loading and parsing
-│   └── config.go
-├── proxy/             # HTTP proxy implementation
-│   └── proxy.go
-├── router/            # Request routing logic
-│   ├── router.go
-│   └── worker.go
-└── supervisor/        # Worker supervision and management
-    ├── cleanup.go     # Binary cleanup
-    ├── healthcheck.go # Health checking
-    ├── ports.go       # Port pool management
-    └── supervisor.go  # Main supervisor logic
+server/
+├── src/                  # Server source code
+│   ├── config.go         # Configuration loading and parsing
+│   ├── main.go           # Application entry point
+│   ├── proxy.go          # HTTP proxy implementation
+│   ├── router.go         # Request routing logic
+│   └── supervisor.go     # Worker supervision and management
+└── bin/                  # Compiled server binary (auto-generated)
+    └── tqserver
 ```
 
-### Internal Packages
+### Server Components
 
-#### config
-Handles loading and parsing YAML configuration files. Provides the `Config` struct used throughout the application.
+#### config.go
+Handles loading and parsing YAML configuration files. Provides the `Config` struct and worker configuration loading.
 
-#### proxy
+#### proxy.go
 Implements HTTP proxy functionality to forward requests from the main server to worker processes.
 
-#### router
-Manages request routing based on URL paths and filesystem structure. Maps incoming requests to appropriate workers.
+#### router.go
+Manages request routing based on worker configurations. Maps incoming requests to appropriate workers based on path prefixes.
 
-#### supervisor
+#### supervisor.go
 Orchestrates worker lifecycle management:
 - Building workers from source
 - Starting and stopping worker processes
-- Health checking
-- Graceful restarts
 - Port allocation
-- Binary cleanup
+- File watching and hot reloading
+- Graceful restarts
 
 ## The Pkg Directory
 
-The `pkg` directory contains library code that could be imported by other projects:
+The `pkg` directory contains shared library code that could be imported by other projects:
 
 ```
 pkg/
