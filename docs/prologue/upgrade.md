@@ -498,7 +498,7 @@ If you encounter issues during upgrade:
 1. Check [Troubleshooting Guide](../appendix/troubleshooting.md)
 2. Search [GitHub Issues](https://github.com/mevdschee/tqserver/issues)
 3. Ask on [Discord](https://discord.gg/tqserver)
-4. Email support@tqserver.dev
+4. Email support@tqdev.com
 
 ## Next Steps
 

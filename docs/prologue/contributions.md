@@ -32,7 +32,7 @@ We are committed to providing a welcoming and inclusive environment for everyone
 
 ### Enforcement
 
-Violations can be reported to conduct@tqserver.dev. All complaints will be reviewed and investigated promptly and fairly.
+Violations can be reported to conduct@tqdev.com. All complaints will be reviewed and investigated promptly and fairly.
 
 ## How to Contribute
 
@@ -553,7 +553,7 @@ Contributors are recognized in:
 ## Questions?
 
 - **Discord**: Join our community
-- **Email**: dev@tqserver.dev
+- **Email**: dev@tqdev.com
 - **GitHub Discussions**: For general questions
 
 ## License

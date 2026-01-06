@@ -179,7 +179,7 @@ Found a bug or have a feature request?
 
 ## Security Vulnerabilities
 
-To report a security vulnerability, please email security@tqserver.dev instead of using the issue tracker.
+To report a security vulnerability, please email security@tqdev.com instead of using the issue tracker.
 
 We aim to:
 - Acknowledge within 48 hours
