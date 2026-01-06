@@ -242,6 +242,13 @@ func (s *Supervisor) handleConfigChange(filePath string) {
 						return
 					}
 					wc.Config = *newConfig
+
+					// Update ModTime to prevent re-triggering
+					stat, err := os.Stat(configPath)
+					if err == nil {
+						wc.ModTime = stat.ModTime()
+					}
+
 					log.Printf("Reloaded config for worker %s", worker.Name)
 					break
 				}
