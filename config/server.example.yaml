@@ -14,7 +14,7 @@ server:
   # Server log file path
   # Placeholders: {date} = YYYY-MM-DD date
   # Use null, empty string, or ~ to disable file logging (only log to stdout/stderr)
-  log_file: "logs/server_{date}.log" # Default: logs/server_{date}.log
+  log_file: "logs/tqserver_{date}.log" # Default: logs/tqserver_{date}.log
 
 # Worker settings
 workers:
@@ -45,7 +45,7 @@ workers:
     go_mem_limit: "512MiB" # Default: "" (unlimited) - Go's GOMEMLIMIT (e.g., "512MiB", "2GiB")
     # Placeholders: {path} = worker path (e.g., api/users), {date} = YYYY-MM-DD date
     # Use null, empty string, or ~ to disable file logging (only log to stdout/stderr)
-    log_file: "logs/{path}/worker_{date}.log" # Default: logs/{path}/worker_{date}.log
+    log_file: "logs/tqworker_{path}_{date}.log" # Default: logs/tqworker_{path}_{date}.log
 
   # Per-path worker configuration overrides (optional)
   # Use this to apply different resource limits to specific routes

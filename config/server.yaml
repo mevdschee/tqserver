@@ -13,7 +13,7 @@ server:
   # Server log file
   # Placeholders: {date} = YYYY-MM-DD date
   # Use null, empty string, or ~ to disable file logging (only log to stdout/stderr)
-  log_file: "logs/server_{date}.log"
+  log_file: "logs/tqserver_{date}.log"
 
 # Worker settings
 workers:
@@ -39,7 +39,7 @@ workers:
     write_timeout_seconds: 30 # HTTP write timeout for workers
     idle_timeout_seconds: 120 # HTTP idle timeout for workers
     go_mem_limit: "" # Go's GOMEMLIMIT (e.g., "512MiB", "2GiB", empty = unlimited)
-    log_file: "logs/{path}/worker_{date}.log" # Log file path template (null/empty/~ = no file logging)
+    log_file: "logs/tqworker_{path}_{date}.log" # Log file path template (null/empty/~ = no file logging)
 
 # Per-path worker configuration overrides (optional)
 # paths:

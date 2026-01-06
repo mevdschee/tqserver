@@ -276,10 +276,15 @@ func (s *Supervisor) buildWorker(worker *router.Worker) error {
 		return fmt.Errorf("failed to create bin directory: %w", err)
 	}
 
-	// Generate binary name
-	binaryName := fmt.Sprintf("worker_%s_%d",
-		filepath.Base(worker.Path),
-		time.Now().Unix())
+	// Generate binary name using relative path from pages directory
+	pagesDir := filepath.Join(s.projectRoot, s.config.Pages.Directory)
+	relPath, err := filepath.Rel(pagesDir, worker.Path)
+	if err != nil {
+		relPath = filepath.Base(worker.Path) // Fallback to just the directory name
+	}
+	// Replace path separators with underscores to create a flat binary name
+	binaryName := strings.ReplaceAll(relPath, string(filepath.Separator), "_")
+	binaryName = fmt.Sprintf("tqworker_%s", binaryName)
 	binaryPath := filepath.Join(binDir, binaryName)
 
 	log.Printf("Building %s -> %s", worker.Path, binaryPath)
@@ -329,8 +334,8 @@ func (s *Supervisor) startWorker(worker *router.Worker) error {
 		if relErr != nil {
 			relPath = filepath.Base(worker.Path) // Fallback to just the name
 		}
-		// Normalize to forward slashes for consistent path representation
-		pathForLog := strings.ReplaceAll(relPath, string(filepath.Separator), "/")
+		// Normalize path separators to underscores for flat file structure
+		pathForLog := strings.ReplaceAll(relPath, string(filepath.Separator), "_")
 
 		// Replace placeholders in the template first
 		logFilePath = strings.ReplaceAll(logFileTemplate, "{path}", pathForLog)

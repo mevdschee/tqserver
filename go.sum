@@ -1,9 +1,5 @@
 github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=
 github.com/fsnotify/fsnotify v1.9.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
-github.com/mevdschee/tqtemplate v0.0.0-20260105022742-49f70f9faa36 h1:MA1TzrTEu6TTGBhRv2VFou+3Kx49BwJ/akLHjaKMD6M=
-github.com/mevdschee/tqtemplate v0.0.0-20260105022742-49f70f9faa36/go.mod h1:RqhSMTyndlXs6zHe0f3FLtbJGjQgbxg5KIul18X1Ngs=
-github.com/mevdschee/tqtemplate v1.0.0 h1:9d15xW2ltenrphfd6sr0Y65Gib0nqdErDeNnIsp0XLg=
-github.com/mevdschee/tqtemplate v1.0.0/go.mod h1:ZxHKBPrpjW0DKcVEICxdmZbNaPyjwuwJAmcwJXRsndg=
 github.com/mevdschee/tqtemplate v1.1.0 h1:qyi0I8xYPnyi+L+KjhnObIiIOQ/OQe1GOEAjUhYcozY=
 github.com/mevdschee/tqtemplate v1.1.0/go.mod h1:ZxHKBPrpjW0DKcVEICxdmZbNaPyjwuwJAmcwJXRsndg=
 golang.org/x/sys v0.13.0 h1:Af8nKPmuFypiUBjVoU9V20FiaFXOcuZI21p0ycVYYGE=

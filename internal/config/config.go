@@ -57,7 +57,7 @@ func setDefaults(config *Config) {
 	config.Server.ReadTimeoutSeconds = 30
 	config.Server.WriteTimeoutSeconds = 30
 	config.Server.IdleTimeoutSeconds = 120
-	config.Server.LogFile = "logs/server_{date}.log"
+	config.Server.LogFile = "logs/tqserver_{date}.log"
 	config.Workers.BinDir = "bin"
 	config.Workers.PortRangeStart = 9000
 	config.Workers.PortRangeEnd = 9999
@@ -70,7 +70,7 @@ func setDefaults(config *Config) {
 	config.Workers.Default.WriteTimeoutSeconds = 30
 	config.Workers.Default.IdleTimeoutSeconds = 120
 	config.Workers.Default.GoMemLimit = "" // empty = unlimited
-	config.Workers.Default.LogFile = "logs/{path}/worker_{date}.log"
+	config.Workers.Default.LogFile = "logs/tqworker_{path}_{date}.log"
 	config.Workers.Paths = make(map[string]WorkerSettings)
 	config.FileWatcher.DebounceMs = 50
 	config.Pages.Directory = "pages"
