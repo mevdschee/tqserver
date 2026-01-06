@@ -332,9 +332,11 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 
 	// Add timeout settings from worker config if available
 	if workerConfig != nil {
-		if workerConfig.Config.Timeouts.RequestTimeoutSeconds > 0 {
-			envVars = append(envVars, fmt.Sprintf("WORKER_READ_TIMEOUT_SECONDS=%d", workerConfig.Config.Timeouts.RequestTimeoutSeconds))
-			envVars = append(envVars, fmt.Sprintf("WORKER_WRITE_TIMEOUT_SECONDS=%d", workerConfig.Config.Timeouts.RequestTimeoutSeconds))
+		if workerConfig.Config.Timeouts.ReadTimeoutSeconds > 0 {
+			envVars = append(envVars, fmt.Sprintf("WORKER_READ_TIMEOUT_SECONDS=%d", workerConfig.Config.Timeouts.ReadTimeoutSeconds))
+		}
+		if workerConfig.Config.Timeouts.WriteTimeoutSeconds > 0 {
+			envVars = append(envVars, fmt.Sprintf("WORKER_WRITE_TIMEOUT_SECONDS=%d", workerConfig.Config.Timeouts.WriteTimeoutSeconds))
 		}
 		if workerConfig.Config.Timeouts.IdleTimeoutSeconds > 0 {
 			envVars = append(envVars, fmt.Sprintf("WORKER_IDLE_TIMEOUT_SECONDS=%d", workerConfig.Config.Timeouts.IdleTimeoutSeconds))

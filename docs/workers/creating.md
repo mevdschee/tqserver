@@ -426,7 +426,8 @@ runtime:
 
 # Timeout settings
 timeouts:
-  request_timeout_seconds: 30
+  read_timeout_seconds: 30
+  write_timeout_seconds: 30
   idle_timeout_seconds: 120
 
 # Logging

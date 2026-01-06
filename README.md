@@ -214,7 +214,8 @@ runtime:
 
 # Timeout settings
 timeouts:
-  request_timeout_seconds: 30
+  read_timeout_seconds: 30
+  write_timeout_seconds: 30
   idle_timeout_seconds: 120
 
 # Logging
@@ -283,7 +284,8 @@ runtime:
   max_requests: 5000
 
 timeouts:
-  request_timeout_seconds: 15
+  read_timeout_seconds: 15
+  write_timeout_seconds: 15
   idle_timeout_seconds: 60
 
 logging:
@@ -301,7 +303,8 @@ runtime:
   max_requests: 20000
 
 timeouts:
-  request_timeout_seconds: 120
+  read_timeout_seconds: 120
+  write_timeout_seconds: 120
   idle_timeout_seconds: 300
 
 logging:

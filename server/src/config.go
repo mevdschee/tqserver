@@ -19,8 +19,9 @@ type WorkerConfig struct {
 		MaxRequests int    `yaml:"max_requests"`
 	} `yaml:"runtime"`
 	Timeouts struct {
-		RequestTimeoutSeconds int `yaml:"request_timeout_seconds"`
-		IdleTimeoutSeconds    int `yaml:"idle_timeout_seconds"`
+		ReadTimeoutSeconds  int `yaml:"read_timeout_seconds"`
+		WriteTimeoutSeconds int `yaml:"write_timeout_seconds"`
+		IdleTimeoutSeconds  int `yaml:"idle_timeout_seconds"`
 	} `yaml:"timeouts"`
 	Logging struct {
 		LogFile string `yaml:"log_file"`
@@ -149,7 +150,8 @@ func LoadWorkerConfig(configPath string) (*WorkerConfig, error) {
 	config.Runtime.GOMAXPROCS = 2
 	config.Runtime.GOMEMLIMIT = ""
 	config.Runtime.MaxRequests = 0
-	config.Timeouts.RequestTimeoutSeconds = 30
+	config.Timeouts.ReadTimeoutSeconds = 30
+	config.Timeouts.WriteTimeoutSeconds = 30
 	config.Timeouts.IdleTimeoutSeconds = 120
 	config.Logging.LogFile = "logs/worker_{name}_{date}.log"
 

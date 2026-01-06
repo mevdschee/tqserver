@@ -86,7 +86,8 @@ runtime:
 
 # Timeout settings
 timeouts:
-  request_timeout_seconds: 30  # HTTP request timeout
+  read_timeout_seconds: 30     # HTTP read timeout
+  write_timeout_seconds: 30    # HTTP write timeout
   idle_timeout_seconds: 120    # HTTP idle timeout
 
 # Logging
@@ -133,7 +134,8 @@ Timeout settings for HTTP requests.
 
 ```yaml
 timeouts:
-  request_timeout_seconds: 30  # Request timeout
+  read_timeout_seconds: 30     # Read timeout
+  write_timeout_seconds: 30    # Write timeout
   idle_timeout_seconds: 120    # Idle timeout
 ```
 
