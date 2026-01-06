@@ -132,10 +132,20 @@ func (s *Supervisor) watchDirectory(dir string) error {
 			return err
 		}
 		if info.IsDir() {
-			if err := s.watcher.Add(path); err != nil {
-				log.Printf("Warning: failed to watch %s: %v", path, err)
-			} else {
-				log.Printf("Watching: %s", path)
+			// Only watch src/ and config/ directories
+			dirName := filepath.Base(path)
+			parentPath := filepath.Dir(path)
+			parentName := filepath.Base(parentPath)
+
+			// Watch if it's a src or config directory, or if parent is workers directory
+			shouldWatch := dirName == "src" || dirName == "config" || parentName == filepath.Base(s.config.Workers.Directory) || path == dir
+
+			if shouldWatch {
+				if err := s.watcher.Add(path); err != nil {
+					log.Printf("Warning: failed to watch %s: %v", path, err)
+				} else {
+					log.Printf("Watching: %s", path)
+				}
 			}
 		}
 		return nil
@@ -155,10 +165,22 @@ func (s *Supervisor) watchForChanges() {
 				return
 			}
 
-			// Only process write and create events for .go files
-			if event.Op&(fsnotify.Write|fsnotify.Create) != 0 && filepath.Ext(event.Name) == ".go" {
-				log.Printf("File changed: %s", event.Name)
-				s.handleFileChange(event.Name)
+			// Only process write and create events
+			if event.Op&(fsnotify.Write|fsnotify.Create) != 0 {
+				ext := filepath.Ext(event.Name)
+				dir := filepath.Base(filepath.Dir(event.Name))
+
+				// Handle .go files in src/ directories
+				if ext == ".go" && dir == "src" {
+					log.Printf("Go file changed: %s", event.Name)
+					s.handleFileChange(event.Name)
+				}
+
+				// Handle .yaml files in config/ directories
+				if (ext == ".yaml" || ext == ".yml") && dir == "config" {
+					log.Printf("Config file changed: %s", event.Name)
+					s.handleConfigChange(event.Name)
+				}
 			}
 		case err, ok := <-s.watcher.Errors:
 			if !ok {
@@ -195,6 +217,43 @@ func (s *Supervisor) handleFileChange(filePath string) {
 			}
 
 			log.Printf("✅ Worker reloaded for %s", worker.Route)
+			return
+		}
+	}
+}
+
+// handleConfigChange handles a worker config file change
+func (s *Supervisor) handleConfigChange(filePath string) {
+	// Find the worker for this config file
+	workers := s.router.GetAllWorkers()
+	for _, worker := range workers {
+		// Check if the changed config belongs to this worker
+		workerDir := filepath.Join(s.projectRoot, s.config.Workers.Directory, worker.Name)
+		if strings.HasPrefix(filePath, workerDir) {
+			log.Printf("Config changed for worker %s, restarting...", worker.Route)
+
+			// Reload worker config
+			configPath := filepath.Join(workerDir, "config", "worker.yaml")
+			for _, wc := range s.workerConfigs {
+				if wc.Name == worker.Name {
+					newConfig, err := LoadWorkerConfig(configPath)
+					if err != nil {
+						log.Printf("Failed to reload config for worker %s: %v", worker.Name, err)
+						return
+					}
+					wc.Config = *newConfig
+					log.Printf("Reloaded config for worker %s", worker.Name)
+					break
+				}
+			}
+
+			// Restart the worker with new config
+			if err := s.restartWorker(worker); err != nil {
+				log.Printf("Failed to restart worker for %s: %v", worker.Route, err)
+				return
+			}
+
+			log.Printf("✅ Worker restarted with new config for %s", worker.Route)
 			return
 		}
 	}

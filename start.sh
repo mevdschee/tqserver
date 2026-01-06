@@ -7,11 +7,7 @@ MODE="${1:-dev}"
 
 # Build server
 echo "Building server..."
-if [ "$MODE" = "prod" ]; then
-    ./scripts/build-prod.sh
-else
-    ./scripts/build-dev.sh
-fi
+./scripts/build.sh
 
 # Run server
 echo "Starting server..."

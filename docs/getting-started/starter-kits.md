@@ -47,11 +47,12 @@ myproject/
 │       ├── src/
 │       │   ├── main.go
 │       │   └── handlers.go
-│       ├── private/
-│       │   └── views/
-│       │       ├── layout.html
-│       │       ├── home.html
-│       │       └── about.html
+│       ├── views/
+│       │   ├── layout.html
+│       │   ├── home.html
+│       │   └── about.html
+│       ├── config/
+│       │   └── worker.yaml
 │       └── public/
 │           ├── css/style.css
 │           └── js/app.js

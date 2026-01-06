@@ -55,8 +55,8 @@ type WorkerInstance struct {
     BinaryMtime  time.Time
     PublicPath   string
     PublicMtime  time.Time
-    PrivatePath  string
-    PrivateMtime time.Time
+    ViewsPath    string
+    ViewsMtime   time.Time
     
     // Health
     Status          string

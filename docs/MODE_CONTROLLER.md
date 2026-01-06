@@ -35,7 +35,7 @@ export TQ_MODE=dev
    - Worker is automatically restarted
    - New binary loaded
 
-2. **Worker Assets (`workers/*/public/*` or `workers/*/private/*`)**:
+2. **Worker Assets (`workers/*/public/*` or `workers/*/views/*`)**:
    - File watcher detects change
    - Worker is restarted to reload assets
    - No rebuild needed

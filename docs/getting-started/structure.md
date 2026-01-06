@@ -213,11 +213,11 @@ Each worker follows a consistent structure:
 workers/{worker-name}/
 ├── bin/                   # Compiled binaries
 │   └── {worker-name}      # The executable
-├── private/               # Private server-side assets
-│   ├── views/            # Templates
-│   │   └── *.html
-│   ├── data/             # Data files
-│   └── config/           # Worker-specific config
+├── views/                 # HTML templates
+│   └── *.html
+├── data/                  # Data files
+├── config/                # Worker-specific config
+│   └── worker.yaml
 ├── public/                # Public static assets
 │   ├── css/
 │   ├── js/
@@ -228,7 +228,6 @@ workers/{worker-name}/
 │   ├── handlers.go       # HTTP handlers
 │   ├── models.go         # Data models
 │   └── utils.go          # Utility functions
-├── config.yaml            # Worker configuration (optional)
 └── README.md              # Worker documentation (optional)
 ```
 
@@ -250,22 +249,26 @@ src/
     └── logger.go
 ```
 
-### Private Directory
+### Views Directory
 
-The `private/` directory contains server-side assets not served directly:
+The `views/` directory contains HTML templates:
 
 ```
-private/
-├── views/             # HTML templates
-│   ├── layout.html
-│   ├── home.html
-│   └── partials/
-│       ├── header.html
-│       └── footer.html
-├── data/              # JSON, YAML, etc.
-│   └── config.json
-└── keys/              # Certificates, keys
-    └── private.key
+views/
+├── layout.html
+├── home.html
+└── partials/
+    ├── header.html
+    └── footer.html
+```
+
+### Config Directory
+
+The `config/` directory contains worker-specific configuration:
+
+```
+config/
+└── worker.yaml       # Worker configuration
 ```
 
 ### Public Directory
@@ -307,7 +310,7 @@ public/
 
 - **Public assets**: Directly accessible URLs
   - `public/css/style.css` → `/css/style.css`
-- **Private assets**: Only accessible via server code
+- **Templates**: Rendered by handlers
   - `views/home.html` → Rendered by handlers
 
 ## Next Steps

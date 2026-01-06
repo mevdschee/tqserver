@@ -124,7 +124,7 @@ TQServer monitors:
 
 ```
 workers/*/src/**/*.go       # Source code
-workers/*/private/**/*      # Templates, views
+workers/*/views/**/*        # Templates
 workers/*/public/**/*       # Static assets
 config/*.yaml               # Configuration
 ```

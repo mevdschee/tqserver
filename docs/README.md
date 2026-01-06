@@ -62,7 +62,7 @@ Welcome to the TQServer documentation. TQServer is a high-performance function e
 
 ### Static Assets
 - [Public Directory](assets/public.md) (TODO)
-- [Private Assets](assets/private.md) (TODO)
+- [Templates & Views](assets/views.md) (TODO)
 - [Asset Organization](assets/organization.md) (TODO)
 
 ### Database

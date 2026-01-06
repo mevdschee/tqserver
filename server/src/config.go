@@ -119,7 +119,7 @@ func LoadWorkerConfigs(workersDir string) ([]*WorkerConfigWithMeta, error) {
 		}
 
 		// Load worker config
-		workerConfig, err := loadWorkerConfig(configPath)
+		workerConfig, err := LoadWorkerConfig(configPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load config for worker '%s': %w", workerName, err)
 		}
@@ -143,7 +143,7 @@ func LoadWorkerConfigs(workersDir string) ([]*WorkerConfigWithMeta, error) {
 }
 
 // loadWorkerConfig loads a single worker config file
-func loadWorkerConfig(configPath string) (*WorkerConfig, error) {
+func LoadWorkerConfig(configPath string) (*WorkerConfig, error) {
 	// Set defaults
 	config := &WorkerConfig{}
 	config.Runtime.GOMAXPROCS = 2
@@ -184,7 +184,7 @@ func CheckWorkerConfigChanges(configs []*WorkerConfigWithMeta) ([]string, error)
 			meta.ModTime = stat.ModTime()
 
 			// Reload the config
-			newConfig, err := loadWorkerConfig(meta.ConfigPath)
+			newConfig, err := LoadWorkerConfig(meta.ConfigPath)
 			if err != nil {
 				log.Printf("Error reloading config for worker '%s': %v", meta.Name, err)
 				continue

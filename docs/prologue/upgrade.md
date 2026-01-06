@@ -307,7 +307,8 @@ Before upgrading, ensure:
          main.go
        bin/
        public/
-       private/
+       views/
+       config/
    ```
 
 2. **Update Port Handling**

@@ -241,10 +241,10 @@ Essential features for building applications with TQServer.
     - Compression
     - Asset versioning
 
-27. **Private Assets** - Server-side assets
-    - Private directory structure
-    - Templates location
-    - Data files
+27. **Templates & Views** - Server-side templates
+    - Views directory structure
+    - Template location
+    - Template rendering
     - Access control
     - Asset loading
 
