@@ -438,3 +438,45 @@ tqserver/
 └── templates/
     └── base.html           # Shared template base
 ```
+
+## Cluster Deployment Architecture
+
+### Scaling from Single-Node to Multi-Node
+
+The transition from single-node to multi-node deployment requires additional
+infrastructure components.
+
+**Key additions for cluster mode:**
+
+### 1. Shared Code Distribution
+
+**Challenge:** Updated function code must reach all cluster nodes.
+
+**Solution:** Git pull on all nodes and rebuild binaries on each node.
+
+**Implementation:**
+
+- Each node maintains a local Git repository
+- Nodes pull from a central repository when notified
+- Notifications trigger rebuild and restart process
+
+**Recommendation:** This is the simplest approach for code distribution.
+
+### 2. Shared Configuration
+
+**Challenge:** Configuration and views must be consistent across all nodes.
+
+**Solution:** Read config and views during runtime, distribute with the code.
+
+**Implementation:**
+
+- Configuration file distributed alongside code
+- Version control ensures consistency
+- Updates deployed atomically with code changes
+
+**Recommendation:** This is the simplest approach for configuration management.
+
+### 3. Optional: Distributed Cache
+
+**Purpose:** Share state and cached data across cluster nodes for improved
+performance and consistency.
