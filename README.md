@@ -53,7 +53,8 @@ The following features are planned but not yet implemented:
 - **Worker Pooling** - Reuse worker processes instead of rebuilding for every
   change
 - **Template Caching** - Cache compiled templates for better performance
-- **Rate Limiting** - Per-route and global rate limiting capabilities
+- **Rate Limiting** - Per-route and global rate limiting capabilities, also per
+  IP
 - **Authentication Middleware** - Built-in JWT, OAuth, or API key authentication
 - **Database Connection Pooling** - Shared database connection management across
   workers
