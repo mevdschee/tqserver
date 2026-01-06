@@ -52,7 +52,7 @@ func main() {
 	}
 
 	// Initialize and start HTTP proxy/load balancer
-	proxy := NewProxy(config, router)
+	proxy := NewProxy(config, router, projectRoot)
 
 	// Start proxy in a goroutine
 	go func() {
