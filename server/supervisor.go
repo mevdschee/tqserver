@@ -272,6 +272,7 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("PORT=%d", port),
 		fmt.Sprintf("ROUTE=%s", worker.Route),
+		fmt.Sprintf("GOMAXPROCS=%d", settings.NumProcs),
 	)
 	// Use MultiWriter to write to both log file and stdout/stderr
 	cmd.Stdout = io.MultiWriter(os.Stdout, logFile)

@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/mevdschee/tqtemplate"
@@ -14,6 +16,14 @@ import (
 var tmpl *tqtemplate.Template
 
 func main() {
+	// Set GOMAXPROCS from environment variable if provided
+	if gomaxprocs := os.Getenv("GOMAXPROCS"); gomaxprocs != "" {
+		if n, err := strconv.Atoi(gomaxprocs); err == nil && n > 0 {
+			runtime.GOMAXPROCS(n)
+			log.Printf("Set GOMAXPROCS to %d", n)
+		}
+	}
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "9000"

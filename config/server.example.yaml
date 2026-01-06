@@ -32,7 +32,7 @@ workers:
 
   # Default per-worker configuration (applies to all workers unless overridden)
   default:
-    num_procs: 2 # Default: 1 - Number of processes per worker route
+    num_procs: 2 # Default: 1 - Sets Go's GOMAXPROCS for the worker (CPU threads)
     max_requests: 10000 # Default: 0 (unlimited) - Restart worker after N requests
     request_timeout_seconds: 60 # Default: 30 - Request timeout for workers
     idle_timeout_seconds: 180 # Default: 120 - Idle timeout for workers
