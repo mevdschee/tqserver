@@ -1,4 +1,6 @@
-# Refactoring Summary
+# TQServer Refactoring Summary
+
+This document tracks the complete refactoring of TQServer's deployment and build system.
 
 ## Completed Phase 1: Restructure Directories
 
@@ -164,6 +166,91 @@ Health Checker
 - Changed from `templates/base.html` to `private/templates/base.html`
 - All worker HTML files updated
 
+## ✅ Completed Phase 6: Deployment Scripts
+
+### What was done:
+
+1. **Created main deployment script:**
+   - `scripts/deploy.sh` (180+ lines, executable)
+   - Multi-target support: staging, production, custom
+   - Color-coded output (RED, GREEN, YELLOW) for better UX
+   - SSH connectivity verification before deployment
+   - Server deployment function with rsync
+   - Worker deployment function with rsync
+   - Selective deployment (all workers or specific worker)
+   - Binary existence validation
+   - Remote directory creation
+   - Configuration file deployment
+   - Post-deployment instructions
+
+2. **Created deployment configuration:**
+   - `config/deployment.yaml` - Deployment settings
+   - Target definitions (staging, production, development)
+   - Server addresses and deployment paths
+   - Rsync options and exclusions
+   - Pre-deployment checks
+   - Post-deployment actions (reload, health checks)
+   - Backup settings (retention, paths)
+   - Notification settings (Slack, email)
+
+3. **Created deployment hooks:**
+   - `scripts/hooks/pre-deploy.sh` - Pre-deployment checks
+     * Verifies local binaries exist
+     * Checks configuration files
+     * Optional test runs
+     * Creates backup timestamp
+   
+   - `scripts/hooks/post-deploy.sh` - Post-deployment actions
+     * Sends SIGHUP signal to server
+     * Performs health checks
+     * Optional notifications
+     * Deployment validation
+
+4. **Created comprehensive documentation:**
+   - `DEPLOYMENT.md` - Complete deployment guide
+     * Configuration reference
+     * Build instructions
+     * Deployment commands
+     * Remote server setup
+     * Systemd service example
+     * Health check documentation
+     * Troubleshooting guide
+     * Rollback procedures
+     * Best practices
+     * Security recommendations
+
+5. **Updated main documentation:**
+   - `README.md` - Added deployment section
+     * Updated quick start guide
+     * Added deployment examples
+     * Referenced DEPLOYMENT.md
+
+### Deployment Usage:
+
+```bash
+# Deploy everything to production
+./scripts/deploy.sh production
+
+# Deploy specific worker to production
+./scripts/deploy.sh production index
+
+# Deploy to custom server
+./scripts/deploy.sh custom user@hostname:/path
+```
+
+### Features:
+
+✅ Rsync-based incremental deployment
+✅ Multiple environment support
+✅ Selective deployment (server/workers)
+✅ Pre/post-deployment hooks
+✅ SSH connectivity checks
+✅ Binary validation
+✅ Configuration deployment
+✅ Zero-downtime reloads (SIGHUP)
+✅ Health check verification
+✅ Comprehensive documentation
+
 ### Current Structure:
 
 ```
@@ -187,12 +274,26 @@ tqserver/
 │   ├── prodmode/            # Prod mode integration
 │   ├── modecontroller/      # Mode switching
 │   └── coordinator/         # Restart coordination
-├── scripts/                 # Build scripts
+├── scripts/                 # Build & deployment scripts
+│   ├── build-dev.sh
+│   ├── build-prod.sh
+│   ├── deploy.sh
+│   └── hooks/
+│       ├── pre-deploy.sh
+│       └── post-deploy.sh
 ├── config/                  # Configuration
-└── docs/                    # Documentation
+│   ├── server.yaml
+│   ├── server.example.yaml
+│   └── deployment.yaml
+├── docs/                    # Documentation
+├── DEPLOYMENT.md            # Deployment guide
+└── README.md                # Main documentation
 ```
 
 ### Next steps:
-- Phase 6: Deployment scripts (rsync-based)
-- Phase 7: Testing and documentation
+- Phase 7: Final testing and documentation
+  * Integration testing
+  * Performance testing
+  * Architecture diagrams
+  * CI/CD integration examples
 - Integration: Wire controller into main server code
