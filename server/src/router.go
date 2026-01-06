@@ -85,68 +85,13 @@ func (r *Router) DiscoverRoutes() error {
 
 	log.Printf("Discovering routes in: %s", pagesPath)
 
-	// Walk the pages directory
-	err := filepath.Walk(pagesPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+	log.Printf("Routes will be loaded from worker configs...")
 
-		// Skip if not a directory
-		if !info.IsDir() {
-			return nil
-		}
-
-		// Skip the root pages directory itself
-		if path == pagesPath {
-			return nil
-		}
-
-		// Check if this directory contains Go files
-		hasGoFiles, err := hasGoSourceFiles(path)
-		if err != nil {
-			return err
-		}
-
-		if !hasGoFiles {
-			return nil
-		}
-
-		// Calculate the route from the directory path
-		relPath, err := filepath.Rel(pagesPath, path)
-		if err != nil {
-			return err
-		}
-
-		// Convert filesystem path to URL route
-		route := "/" + strings.TrimPrefix(filepath.ToSlash(relPath), "/")
-
-		// Special case: "index" maps to root "/"
-		if strings.HasSuffix(route, "/index") {
-			route = strings.TrimSuffix(route, "/index")
-			if route == "" {
-				route = "/"
-			}
-		}
-
-		log.Printf("Discovered route: %s -> %s", route, path)
-
-		// Create worker entry (not started yet)
-		worker := &Worker{
-			Path:   path,
-			Route:  route,
-			Binary: "", // Will be set when built
-		}
-
-		r.workers[route] = worker
-
-		return nil
-	})
-
-	if err != nil {
-		return err
+	// Workers will be registered when supervisor builds and starts them
+	for _, workerMeta := range r.workerConfigs {
+		log.Printf("Route configured: %s -> %s", workerMeta.Config.Path, workerMeta.Name)
 	}
 
-	log.Printf("Found %d routes", len(r.workers))
 	return nil
 }
 

@@ -16,25 +16,37 @@ import (
 
 // Supervisor manages worker lifecycle: building, starting, stopping, and restarting
 type Supervisor struct {
-	config      *Config
-	projectRoot string
-	router      *Router
-	watcher     *fsnotify.Watcher
-	nextPort    int
-	stopChan    chan struct{}
-	wg          sync.WaitGroup
-	mu          sync.Mutex
+	config        *Config
+	projectRoot   string
+	router        *Router
+	workerConfigs []*WorkerConfigWithMeta
+	watcher       *fsnotify.Watcher
+	nextPort      int
+	stopChan      chan struct{}
+	wg            sync.WaitGroup
+	mu            sync.Mutex
 }
 
 // NewSupervisor creates a new supervisor
-func NewSupervisor(config *Config, projectRoot string, router *Router) *Supervisor {
+func NewSupervisor(config *Config, projectRoot string, router *Router, workerConfigs []*WorkerConfigWithMeta) *Supervisor {
 	return &Supervisor{
-		config:      config,
-		projectRoot: projectRoot,
-		router:      router,
-		nextPort:    config.Workers.PortRangeStart,
-		stopChan:    make(chan struct{}),
+		config:        config,
+		projectRoot:   projectRoot,
+		router:        router,
+		workerConfigs: workerConfigs,
+		nextPort:      config.Workers.PortRangeStart,
+		stopChan:      make(chan struct{}),
 	}
+}
+
+// getWorkerConfig finds the worker config for a given worker name
+func (s *Supervisor) getWorkerConfig(workerName string) *WorkerConfigWithMeta {
+	for _, wc := range s.workerConfigs {
+		if wc.Name == workerName {
+			return wc
+		}
+	}
+	return nil
 }
 
 // Start starts the supervisor
@@ -65,9 +77,9 @@ func (s *Supervisor) Start() error {
 	}
 	s.watcher = watcher
 
-	// Watch pages directory
-	pagesPath := filepath.Join(s.projectRoot, s.config.Pages.Directory)
-	if err := s.watchDirectory(pagesPath); err != nil {
+	// Watch each worker's source directory
+	workersPath := filepath.Join(s.projectRoot, s.config.Workers.Directory)
+	if err := s.watchDirectory(workersPath); err != nil {
 		return fmt.Errorf("failed to watch directory: %w", err)
 	}
 
@@ -177,17 +189,17 @@ func (s *Supervisor) buildWorker(worker *Worker) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Create temp directory for binaries if it doesn't exist
-	tempDir := s.config.Workers.TempDir
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
-		return fmt.Errorf("failed to create temp directory: %w", err)
+	// Create bin directory inside worker directory if it doesn't exist
+	workerBinDir := filepath.Join(worker.Path, "../bin") // Go up from src to worker root, then into bin
+	if err := os.MkdirAll(workerBinDir, 0755); err != nil {
+		return fmt.Errorf("failed to create bin directory: %w", err)
 	}
 
 	// Generate binary name
-	binaryName := fmt.Sprintf("worker_%s_%d",
-		filepath.Base(worker.Path),
+	binaryName := fmt.Sprintf("tqworker_%s_%d",
+		filepath.Base(filepath.Dir(worker.Path)), // Worker name from parent directory
 		time.Now().Unix())
-	binaryPath := filepath.Join(tempDir, binaryName)
+	binaryPath := filepath.Join(workerBinDir, binaryName)
 
 	log.Printf("Building %s -> %s", worker.Path, binaryPath)
 
@@ -224,28 +236,8 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 
 	log.Printf("Starting worker for %s on port %d", worker.Route, port)
 
-	// Get worker settings for this path
-	settings := s.config.GetWorkerSettings(worker.Route)
-
-	// Generate log file path from template
-	logFileTemplate := settings.LogFile
-
-	// Check if logging to file is disabled (~ or empty string means no file logging)
-	var logFile *os.File
-	var logFilePath string
-	if logFileTemplate != "~" && logFileTemplate != "" {
-		// Replace {path} with relative path from pages directory
-		// Extract relative path: if worker.Path is "pages/api/users", relPath becomes "api/users"
-		pagesDir := filepath.Join(s.projectRoot, s.config.Pages.Directory)
-		relPath, relErr := filepath.Rel(pagesDir, worker.Path)
-		if relErr != nil {
-			relPath = filepath.Base(worker.Path) // Fallback to just the name
-		}
-		// Normalize to forward slashes for consistent path representation
-		pathForLog := strings.ReplaceAll(relPath, string(filepath.Separator), "/")
-
-		// Replace placeholders in the template first
-		logFilePath = strings.ReplaceAll(logFileTemplate, "{path}", pathForLog)
+	// Start worker binary
+	cmd := exec.Command(worker.Binary)
 
 		// Replace {date} with current date
 		dateStr := time.Now().Format("2006-01-02")
@@ -376,19 +368,8 @@ func (s *Supervisor) monitorWorkerLimits() {
 					continue
 				}
 
-				settings := s.config.GetWorkerSettings(worker.Route)
-
-				// Check max_requests limit
-				if settings.MaxRequests > 0 {
-					requestCount := worker.GetRequestCount()
-					if requestCount >= settings.MaxRequests {
-						log.Printf("Worker for %s reached max requests (%d/%d), restarting",
-							worker.Route, requestCount, settings.MaxRequests)
-						if err := s.restartWorker(worker); err != nil {
-							log.Printf("Failed to restart worker for %s: %v", worker.Route, err)
-						}
-					}
-				}
+				// TODO: Get max_requests from worker config and enforce limit
+				// For now, skip this check as we need to refactor config access
 			}
 		}
 	}
