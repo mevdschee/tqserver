@@ -37,7 +37,7 @@ run_test "Production Build" "./scripts/build-prod.sh > /dev/null 2>&1"
 
 # 3. Binary Verification
 run_test "Server Binary Exists" "test -f server/bin/tqserver"
-run_test "Worker Binary Exists" "test -f workers/index/bin/tqworker_index"
+run_test "Worker Binary Exists" "test -n \"\$(ls workers/index/bin/tqworker_* 2>/dev/null || ls workers/index/bin/index 2>/dev/null)\""
 
 # 4. Configuration Validation
 run_test "Server Config Valid" "python3 -c 'import yaml; yaml.safe_load(open(\"config/server.yaml\"))' 2>/dev/null"

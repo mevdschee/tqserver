@@ -1,69 +1,69 @@
 package worker
 
 import (
-"fmt"
-"log"
-"net/http"
-"os"
-"strconv"
-"time"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"strconv"
+	"time"
 )
 
 // Runtime provides common worker initialization and server management
 type Runtime struct {
-Port         string
-Route        string
-ReadTimeout  time.Duration
-WriteTimeout time.Duration
-IdleTimeout  time.Duration
+	Port         string
+	Route        string
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+	IdleTimeout  time.Duration
 }
 
 // NewRuntime creates a new runtime with configuration from environment variables
 func NewRuntime() *Runtime {
-port := os.Getenv("PORT")
-if port == "" {
-port = "9000"
-}
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "9000"
+	}
 
-route := os.Getenv("ROUTE")
-if route == "" {
-route = "/"
-}
+	route := os.Getenv("ROUTE")
+	if route == "" {
+		route = "/"
+	}
 
-// Get timeout settings from environment
-readTimeout := parseTimeout("READ_TIMEOUT_SECONDS", 30)
-writeTimeout := parseTimeout("WRITE_TIMEOUT_SECONDS", 30)
-idleTimeout := parseTimeout("IDLE_TIMEOUT_SECONDS", 120)
+	// Get timeout settings from environment
+	readTimeout := parseTimeout("READ_TIMEOUT_SECONDS", 30)
+	writeTimeout := parseTimeout("WRITE_TIMEOUT_SECONDS", 30)
+	idleTimeout := parseTimeout("IDLE_TIMEOUT_SECONDS", 120)
 
-return &Runtime{
-Port:         port,
-Route:        route,
-ReadTimeout:  readTimeout,
-WriteTimeout: writeTimeout,
-IdleTimeout:  idleTimeout,
-}
+	return &Runtime{
+		Port:         port,
+		Route:        route,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+		IdleTimeout:  idleTimeout,
+	}
 }
 
 // StartServer starts the HTTP server with the given handler
 func (r *Runtime) StartServer(handler http.Handler) error {
-server := &http.Server{
-Addr:         fmt.Sprintf(":%s", r.Port),
-Handler:      handler,
-ReadTimeout:  r.ReadTimeout,
-WriteTimeout: r.WriteTimeout,
-IdleTimeout:  r.IdleTimeout,
-}
+	server := &http.Server{
+		Addr:         fmt.Sprintf(":%s", r.Port),
+		Handler:      handler,
+		ReadTimeout:  r.ReadTimeout,
+		WriteTimeout: r.WriteTimeout,
+		IdleTimeout:  r.IdleTimeout,
+	}
 
-log.Printf("Worker starting on port %s for route %s", r.Port, r.Route)
-return server.ListenAndServe()
+	log.Printf("Worker starting on port %s for route %s", r.Port, r.Route)
+	return server.ListenAndServe()
 }
 
 // parseTimeout parses a timeout from environment variable
 func parseTimeout(envVar string, defaultSeconds int) time.Duration {
-if val := os.Getenv(envVar); val != "" {
-if n, err := strconv.Atoi(val); err == nil && n > 0 {
-return time.Duration(n) * time.Second
-}
-}
-return time.Duration(defaultSeconds) * time.Second
+	if val := os.Getenv(envVar); val != "" {
+		if n, err := strconv.Atoi(val); err == nil && n > 0 {
+			return time.Duration(n) * time.Second
+		}
+	}
+	return time.Duration(defaultSeconds) * time.Second
 }
