@@ -377,16 +377,17 @@ func leakyHandler(w http.ResponseWriter, r *http.Request) {
 
 ### Advantages
 
-**Independent Scaling**:
+**Independent Scaling** (Conceptual):
 ```yaml
-# Scale workers independently
+# Note: Worker instances are not currently configured via YAML.
+# This example shows the conceptual benefit of process isolation.
 workers:
   api:
-    instances: 4      # High traffic
+    instances: 4      # High traffic (conceptual)
   admin:
-    instances: 1      # Low traffic
+    instances: 1      # Low traffic (conceptual)
   reports:
-    instances: 2      # Periodic load
+    instances: 2      # Periodic load (conceptual)
 ```
 
 **Parallel Execution**:
@@ -581,19 +582,16 @@ func handler(w http.ResponseWriter, r *http.Request) {
 ### Set Resource Limits
 
 ```yaml
-# Always set limits
-workers:
-  api:
-    resources:
-      max_memory: "512M"
-      max_cpu: 2.0
-      max_open_files: 1024
-    
-  admin:
-    resources:
-      max_memory: "256M"
-      max_cpu: 1.0
-      max_open_files: 512
+# Set limits in config/worker.yaml
+# workers/api/config/worker.yaml
+runtime:
+  go_mem_limit: "512MiB"
+  go_max_procs: 2
+
+# workers/admin/config/worker.yaml
+runtime:
+  go_mem_limit: "256MiB"
+  go_max_procs: 1
 ```
 
 ## Next Steps

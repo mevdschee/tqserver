@@ -512,10 +512,10 @@ func (p *PortPool) IsAvailable(port int) bool {
 
 ```yaml
 # config/server.yaml
-port_pool:
-  start: 9000
-  end: 9100
-  # Allows 101 concurrent workers
+workers:
+  port_range_start: 10000
+  port_range_end: 19999
+  # Allows up to 10000 concurrent workers
 ```
 
 ### Port Reuse Strategy

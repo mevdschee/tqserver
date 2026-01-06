@@ -118,34 +118,22 @@ go build -o bin/tqserver \
 ```yaml
 # config/server.prod.yaml
 server:
-  host: "0.0.0.0"
-  port: 8080
-  log_file: "/var/log/tqserver/server-{date}.log"
-  read_timeout: 30s
-  write_timeout: 30s
-  idle_timeout: 120s
-  
-  port_pool:
-    start: 9000
-    end: 9100
+  port: 80
+  read_timeout_seconds: 60
+  write_timeout_seconds: 60
+  idle_timeout_seconds: 180
+  log_file: "/var/log/tqserver/server_{date}.log"
 
 workers:
-  base_path: "/opt/tqserver/workers"
-  
-  health_check:
-    enabled: true
-    interval: 60s
-    timeout: 10s
-    failure_threshold: 5
-  
-  file_watcher:
-    enabled: false  # Disable hot reload in production
-
-cleanup:
-  enabled: true
-  interval: 6h
-  max_age: 168h  # 7 days
+  directory: "/opt/tqserver/workers"
+  port_range_start: 10000
+  port_range_end: 19999
+  startup_delay_ms: 200
+  restart_delay_ms: 200
+  shutdown_grace_period_ms: 1000
 ```
+
+See `config/server.example.yaml` for all available options.
 
 ## Systemd Service
 

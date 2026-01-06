@@ -412,22 +412,29 @@ workers/blog/public/
 
 ## Worker Configuration
 
-Create `workers/blog/config.yaml`:
+Create `workers/blog/config/worker.yaml`:
 
 ```yaml
-worker:
-  name: "blog"
-  timeout: 30s
-  
-  environment:
-    DATABASE_URL: "postgresql://localhost/blog"
-    LOG_LEVEL: "info"
-  
-  health_check:
-    enabled: true
-    path: "/health"
-    interval: 30s
+# Path prefix for this worker (required)
+path: "/blog"
+
+# Worker runtime settings
+runtime:
+  go_max_procs: 2
+  go_mem_limit: "512MiB"
+  max_requests: 0
+
+# Timeout settings
+timeouts:
+  request_timeout_seconds: 30
+  idle_timeout_seconds: 120
+
+# Logging
+logging:
+  log_file: "logs/worker_{name}_{date}.log"
 ```
+
+See `config/worker.example.yaml` for all available options.
 
 ## Building and Running
 

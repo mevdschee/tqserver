@@ -1,5 +1,10 @@
 # Worker Configuration
 
+> **Note**: The configuration examples in this document include properties for illustration purposes. 
+> For actual configuration options, please refer to:
+> - `config/server.example.yaml` for server configuration
+> - `config/worker.example.yaml` for worker configuration
+
 - [Introduction](#introduction)
 - [Configuration Files](#configuration-files)
 - [Configuration Structure](#configuration-structure)
@@ -76,36 +81,25 @@ func LoadConfig(workerName string) (*Config, error) {
 
 ```yaml
 # config/server.yaml
+# Note: Many properties shown are for illustration. 
+# See config/server.example.yaml for actual supported properties.
 
 # Server settings
 server:
-  host: "0.0.0.0"
-  port: 8080
-  read_timeout: 30s
-  write_timeout: 30s
-  idle_timeout: 120s
-  max_header_bytes: 1048576  # 1MB
+  port: 3000
+  read_timeout_seconds: 60
+  write_timeout_seconds: 60
+  idle_timeout_seconds: 180
+  log_file: "logs/tqserver_{date}.log"
 
-# Port pool for workers
-port_pool:
-  start: 9000
-  end: 9100
-
-# Supervisor settings
-supervisor:
-  health_checks:
-    enabled: true
-    interval: 10s
-    timeout: 5s
-    failure_threshold: 3
-    success_threshold: 2
-  
-  restart_policy:
-    max_restarts: 5
-    restart_period: 5m
-    backoff_initial: 1s
-    backoff_multiplier: 2
-    backoff_max: 30s
+# Worker settings
+workers:
+  directory: "workers"
+  port_range_start: 10000
+  port_range_end: 19999
+  startup_delay_ms: 200
+  restart_delay_ms: 200
+  shutdown_grace_period_ms: 1000
 
 # File watcher (hot reload)
 file_watcher:

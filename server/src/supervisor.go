@@ -394,6 +394,13 @@ func (s *Supervisor) monitorWorkerLimits() {
 			workers := s.router.GetAllWorkers()
 			for _, worker := range workers {
 				if !worker.IsHealthy() {
+					// Worker is unhealthy, attempt to restart it
+					log.Printf("Detected unhealthy worker for %s, attempting restart...", worker.Route)
+					if err := s.restartWorker(worker); err != nil {
+						log.Printf("Failed to restart unhealthy worker for %s: %v", worker.Route, err)
+					} else {
+						log.Printf("✅ Successfully restarted unhealthy worker for %s", worker.Route)
+					}
 					continue
 				}
 
@@ -414,6 +421,14 @@ func (s *Supervisor) restartWorker(worker *Worker) error {
 	worker.RequestCount = 0
 	worker.mu.Unlock()
 
+	// Check if binary exists; if not, rebuild
+	if worker.Binary == "" || !fileExists(worker.Binary) {
+		log.Printf("Worker binary missing for %s, rebuilding...", worker.Route)
+		if err := s.buildWorker(worker); err != nil {
+			return fmt.Errorf("failed to rebuild worker: %w", err)
+		}
+	}
+
 	// Start new worker on new port
 	if err := s.startWorker(worker); err != nil {
 		return fmt.Errorf("failed to start new worker: %w", err)
@@ -432,4 +447,10 @@ func (s *Supervisor) restartWorker(worker *Worker) error {
 	}
 
 	return nil
+}
+
+// fileExists checks if a file exists
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }

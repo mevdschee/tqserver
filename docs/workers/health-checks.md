@@ -402,10 +402,16 @@ func (hc *DeepHealthChecker) checkDatabase(ctx context.Context) Check {
 
 ## Configuration
 
-### Health Check Configuration
+> **Note**: TQServer does not currently have built-in health check configuration in YAML files.
+> Health checks are performed internally by the supervisor. Workers should implement a `/health` 
+> endpoint for monitoring purposes, but the configuration examples below are for illustration only.
+> See the actual worker implementation in `workers/index/src/main.go` for reference.
+
+### Health Check Configuration (Conceptual)
 
 ```yaml
-# workers/api/config.yaml
+# workers/api/config/worker.yaml
+# Note: These properties are not currently supported
 
 worker:
   health_check:
