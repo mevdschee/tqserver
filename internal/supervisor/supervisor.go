@@ -267,17 +267,20 @@ func (s *Supervisor) buildWorker(worker *router.Worker) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Create temp directory for binaries if it doesn't exist
-	tempDir := s.config.Workers.TempDir
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
-		return fmt.Errorf("failed to create temp directory: %w", err)
+	// Create bin directory for binaries if it doesn't exist
+	binDir := s.config.Workers.BinDir
+	if !filepath.IsAbs(binDir) {
+		binDir = filepath.Join(s.projectRoot, binDir)
+	}
+	if err := os.MkdirAll(binDir, 0755); err != nil {
+		return fmt.Errorf("failed to create bin directory: %w", err)
 	}
 
 	// Generate binary name
 	binaryName := fmt.Sprintf("worker_%s_%d",
 		filepath.Base(worker.Path),
 		time.Now().Unix())
-	binaryPath := filepath.Join(tempDir, binaryName)
+	binaryPath := filepath.Join(binDir, binaryName)
 
 	log.Printf("Building %s -> %s", worker.Path, binaryPath)
 

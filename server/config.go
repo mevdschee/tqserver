@@ -57,7 +57,7 @@ func LoadConfig(configPath string) (*Config, error) {
 	config.Server.ReadTimeoutSeconds = 30
 	config.Server.WriteTimeoutSeconds = 30
 	config.Server.IdleTimeoutSeconds = 120
-	config.Workers.TempDir = "/tmp/tqserver/bin"
+	config.Workers.TempDir = "bin"
 	config.Workers.PortRangeStart = 9000
 	config.Workers.PortRangeEnd = 9999
 	config.Workers.StartupDelayMs = 100

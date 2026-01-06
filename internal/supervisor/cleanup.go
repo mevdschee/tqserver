@@ -26,12 +26,15 @@ func (s *Supervisor) cleanupOldBinaries() {
 
 // performCleanup removes binaries older than 24 hours
 func (s *Supervisor) performCleanup() {
-	tempDir := s.config.Workers.TempDir
+	binDir := s.config.Workers.BinDir
+	if !filepath.IsAbs(binDir) {
+		binDir = filepath.Join(s.projectRoot, binDir)
+	}
 	cutoff := time.Now().Add(-24 * time.Hour)
 
-	entries, err := os.ReadDir(tempDir)
+	entries, err := os.ReadDir(binDir)
 	if err != nil {
-		log.Printf("Failed to read temp directory for cleanup: %v", err)
+		log.Printf("Failed to read bin directory for cleanup: %v", err)
 		return
 	}
 
@@ -46,7 +49,7 @@ func (s *Supervisor) performCleanup() {
 		}
 
 		if info.ModTime().Before(cutoff) {
-			path := filepath.Join(tempDir, entry.Name())
+			path := filepath.Join(binDir, entry.Name())
 			if err := os.Remove(path); err != nil {
 				log.Printf("Failed to remove old binary %s: %v", path, err)
 			} else {

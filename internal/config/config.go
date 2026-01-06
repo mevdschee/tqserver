@@ -32,7 +32,7 @@ type Config struct {
 	} `yaml:"server"`
 
 	Workers struct {
-		TempDir               string                    `yaml:"temp_dir"`
+		BinDir                string                    `yaml:"bin_dir"`
 		PortRangeStart        int                       `yaml:"port_range_start"`
 		PortRangeEnd          int                       `yaml:"port_range_end"`
 		StartupDelayMs        int                       `yaml:"startup_delay_ms"`
@@ -58,7 +58,7 @@ func setDefaults(config *Config) {
 	config.Server.WriteTimeoutSeconds = 30
 	config.Server.IdleTimeoutSeconds = 120
 	config.Server.LogFile = "logs/server_{date}.log"
-	config.Workers.TempDir = "/tmp/tqserver/bin"
+	config.Workers.BinDir = "bin"
 	config.Workers.PortRangeStart = 9000
 	config.Workers.PortRangeEnd = 9999
 	config.Workers.StartupDelayMs = 100

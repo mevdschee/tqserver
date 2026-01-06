@@ -20,7 +20,7 @@ server:
 workers:
   # Directory for temporary worker binaries
   # Can be absolute path or relative to project root
-  temp_dir: "/tmp/tqserver/bin" # Default: /tmp/tqserver/bin
+  temp_dir: "bin" # Default: bin
 
   # Port range for worker processes
   # Workers are assigned ports sequentially from this range

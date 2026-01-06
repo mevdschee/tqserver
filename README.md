@@ -142,7 +142,7 @@ server:
 
 # Worker settings
 workers:
-  temp_dir: "/tmp/tqserver/bin" # Directory for temporary worker binaries
+  bin_dir: "bin" # Directory for compiled worker binaries
 
   # Port range for worker processes
   port_range_start: 9000 # First port for workers
@@ -196,14 +196,14 @@ pages:
 
 #### Worker Settings
 
-| Option                     | Type   | Default             | Description                                        |
-| -------------------------- | ------ | ------------------- | -------------------------------------------------- |
-| `temp_dir`                 | string | `/tmp/tqserver/bin` | Directory for compiled worker binaries             |
-| `port_range_start`         | int    | 9000                | First port in worker port pool                     |
-| `port_range_end`           | int    | 9999                | Last port in worker port pool                      |
-| `startup_delay_ms`         | int    | 100                 | Delay after starting worker before routing traffic |
-| `restart_delay_ms`         | int    | 100                 | Delay before stopping old worker during restart    |
-| `shutdown_grace_period_ms` | int    | 500                 | Time allowed for graceful shutdown                 |
+| Option                     | Type   | Default | Description                                        |
+| -------------------------- | ------ | ------- | -------------------------------------------------- |
+| `bin_dir`                  | string | `bin`   | Directory for compiled worker binaries             |
+| `port_range_start`         | int    | 9000    | First port in worker port pool                     |
+| `port_range_end`           | int    | 9999    | Last port in worker port pool                      |
+| `startup_delay_ms`         | int    | 100     | Delay after starting worker before routing traffic |
+| `restart_delay_ms`         | int    | 100     | Delay before stopping old worker during restart    |
+| `shutdown_grace_period_ms` | int    | 500     | Time allowed for graceful shutdown                 |
 
 #### Worker Default Settings
 
