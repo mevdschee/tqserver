@@ -2,12 +2,10 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -236,63 +234,16 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 
 	log.Printf("Starting worker for %s on port %d", worker.Route, port)
 
-	// Start worker binary
-	cmd := exec.Command(worker.Binary)
-
-		// Replace {date} with current date
-		dateStr := time.Now().Format("2006-01-02")
-		logFilePath = strings.ReplaceAll(logFilePath, "{date}", dateStr)
-
-		// Make path absolute if not already
-		if !filepath.IsAbs(logFilePath) {
-			logFilePath = filepath.Join(s.projectRoot, logFilePath)
-		}
-
-		// Clean the path
-		logFilePath = filepath.Clean(logFilePath)
-
-		// Create log directory if it doesn't exist
-		logDir := filepath.Dir(logFilePath)
-		if mkdirErr := os.MkdirAll(logDir, 0755); mkdirErr != nil {
-			return fmt.Errorf("failed to create log directory: %w", mkdirErr)
-		}
-
-		// Create log file for this worker
-		var openErr error
-		logFile, openErr = os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-		if openErr != nil {
-			return fmt.Errorf("failed to create log file: %w", openErr)
-		}
-	}
-
 	// Start the worker process
 	cmd := exec.Command(worker.Binary)
 	cmd.Dir = s.projectRoot // Set working directory to project root
 	envVars := []string{
 		fmt.Sprintf("PORT=%d", port),
 		fmt.Sprintf("ROUTE=%s", worker.Route),
-		fmt.Sprintf("READ_TIMEOUT_SECONDS=%d", settings.RequestTimeoutSeconds),
-		fmt.Sprintf("WRITE_TIMEOUT_SECONDS=%d", settings.RequestTimeoutSeconds),
-		fmt.Sprintf("IDLE_TIMEOUT_SECONDS=%d", settings.IdleTimeoutSeconds),
-	}
-	// Set GOMAXPROCS if configured
-	if settings.GOMAXPROCS > 0 {
-		envVars = append(envVars, fmt.Sprintf("GOMAXPROCS=%d", settings.GOMAXPROCS))
-	}
-	// Set GOMEMLIMIT if configured
-	if settings.GOMEMLIMIT != "" {
-		envVars = append(envVars, fmt.Sprintf("GOMEMLIMIT=%s", settings.GOMEMLIMIT))
 	}
 	cmd.Env = append(os.Environ(), envVars...)
-
-	// Configure output: log to file if configured, otherwise just stdout/stderr
-	if logFile != nil {
-		cmd.Stdout = io.MultiWriter(os.Stdout, logFile)
-		cmd.Stderr = io.MultiWriter(os.Stderr, logFile)
-	} else {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start worker: %w", err)
@@ -302,15 +253,10 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 	worker.StartTime = time.Now()
 	worker.SetHealthy(true)
 
-	if logFilePath != "" {
-		log.Printf("✅ Worker started for %s on port %d (PID: %d) - logs: %s",
-			worker.Route, port, cmd.Process.Pid, logFilePath)
-	} else {
-		log.Printf("✅ Worker started for %s on port %d (PID: %d) - no file logging",
-			worker.Route, port, cmd.Process.Pid)
-	}
+	log.Printf("✅ Worker started for %s on port %d (PID: %d)",
+		worker.Route, port, cmd.Process.Pid)
 
-	// Monitor the process (but don't mark unhealthy on exit if we're restarting)
+	// Monitor the process
 	go func() {
 		procPid := cmd.Process.Pid
 		err := cmd.Wait()
@@ -319,10 +265,8 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 		} else {
 			log.Printf("Worker for %s (PID: %d) exited cleanly", worker.Route, procPid)
 		}
-		// Only mark unhealthy if this is still the current process
-		if worker.Process != nil && worker.Process.Pid == procPid {
-			worker.SetHealthy(false)
-		}
+
+		worker.SetHealthy(false)
 	}()
 
 	// Give it a moment to start

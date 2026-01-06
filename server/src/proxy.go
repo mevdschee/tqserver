@@ -85,15 +85,6 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s %s -> worker on port %d", r.Method, r.URL.Path, worker.Port)
 	proxy.ServeHTTP(w, r)
 
-	// Increment request count for this worker
-	requestCount := worker.IncrementRequestCount()
-
-	// Get worker settings for this path
-	settings := p.config.GetWorkerSettings(worker.Route)
-
-	// Check if worker needs to be restarted due to max_requests limit
-	if settings.MaxRequests > 0 && requestCount >= settings.MaxRequests {
-		log.Printf("Worker on port %d (route: %s) reached max requests (%d), will be restarted", worker.Port, worker.Route, settings.MaxRequests)
-		// Note: The actual restart will be handled by the supervisor
-	}
+	// Increment request count for this worker (used for monitoring)
+	worker.IncrementRequestCount()
 }

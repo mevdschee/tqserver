@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -70,22 +69,12 @@ func NewRouter(workersDir, projectRoot string, workerConfigs []*WorkerConfigWith
 	}
 }
 
-// DiscoverRoutes scans the pages directory and discovers all routes
+// DiscoverRoutes loads route configuration from worker configs
 func (r *Router) DiscoverRoutes() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	pagesPath := filepath.Join(r.projectRoot, r.pagesDir)
-
-	// Check if pages directory exists
-	if _, err := os.Stat(pagesPath); os.IsNotExist(err) {
-		log.Printf("Pages directory does not exist: %s", pagesPath)
-		return nil
-	}
-
-	log.Printf("Discovering routes in: %s", pagesPath)
-
-	log.Printf("Routes will be loaded from worker configs...")
+	log.Printf("Loading routes from worker configs...")
 
 	// Workers will be registered when supervisor builds and starts them
 	for _, workerMeta := range r.workerConfigs {
