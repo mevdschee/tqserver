@@ -1,6 +1,6 @@
 # Example: Custom TQServer Configuration
 # This file demonstrates all available server-level configuration options
-# 
+#
 # IMPORTANT: Per-worker configuration (path, runtime, timeouts, logging) is configured
 # in each worker's config/worker.yaml file, NOT in this server.yaml file.
 # See workers/index/config/worker.yaml for an example worker configuration.

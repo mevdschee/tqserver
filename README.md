@@ -199,7 +199,7 @@ workers:
     write_timeout_seconds: 30 # HTTP write timeout for workers
     idle_timeout_seconds: 120 # HTTP idle timeout for workers
     go_mem_limit: "" # Memory limit (e.g., "512MiB", "2GiB", empty = unlimited)
-    log_file: "logs/{path}/worker_{date}.log" # Worker log file template
+    log_file: "logs/worker_{name}_{date}.log" # Worker log file template
 
   # Per-path worker overrides (optional)
   paths:
@@ -255,7 +255,7 @@ These settings apply to all workers unless overridden in `paths`:
 | `write_timeout_seconds` | int    | 30                              | HTTP write timeout for worker                                                                               |
 | `idle_timeout_seconds`  | int    | 120                             | HTTP idle timeout for worker                                                                                |
 | `go_mem_limit`          | string | ""                              | Go's GOMEMLIMIT (e.g., "512MiB", "2GiB"). Empty = unlimited                                                 |
-| `log_file`              | string | `logs/{path}/worker_{date}.log` | Worker log file template. Supports `{path}` and `{date}` placeholders. Use `~`, `null`, or empty to disable |
+| `log_file`              | string | `logs/worker_{name}_{date}.log` | Worker log file template. Supports `{name}` and `{date}` placeholders. Use `~`, `null`, or empty to disable |
 
 #### File Watcher Settings
 

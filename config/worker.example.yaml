@@ -37,7 +37,7 @@ timeouts:
 # Logging
 logging:
   # Log file path
-  # Placeholders: 
+  # Placeholders:
   #   {name} = worker name (from directory name)
   #   {date} = current date (YYYY-MM-DD)
   # Use null, empty string, or ~ to disable file logging (stdout/stderr only)
