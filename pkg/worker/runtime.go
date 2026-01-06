@@ -31,9 +31,9 @@ func NewRuntime() *Runtime {
 	}
 
 	// Get timeout settings from environment
-	readTimeout := parseTimeout("READ_TIMEOUT_SECONDS", 30)
-	writeTimeout := parseTimeout("WRITE_TIMEOUT_SECONDS", 30)
-	idleTimeout := parseTimeout("IDLE_TIMEOUT_SECONDS", 120)
+	readTimeout := parseTimeout("WORKER_READ_TIMEOUT_SECONDS", 30)
+	writeTimeout := parseTimeout("WORKER_WRITE_TIMEOUT_SECONDS", 30)
+	idleTimeout := parseTimeout("WORKER_IDLE_TIMEOUT_SECONDS", 120)
 
 	return &Runtime{
 		Port:         port,

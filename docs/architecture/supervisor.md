@@ -107,7 +107,14 @@ func (s *Supervisor) StartWorker(name string) error {
         fmt.Sprintf("WORKER_PORT=%d", port),
         fmt.Sprintf("WORKER_NAME=%s", worker.Name),
         fmt.Sprintf("WORKER_ROUTE=%s", worker.Route),
-        fmt.Sprintf("WORKER_NAME=%s", name),
+        fmt.Sprintf("WORKER_MODE=%s", mode),
+        // Timeout settings from worker config
+        fmt.Sprintf("WORKER_READ_TIMEOUT_SECONDS=%d", config.Timeouts.ReadTimeout),
+        fmt.Sprintf("WORKER_WRITE_TIMEOUT_SECONDS=%d", config.Timeouts.WriteTimeout),
+        fmt.Sprintf("WORKER_IDLE_TIMEOUT_SECONDS=%d", config.Timeouts.IdleTimeout),
+        // Runtime settings from worker config
+        fmt.Sprintf("GOMAXPROCS=%d", config.Runtime.GOMAXPROCS),
+        fmt.Sprintf("GOMEMLIMIT=%s", config.Runtime.GOMEMLIMIT),
     )
     cmd.Dir = filepath.Join("workers", name)
     

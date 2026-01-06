@@ -319,15 +319,37 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 	// This allows workers to access views/, config/, data/ folders using relative paths
 	workerRoot := filepath.Join(s.projectRoot, s.config.Workers.Directory, worker.Name)
 
-	// Start the worker process
-	cmd := exec.Command(worker.Binary)
-	cmd.Dir = workerRoot // Set working directory to worker root (e.g., workers/index/)
+	// Get worker-specific configuration
+	workerConfig := s.getWorkerConfig(worker.Name)
+
+	// Build environment variables
 	envVars := []string{
 		fmt.Sprintf("WORKER_PORT=%d", port),
 		fmt.Sprintf("WORKER_NAME=%s", worker.Name),
 		fmt.Sprintf("WORKER_ROUTE=%s", worker.Route),
 		fmt.Sprintf("WORKER_MODE=%s", "development"), // TODO: Make configurable
 	}
+
+	// Add timeout settings from worker config if available
+	if workerConfig != nil {
+		if workerConfig.Config.Timeouts.RequestTimeoutSeconds > 0 {
+			envVars = append(envVars, fmt.Sprintf("WORKER_READ_TIMEOUT_SECONDS=%d", workerConfig.Config.Timeouts.RequestTimeoutSeconds))
+			envVars = append(envVars, fmt.Sprintf("WORKER_WRITE_TIMEOUT_SECONDS=%d", workerConfig.Config.Timeouts.RequestTimeoutSeconds))
+		}
+		if workerConfig.Config.Timeouts.IdleTimeoutSeconds > 0 {
+			envVars = append(envVars, fmt.Sprintf("WORKER_IDLE_TIMEOUT_SECONDS=%d", workerConfig.Config.Timeouts.IdleTimeoutSeconds))
+		}
+		if workerConfig.Config.Runtime.GOMAXPROCS > 0 {
+			envVars = append(envVars, fmt.Sprintf("GOMAXPROCS=%d", workerConfig.Config.Runtime.GOMAXPROCS))
+		}
+		if workerConfig.Config.Runtime.GOMEMLIMIT != "" {
+			envVars = append(envVars, fmt.Sprintf("GOMEMLIMIT=%s", workerConfig.Config.Runtime.GOMEMLIMIT))
+		}
+	}
+
+	// Start the worker process
+	cmd := exec.Command(worker.Binary)
+	cmd.Dir = workerRoot // Set working directory to worker root (e.g., workers/index/)
 	cmd.Env = append(os.Environ(), envVars...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

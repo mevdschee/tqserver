@@ -355,12 +355,17 @@ documentation.
 
 TQServer passes configuration to workers via environment variables:
 
-| Variable       | Description                                      | Example         |
-| -------------- | ------------------------------------------------ | --------------- |
-| `WORKER_PORT`  | Port number assigned to this worker              | `9000`          |
-| `WORKER_NAME`  | Worker name (from directory)                     | `index`         |
-| `WORKER_ROUTE` | URL path prefix for this worker                  | `/`             |
-| `WORKER_MODE`  | Deployment mode (development/production)         | `development`   |
+| Variable                         | Description                                      | Example         | Source                    |
+| -------------------------------- | ------------------------------------------------ | --------------- | ------------------------- |
+| `WORKER_PORT`                    | Port number assigned to this worker              | `9000`          | Supervisor (auto)         |
+| `WORKER_NAME`                    | Worker name (from directory)                     | `index`         | Supervisor (auto)         |
+| `WORKER_ROUTE`                   | URL path prefix for this worker                  | `/`             | Worker config             |
+| `WORKER_MODE`                    | Deployment mode (development/production)         | `development`   | Server mode               |
+| `WORKER_READ_TIMEOUT_SECONDS`    | HTTP read timeout                                | `30`            | Worker config (optional)  |
+| `WORKER_WRITE_TIMEOUT_SECONDS`   | HTTP write timeout                               | `30`            | Worker config (optional)  |
+| `WORKER_IDLE_TIMEOUT_SECONDS`    | HTTP idle/keep-alive timeout                     | `120`           | Worker config (optional)  |
+| `GOMAXPROCS`                     | Go runtime CPU limit (number of threads)         | `2`             | Worker config (optional)  |
+| `GOMEMLIMIT`                     | Go runtime soft memory limit                     | `512MiB`        | Worker config (optional)  |
 
 Workers access these variables using Go's standard library:
 
@@ -373,7 +378,8 @@ func main() {
     route := os.Getenv("WORKER_ROUTE")      // "/"
     mode := os.Getenv("WORKER_MODE")        // "development"
     
-    // Use these to configure your worker...
+    // Timeout and runtime values are automatically used by worker.NewRuntime()
+    // GOMAXPROCS and GOMEMLIMIT are automatically applied by Go runtime
 }
 ```
 

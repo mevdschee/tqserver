@@ -130,10 +130,15 @@ func main() {
 TQServer communicates configuration to workers via environment variables:
 
 ```bash
-WORKER_PORT=9000        # Assigned port
-WORKER_NAME=api         # Worker name
-WORKER_ROUTE=/api       # Worker route
-WORKER_MODE=development # Deployment mode
+WORKER_PORT=9000                    # Assigned port
+WORKER_NAME=api                     # Worker name
+WORKER_ROUTE=/api                   # Worker route
+WORKER_MODE=development             # Deployment mode
+WORKER_READ_TIMEOUT_SECONDS=30      # HTTP read timeout (from config)
+WORKER_WRITE_TIMEOUT_SECONDS=30     # HTTP write timeout (from config)
+WORKER_IDLE_TIMEOUT_SECONDS=120     # HTTP idle timeout (from config)
+GOMAXPROCS=2                        # Go runtime CPU limit (from config)
+GOMEMLIMIT=512MiB                   # Go runtime memory limit (from config)
 ```
 
 **Accessing in Worker**:
@@ -142,6 +147,9 @@ workerPort := os.Getenv("WORKER_PORT")
 workerName := os.Getenv("WORKER_NAME")
 workerRoute := os.Getenv("WORKER_ROUTE")
 workerMode := os.Getenv("WORKER_MODE")
+
+// Timeout values are automatically used by worker.NewRuntime()
+// Runtime limits (GOMAXPROCS, GOMEMLIMIT) are automatically applied by Go runtime
 ```
 
 ### Signal Handling
