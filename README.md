@@ -351,6 +351,32 @@ documentation.
 
 ## Worker Development
 
+### Environment Variables
+
+TQServer passes configuration to workers via environment variables:
+
+| Variable       | Description                                      | Example         |
+| -------------- | ------------------------------------------------ | --------------- |
+| `WORKER_PORT`  | Port number assigned to this worker              | `9000`          |
+| `WORKER_NAME`  | Worker name (from directory)                     | `index`         |
+| `WORKER_ROUTE` | URL path prefix for this worker                  | `/`             |
+| `WORKER_MODE`  | Deployment mode (development/production)         | `development`   |
+
+Workers access these variables using Go's standard library:
+
+```go
+import "os"
+
+func main() {
+    port := os.Getenv("WORKER_PORT")        // "9000"
+    name := os.Getenv("WORKER_NAME")        // "index"
+    route := os.Getenv("WORKER_ROUTE")      // "/"
+    mode := os.Getenv("WORKER_MODE")        // "development"
+    
+    // Use these to configure your worker...
+}
+```
+
 ### Worker Runtime Package
 
 Workers use the `pkg/worker` package for initialization and HTTP server
@@ -370,11 +396,8 @@ import (
 )
 
 func main() {
-    // Initialize worker runtime (reads TQ_* environment variables)
-    runtime, err := worker.NewRuntime()
-    if err != nil {
-        log.Fatal(err)
-    }
+    // Initialize worker runtime (reads WORKER_* environment variables)
+    runtime := worker.NewRuntime()
 
     // Set up routes
     http.HandleFunc("/", handleIndex)

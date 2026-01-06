@@ -263,7 +263,7 @@ import (
 )
 
 func main() {
-    port := os.Getenv("PORT")
+    port := os.Getenv("WORKER_PORT")
     if port == "" {
         port = "9000"
     }
@@ -318,7 +318,7 @@ type Response struct {
 }
 
 func main() {
-    port := os.Getenv("PORT")
+    port := os.Getenv("WORKER_PORT")
     
     http.HandleFunc("/", indexHandler)
     http.HandleFunc("/users", usersHandler)
