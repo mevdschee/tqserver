@@ -384,7 +384,11 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 			log.Printf("Worker for %s (PID: %d) exited cleanly", worker.Route, procPid)
 		}
 
-		worker.SetHealthy(false)
+		// Only mark as unhealthy if this is still the current process
+		// (prevents old process exits from affecting new processes after restart)
+		if worker.Process != nil && worker.Process.Pid == procPid {
+			worker.SetHealthy(false)
+		}
 	}()
 
 	// Give it a moment to start
@@ -437,8 +441,20 @@ func (s *Supervisor) monitorWorkerLimits() {
 					continue
 				}
 
-				// TODO: Get max_requests from worker config and enforce limit
-				// For now, skip this check as we need to refactor config access
+				// Check max_requests limit from worker config
+				workerConfig := s.getWorkerConfig(worker.Name)
+				if workerConfig != nil && workerConfig.Config.Runtime.MaxRequests > 0 {
+					requestCount := worker.GetRequestCount()
+					if requestCount >= workerConfig.Config.Runtime.MaxRequests {
+						log.Printf("Worker %s reached max_requests limit (%d/%d), restarting...",
+							worker.Name, requestCount, workerConfig.Config.Runtime.MaxRequests)
+						if err := s.restartWorker(worker); err != nil {
+							log.Printf("Failed to restart worker %s due to max_requests: %v", worker.Name, err)
+						} else {
+							log.Printf("✅ Worker %s restarted after reaching max_requests", worker.Name)
+						}
+					}
+				}
 			}
 		}
 	}

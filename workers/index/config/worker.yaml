@@ -13,7 +13,7 @@ runtime:
   go_mem_limit: ""
 
   # Restart worker after N requests (0 = unlimited)
-  max_requests: 0
+  max_requests: 1
 
 # Logging
 logging:
