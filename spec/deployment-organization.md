@@ -97,18 +97,6 @@ tqserver/
 │   │   └── private/
 │   │       └── config/
 │   │           └── validation.yaml
-│   │
-│   └── shared/                    # Shared resources across workers
-│       ├── public/                # Shared public assets
-│       │   ├── css/
-│       │   │   └── common.css
-│       │   └── js/
-│       │       └── utils.js
-│       └── private/               # Shared templates
-│           └── templates/
-│               ├── base.html
-│               └── error.html
-│
 │
 ├── config/
 │   ├── server.yaml                # Server config (dev and prod)
@@ -161,16 +149,14 @@ The server continuously monitors worker binaries and assets by checking file mod
    - Binary path and mtime at startup
    - Asset directories (public/private) and latest mtime
 
-2. **Periodic Checks**: Every N seconds (configurable), server checks:
-   - Binary file mtime: `workers/{name}/bin/{name}`
-   - Public assets mtime: Latest file in `workers/{name}/public/`
-   - Private assets mtime: Latest file in `workers/{name}/private/`
+2. **SIGHUP Signal**: On receiving SIGHUP, server checks:
+   - Server binary file mtime: `server/bin/tqserver`
+   - Worker binary file mtime: `workers/{name}/bin/{name}`
 
-3. **Restart on Changes**: If any file has newer mtime than recorded:
-   - Start new worker on new port
-   - Health check new worker
-   - Switch traffic to new worker
-   - Gracefully stop old worker
+3. **Restart or Reload on Changes**: If any file has newer mtime than recorded:
+   - If binary changed: Full worker restart (new port, health check, traffic switch)
+   - If only config changed: Reload server using sighup
+   - Update registry with new mtimes on startup/reload
 
 ### Worker Registry Structure
 
@@ -221,22 +207,16 @@ var runningWorkers = map[string]*WorkerInstance{
 ### Development Mode
 
 #### File Watcher
-Monitors changes to source and resource files:
+Monitors changes to source and config files:
 ```yaml
 file_watcher:
   enabled: true  # Only in dev mode
+  debounce_ms: 100
   watch_patterns:
     - "workers/*/src/**/*.go"
-    - "workers/*/public/**/*"
-    - "workers/*/private/**/*"
     - "server/src/**/*.go"
-    - "config/*.yaml"
-  
-  debounce_ms: 100
-  
-  on_change:
-    rebuild_if_needed: true
-    restart_worker: true
+    - "config/*.yaml" 
+
 ```
 
 #### Development Build
@@ -254,30 +234,25 @@ go build -o workers/index/bin/index workers/index/src/*.go
 2. File watcher detects change
 3. Rebuild `workers/index/bin/index`
 4. File mtime updates
-5. Server detects newer binary mtime
-6. Server restarts worker on new port
-7. Traffic switched to new worker
-
-For resource-only changes (no binary rebuild):
-1. Developer edits `workers/index/public/css/styles.css`
-2. File watcher detects change (optional in dev)
-3. File mtime updates
-4. Server detects newer asset mtime
-5. Server restarts worker (reloads templates/resources)
+5. A sighup is fired at the server
+6. Server detects newer binary mtime
+7. Server restarts worker on new port
+8. Traffic switched to new worker
 
 ### Production Mode
 
 #### Timestamp Checking
 ```yaml
 file_watcher:
-  enabled: false  # Disabled in prod (use polling instead)
+  enabled: false  # Disabled in prod (use SIGHUP instead)
 
 deployment:
   mode: "prod"
-  check_interval_seconds: 60  # Check file timestamps every 60s
+  check_on_sighup: true  # Check file timestamps on SIGHUP signal
   
   on_file_change:
-    - restart_affected_worker
+    - restart_server  # If binary changed
+    - restart_affected_worker  # If binary changed
 ```
 
 #### Production Build and Deploy
@@ -295,29 +270,6 @@ scp workers/index/bin/index user@server:/opt/tqserver/workers/index/bin/
 # Server will detect mtime change and restart worker
 ```
 
-#### Resource Access in Code
-```go
-package main
-
-import (
-    "net/http"
-    "os"
-    "path/filepath"
-)
-
-func loadTemplate(name string) ([]byte, error) {
-    basePath := os.Getenv("TQ_WORKER_BASE") // e.g., "workers/index"
-    templatePath := filepath.Join(basePath, "private/views", name)
-    return os.ReadFile(templatePath)
-}
-
-func serveStatic(w http.ResponseWriter, r *http.Request) {
-    basePath := os.Getenv("TQ_WORKER_BASE")
-    publicPath := filepath.Join(basePath, "public")
-    http.FileServer(http.Dir(publicPath)).ServeHTTP(w, r)
-}
-```
-
 ## Configuration Changes
 
 ### New `config/deployment.yaml`
@@ -333,9 +285,6 @@ deployment:
       debounce_ms: 100
       watch_patterns:
         - "workers/*/src/**/*.go"
-        - "workers/*/public/**/*"
-        - "workers/*/private/**/*"
-        - "workers/shared/**/*"
         - "server/src/**/*.go"
         - "config/*.yaml"
     
@@ -345,21 +294,16 @@ deployment:
     
     resources:
       base_path: "workers"  # Load from workers/{name}/
-      cache_templates: false  # Reload on every request
       watch_resource_changes: true
   
   # Production mode settings
   prod:
     file_watcher:
-      enabled: false  # Use timestamp polling instead
+      enabled: false  # Use SIGHUP instead
     
     timestamp_check:
       enabled: true
-      check_interval_seconds: 60  # Check file mtimes every 60 seconds
-      check_paths:
-        - "workers/*/bin/*"        # Worker binaries
-        - "workers/*/public/**/*"   # Public assets
-        - "workers/*/private/**/*"  # Private resources
+      trigger: "sighup"  # Only check on SIGHUP signal
     
     build:
       output_dir: "workers"  # Build directly to workers/{name}/bin/
@@ -368,7 +312,6 @@ deployment:
     
     resources:
       base_path: "workers"  # Load from workers/{name}/
-      cache_templates: true
       watch_resource_changes: false
 
 # Binary naming
@@ -415,7 +358,7 @@ workers:
   # Timestamp checking (prod only)
   timestamp_check:
     enabled: true  # In prod mode
-    check_interval_seconds: 60
+    trigger: "sighup"  # Only on SIGHUP signal
   
   # Worker discovery
   discovery:
@@ -457,11 +400,6 @@ echo "Building workers for development..."
 
 for worker_dir in $WORKERS_DIR/*/; do
     worker_name=$(basename "$worker_dir")
-    
-    # Skip shared directory
-    if [ "$worker_name" = "shared" ]; then
-        continue
-    fi
     
     src_dir="$worker_dir/src"
     if [ ! -f "$src_dir/main.go" ]; then
@@ -524,10 +462,6 @@ echo "✓ Built server"
 # Build workers
 for worker_dir in $WORKERS_DIR/*/; do
     worker_name=$(basename "$worker_dir")
-    
-    if [ "$worker_name" = "shared" ]; then
-        continue
-    fi
     
     src_dir="$worker_dir/src"
     if [ ! -f "$src_dir/main.go" ]; then
@@ -615,43 +549,12 @@ fi
 echo ""
 echo "✅ Deployed to $TARGET successfully"
 echo ""
-echo "Server will detect changes and restart affected workers within 60 seconds."
-echo "Or trigger immediate check: ssh $SERVER 'killall -HUP tqserver'"
+echo "Trigger reload: ssh $SERVER 'killall -HUP tqserver'"
 echo ""
 echo "Monitor deployment:"
 echo "  ssh $SERVER 'tail -f $DEPLOY_PATH/logs/server_*.log'"
 ```
 
-## Implementation Plan
-    exit 1
-fi
-
-TARGET=$1
-DRY_RUN=""
-if [ "$2" = "--dry-run" ]; then
-    DRY_RUN="--dry-run"
-fi
-
-# Load deployment config
-case $TARGET in
-    staging)
-        SERVER="deploy@staging.example.com"
-        DEPLOY_PATH="/opt/tqserver"
-        ;;
-    production)
-        SERVER="deploy@prod.example.com"
-        DEPLOY_PATH="/opt/tqserver"
-        ;;
-    *)
-        echo "Unknown target: $TARGET"
-        exit 1
-        ;;
-esac
-
-echo "Deploying to $TARGET..."
-echo "Server: $SERVER"
-echo "Path: $DEPLOY_PATH"
-echo ""
 ## Implementation Plan
 
 ### Phase 1: Restructure Directories (Week 1)
@@ -677,7 +580,7 @@ echo ""
 1. **Implement timestamp tracking utilities**
    - `pkg/supervisor/timestamps.go`: File mtime tracking
    - `pkg/supervisor/registry.go`: Worker registry with file mtimes
-   - `pkg/supervisor/checker.go`: Periodic timestamp checking
+   - `pkg/supervisor/checker.go`: SIGHUP-triggered timestamp checking
 
 2. **Build scripts**
    - `scripts/build-dev.sh`: Dev builds with timestamp-based rebuilds
@@ -687,7 +590,7 @@ echo ""
 3. **Worker registry**
    - In-memory registry of running workers
    - Track binary and asset mtimes
-   - Implement comparison logic
+   - Implement comparison logic on SIGHUP
 
 ### Phase 3: Resource Loading (Week 2)
 1. **Resource loading abstraction**
@@ -718,23 +621,23 @@ echo ""
    - Rebuild and restart worker immediately
 
 ### Phase 5: Production Mode (Week 3)
-1. **Timestamp checking**
-   - Periodic polling (every 60s)
-   - Check mtimes of binaries and assets
+1. **SIGHUP-triggered checking**
+   - Register SIGHUP signal handler
+   - Check mtimes of binaries and assets on signal
    - Compare against recorded mtimes in registry
 
-2. **SIGHUP handler**
-   - Reload config on SIGHUP
-   - Trigger immediate timestamp check
-   - Force restart of workers if changes detected
+2. **Smart restart logic**
+   - Binary change: Full restart (new port, health check, traffic switch)
+   - Asset-only change: Reload without restart
+   - Update registry with new mtimes
 
 3. **Disable file watcher in prod**
    - Check deployment mode from config
    - Skip watcher if mode=prod
-   - Use polling instead
+   - Use SIGHUP signal instead
 
 4. **Worker restart logic**
-   - Start new worker on new port
+   - Start new worker on new port (if binary changed)
    - Health check
    - Switch traffic
    - Stop old worker
@@ -764,8 +667,9 @@ echo ""
 
 2. **Integration tests**
    - Dev mode workflow with file watcher
-   - Prod mode workflow with timestamp polling
-   - Rolling restart on file changes
+   - Prod mode workflow with SIGHUP-triggered checking
+   - Rolling restart on binary changes
+   - Asset reload without restart
    - SIGHUP handling
    - Incremental deployment
 
@@ -816,7 +720,7 @@ echo ""
 ✅ **Zero-downtime**: Workers restart on new ports
 ✅ **Efficient**: Only changed workers restart
 ✅ **Flexible**: No coordination needed
-✅ **Fast detection**: 60-second check interval
+✅ **On-demand checking**: SIGHUP triggers reload
 ✅ **Transparent**: File mtimes are standard and reliable
 
 ### Operations
@@ -824,7 +728,7 @@ echo ""
 ✅ **Easy rollback**: Git revert + rebuild + deploy
 ✅ **Resource efficient**: Only changed workers restart
 ✅ **Simple monitoring**: Check file mtimes and worker status
-✅ **Manual control**: SIGHUP for immediate checks
+✅ **Manual control**: SIGHUP triggers reload when ready
 
 ## Security Considerations
 
@@ -853,14 +757,15 @@ echo ""
 
 ### Timestamp Checking
 - **Dev mode**: Immediate via file watcher
-- **Prod mode**: Every 60 seconds (configurable)
+- **Prod mode**: On SIGHUP signal only
 - Cost per check: `stat()` calls on binary and asset directories
-- Very low overhead (microseconds per worker)
+- Very low overhead (only when triggered)
 
 ### Resource Access
 - All modes: Filesystem I/O (OS cache optimized)
-- Template caching reduces repeated reads
+- No assumptions about template caching (application decides)
 - Public assets served with browser cache headers
+- Private resources reloaded on change detection
 
 ## Future Enhancements
 
@@ -876,29 +781,6 @@ echo ""
 - **Coordinated restarts**: Cluster-wide orchestration
 - **Central storage**: Shared filesystem or object storage for binaries
 - **Health aggregation**: Cluster health monitoring
-
-## Open Questions
-
-1. **Check interval**: Is 60 seconds acceptable for production?
-   - **Proposed**: Configurable, default 60s, can be reduced to 10-30s
-   - Can use SIGHUP for immediate checks
-
-2. **Mtime reliability**: What if system clocks are off?
-   - **Proposed**: Document requirement for NTP sync
-   - Consider adding file size as secondary check
-
-3. **Partial deployments**: What if only assets change?
-   - **Current**: Worker still restarts (reloads templates)
-   - **Future**: Smart restart - only reload resources without port change
-
-4. **Large assets**: What if asset directories are huge?
-   - **Proposed**: Use rsync for efficient transfers
-   - Consider CDN for very large static assets
-
-5. **Concurrent deployments**: What if deploying while server checking?
-   - **Proposed**: Rsync is atomic at file level
-   - Server sees complete files with updated mtimes
-   - Race conditions are safe (worst case: extra restart cycle)
 
 ## Conclusion
 
@@ -929,29 +811,6 @@ The phased implementation allows for incremental development and testing. The ti
 - **Coordinated restarts**: Cluster-wide orchestration
 - **Binary CDN**: Central storage for binaries
 - **Health aggregation**: Cluster health monitoring
-
-## Open Questions
-
-1. **Check interval**: Is 60 seconds acceptable for production?
-   - **Proposed**: Configurable, default 60s, can be reduced to 10-30s
-   - Can use SIGHUP for immediate checks
-
-2. **Mtime reliability**: What if system clocks are off?
-   - **Proposed**: Document requirement for NTP sync
-   - Consider adding file size as secondary check
-
-3. **Partial deployments**: What if only assets change?
-   - **Current**: Worker still restarts (reloads templates)
-   - **Future**: Smart restart - only reload resources without port change
-
-4. **Large assets**: What if asset directories are huge?
-   - **Proposed**: Use rsync for efficient transfers
-   - Consider CDN for very large static assets
-
-5. **Concurrent deployments**: What if deploying while server checking?
-   - **Proposed**: Rsync is atomic at file level
-   - Server sees complete files with updated mtimes
-   - Race conditions are safe (worst case: extra restart cycle)
 
 ## Conclusion
 
