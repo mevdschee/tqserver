@@ -86,7 +86,113 @@
    - Build output to workers/{name}/bin/ and server/bin/
    - Ready for integration with supervisor for hot reload
 
+## Completed Phase 5: Production Mode and Integration
+
+### What was done:
+
+1. **Created dev mode integration:**
+   - `pkg/devmode/devmode.go` - Development mode manager
+   - Integrates file watcher + builder for auto-rebuild
+   - Handles source, asset, and config changes
+   - Triggers worker restarts after successful builds
+   - Hot reload functionality for rapid development
+
+2. **Created prod mode integration:**
+   - `pkg/prodmode/prodmode.go` - Production mode manager
+   - SIGHUP signal-based change detection
+   - Worker registry integration for timestamp tracking
+   - Smart restart logic: binary vs assets vs both
+   - Manual check trigger for testing
+
+3. **Created mode controller:**
+   - `pkg/modecontroller/controller.go` - Unified mode switching
+   - Reads mode from environment (TQ_MODE or DEPLOYMENT_MODE)
+   - Automatically selects dev or prod mode
+   - Provides unified interface for both modes
+   - Worker registration/unregistration for prod mode
+
+4. **Created restart coordinator:**
+   - `pkg/coordinator/coordinator.go` - Zero-downtime restart orchestration
+   - Manages restart tasks with status tracking
+   - Prevents duplicate restarts
+   - Health check waiting with timeout
+   - Coordinated stop/start sequence
+
+5. **Compilation:**
+   - All packages compile successfully ✅
+   - No errors or warnings
+   - Ready for integration into main server
+
+6. **Health checking:**
+   - `pkg/supervisor/healthcheck.go` - HTTP-based worker health monitoring
+   - Periodic health checks with configurable interval
+   - Updates worker status in registry
+   - Single check capability for manual testing
+
+### Architecture:
+
+```
+Mode Controller (reads TQ_MODE env)
+    ├── Dev Mode
+    │   ├── File Watcher (fsnotify)
+    │   ├── Builder (go build)
+    │   └── Auto-restart on changes
+    │
+    └── Prod Mode
+        ├── SIGHUP Signal Handler
+        ├── Timestamp Checker
+        ├── Worker Registry
+        └── Smart restart (binary/assets/both)
+
+Restart Coordinator
+    └── Zero-downtime orchestration
+
+Health Checker
+    └── Periodic HTTP checks on /health endpoint
+```
+
+### Cleanup Complete:
+
+**Removed old directories:**
+- ✅ `bin/` - Old flat binary structure (now `server/bin/` and `workers/*/bin/`)
+- ✅ `cmd/` - Old command structure (now `server/src/`)
+- ✅ `internal/` - Old internal packages (now `server/src/`)
+- ✅ `pages/` - Old worker structure (now `workers/*/`)
+- ✅ `templates/` - Moved to `workers/index/private/templates/`
+
+**Updated template references:**
+- Changed from `templates/base.html` to `private/templates/base.html`
+- All worker HTML files updated
+
+### Current Structure:
+
+```
+tqserver/
+├── server/                  # Main server
+│   ├── src/                 # Server source
+│   ├── bin/                 # Server binary
+│   ├── public/              # Server public assets
+│   └── private/             # Server private resources
+├── workers/                 # All workers
+│   └── index/
+│       ├── src/             # Worker source
+│       ├── bin/             # Worker binary
+│       ├── public/          # Public assets
+│       └── private/         # Private resources & templates
+├── pkg/                     # Shared packages
+│   ├── supervisor/          # Timestamp, registry, health checks
+│   ├── watcher/             # File watching
+│   ├── builder/             # Build automation
+│   ├── devmode/             # Dev mode integration
+│   ├── prodmode/            # Prod mode integration
+│   ├── modecontroller/      # Mode switching
+│   └── coordinator/         # Restart coordination
+├── scripts/                 # Build scripts
+├── config/                  # Configuration
+└── docs/                    # Documentation
+```
+
 ### Next steps:
-- Phase 5: Production mode with SIGHUP handling (integrate watcher with supervisor)
 - Phase 6: Deployment scripts (rsync-based)
 - Phase 7: Testing and documentation
+- Integration: Wire controller into main server code
