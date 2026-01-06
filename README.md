@@ -49,16 +49,6 @@ Visit http://localhost:8080 to see it in action!
 Edit `pages/index/main.go` and save. The server will automatically rebuild and
 reload in under 1 second with zero downtime.
 
-## Command Line Options
-
-```bash
-bin/tqserver [options]
-
-Options:
-  -config string
-        Path to config file (default "config/server.yaml")
-```
-
 ## Project Structure
 
 The project follows Go's standard project layout for better modularity and
