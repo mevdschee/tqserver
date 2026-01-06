@@ -52,7 +52,7 @@ reload in under 1 second with zero downtime.
 ## Command Line Options
 
 ```bash
-./tqserver [options]
+bin/tqserver [options]
 
 Options:
   -config string
