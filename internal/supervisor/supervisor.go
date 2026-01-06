@@ -310,8 +310,8 @@ func (s *Supervisor) startWorker(worker *router.Worker) error {
 	envVars := []string{
 		fmt.Sprintf("PORT=%d", port),
 		fmt.Sprintf("ROUTE=%s", worker.Route),
-		fmt.Sprintf("READ_TIMEOUT_SECONDS=%d", settings.RequestTimeoutSeconds),
-		fmt.Sprintf("WRITE_TIMEOUT_SECONDS=%d", settings.RequestTimeoutSeconds),
+		fmt.Sprintf("READ_TIMEOUT_SECONDS=%d", settings.GetReadTimeout()),
+		fmt.Sprintf("WRITE_TIMEOUT_SECONDS=%d", settings.GetWriteTimeout()),
 		fmt.Sprintf("IDLE_TIMEOUT_SECONDS=%d", settings.IdleTimeoutSeconds),
 	}
 	// Set GOMAXPROCS if configured

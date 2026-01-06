@@ -14,8 +14,10 @@ import (
 type WorkerSettings struct {
 	GoMaxProcs            int    `yaml:"gomaxprocs"`
 	MaxRequests           int    `yaml:"max_requests"`
-	RequestTimeoutSeconds int    `yaml:"request_timeout_seconds"`
+	ReadTimeoutSeconds    int    `yaml:"read_timeout_seconds"`
+	WriteTimeoutSeconds   int    `yaml:"write_timeout_seconds"`
 	IdleTimeoutSeconds    int    `yaml:"idle_timeout_seconds"`
+	RequestTimeoutSeconds int    `yaml:"request_timeout_seconds"` // Deprecated: use read_timeout_seconds and write_timeout_seconds
 	GoMemLimit            string `yaml:"gomemlimit"`
 	LogFile               string `yaml:"log_file"`
 }
@@ -65,9 +67,11 @@ func LoadConfig(configPath string) (*Config, error) {
 	config.Workers.ShutdownGracePeriodMs = 500
 	config.Workers.Default.GoMaxProcs = 1
 	config.Workers.Default.MaxRequests = 0 // 0 = unlimited
-	config.Workers.Default.RequestTimeoutSeconds = 30
+	config.Workers.Default.ReadTimeoutSeconds = 30
+	config.Workers.Default.WriteTimeoutSeconds = 30
 	config.Workers.Default.IdleTimeoutSeconds = 120
-	config.Workers.Default.GoMemLimit = "" // empty = unlimited
+	config.Workers.Default.RequestTimeoutSeconds = 30 // Deprecated fallback
+	config.Workers.Default.GoMemLimit = ""            // empty = unlimited
 	config.Workers.Default.LogFile = "logs/{path}/worker_{date}.log"
 	config.Workers.Paths = make(map[string]WorkerSettings)
 	config.FileWatcher.DebounceMs = 50
@@ -131,6 +135,30 @@ func (c *Config) GetWorkerRequestTimeout() time.Duration {
 // GetWorkerIdleTimeout returns the worker idle timeout as a time.Duration
 func (c *Config) GetWorkerIdleTimeout() time.Duration {
 	return time.Duration(c.Workers.Default.IdleTimeoutSeconds) * time.Second
+}
+
+// GetWorkerReadTimeout returns the read timeout for worker settings with fallback
+func (ws *WorkerSettings) GetReadTimeout() int {
+	if ws.ReadTimeoutSeconds > 0 {
+		return ws.ReadTimeoutSeconds
+	}
+	// Fallback to deprecated RequestTimeoutSeconds
+	if ws.RequestTimeoutSeconds > 0 {
+		return ws.RequestTimeoutSeconds
+	}
+	return 30 // Default
+}
+
+// GetWriteTimeout returns the write timeout for worker settings with fallback
+func (ws *WorkerSettings) GetWriteTimeout() int {
+	if ws.WriteTimeoutSeconds > 0 {
+		return ws.WriteTimeoutSeconds
+	}
+	// Fallback to deprecated RequestTimeoutSeconds
+	if ws.RequestTimeoutSeconds > 0 {
+		return ws.RequestTimeoutSeconds
+	}
+	return 30 // Default
 }
 
 // GetWorkerSettings returns the worker settings for a given path.

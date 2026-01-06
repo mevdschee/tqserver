@@ -139,19 +139,23 @@ workers:
 
     # Default per-worker settings (applies to all workers unless overridden)
     default:
-        num_procs: 1 # Number of processes per worker route
+        gomaxprocs: 1 # CPU threads (0 = NumCPU)
         max_requests: 0 # Restart worker after N requests (0 = unlimited)
-        request_timeout_seconds: 30 # Request timeout for workers
-        idle_timeout_seconds: 120 # Idle timeout for workers
-        memory_limit_mb: 0 # Memory limit per worker in MB (0 = unlimited)
+        read_timeout_seconds: 30 # HTTP read timeout for workers
+        write_timeout_seconds: 30 # HTTP write timeout for workers
+        idle_timeout_seconds: 120 # HTTP idle timeout for workers
+        gomemlimit: "" # Memory limit (e.g., "512MiB", empty = unlimited)
+        log_file: "logs/{path}/worker_{date}.log" # Log file path template
 
     # Per-path worker overrides (optional)
     paths:
         "/api":
-            num_procs: 2
+            gomaxprocs: 2
             max_requests: 5000
-            request_timeout_seconds: 15
-            memory_limit_mb: 256
+            read_timeout_seconds: 15
+            write_timeout_seconds: 15
+            idle_timeout_seconds: 60
+            gomemlimit: "256MiB"
 
 file_watcher:
     debounce_ms: 50 # Debounce for file changes
@@ -174,21 +178,22 @@ You can configure different resource limits for specific routes using the
 ```yaml
 workers:
     default:
-        num_procs: 1
+        gomaxprocs: 1
         max_requests: 0
-        memory_limit_mb: 512
+        gomemlimit: "512MiB"
 
     paths:
         "/api": # More conservative limits for API endpoints
-            num_procs: 2
+            gomaxprocs: 2
             max_requests: 5000
-            request_timeout_seconds: 15
-            memory_limit_mb: 256
+            read_timeout_seconds: 15
+            write_timeout_seconds: 15
+            gomemlimit: "256MiB"
 
         "/webhooks": # More generous for webhooks
-            num_procs: 1
+            gomaxprocs: 1
             max_requests: 20000
-            memory_limit_mb: 1024
+            gomemlimit: "1GiB"
 ```
 
 Path matching uses the most specific prefix match:

@@ -34,7 +34,8 @@ workers:
   default:
     gomaxprocs: 2 # Default: 1 - Sets Go's GOMAXPROCS (CPU threads, 0 = NumCPU)
     max_requests: 10000 # Default: 0 (unlimited) - Restart worker after N requests
-    request_timeout_seconds: 60 # Default: 30 - Request timeout for workers
+    read_timeout_seconds: 60 # Default: 30 - HTTP read timeout for workers
+    write_timeout_seconds: 60 # Default: 30 - HTTP write timeout for workers
     idle_timeout_seconds: 180 # Default: 120 - Idle timeout for workers
     gomemlimit: "512MiB" # Default: "" (unlimited) - Go's GOMEMLIMIT (e.g., "512MiB", "2GiB")
     # Placeholders: {path} = worker path (e.g., api/users), {date} = YYYY-MM-DD date
@@ -48,6 +49,10 @@ workers:
     "/api":
       gomaxprocs: 2
       max_requests: 5000
+      read_timeout_seconds: 15
+      write_timeout_seconds: 15
+      idle_timeout_seconds: 60
+      gomemlimit: "256MiB"
       request_timeout_seconds: 15
       idle_timeout_seconds: 60
       gomemlimit: "256MiB"
