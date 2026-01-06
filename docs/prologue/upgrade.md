@@ -246,9 +246,10 @@ Before upgrading, ensure:
    
    # New format (0.9.0)
    server:
-     host: "0.0.0.0"
-     port: 8080
-     log_file: "logs/server-{date}.log"
+     port: 3000
+     read_timeout_seconds: 60
+     write_timeout_seconds: 60
+     log_file: "logs/tqserver_{date}.log"
    ```
 
 2. **Update Environment Variables**
@@ -414,10 +415,9 @@ go version
 **Solution**:
 ```yaml
 # Increase port pool size in config/server.yaml
-server:
-  port_pool:
-    start: 9000
-    end: 9200  # Increased from 9100
+workers:
+  port_range_start: 10000
+  port_range_end: 20000  # Increased range
 ```
 
 ### Issue: Health Check Failures

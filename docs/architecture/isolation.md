@@ -57,10 +57,9 @@ var cache = make(map[string]string)
 Workers run independently on CPU cores:
 
 ```yaml
-# Per-worker CPU limits
-worker:
-  resources:
-    max_cpu: 1.5  # 1.5 CPU cores
+# Per-worker CPU limits in config/worker.yaml
+runtime:
+  go_max_procs: 2  # Use 2 CPU cores
 ```
 
 **Benefits**:

@@ -185,11 +185,10 @@ func main() {
 Each worker has its own memory space:
 
 ```yaml
-# Worker-specific memory limits
-worker:
-  resources:
-    max_memory: "512M"
-    max_cpu: 1.0
+# Worker-specific limits in config/worker.yaml
+runtime:
+  go_mem_limit: "512MiB"
+  go_max_procs: 2
 ```
 
 **Advantages**:
@@ -203,25 +202,8 @@ worker:
 Workers can have individual CPU limits:
 
 ```yaml
-worker:
-  resources:
-    max_cpu: 2.0  # 2 cores
-```
-
-**Implementation** (via systemd or cgroups):
-```bash
-# Systemd slice for worker
-systemctl set-property worker-api.service CPUQuota=200%
-```
-
-### File Descriptors
-
-Each worker has its own file descriptor limit:
-
-```yaml
-worker:
-  resources:
-    max_open_files: 1024
+runtime:
+  go_max_procs: 2  # Use 2 cores
 ```
 
 ### Connection Pools

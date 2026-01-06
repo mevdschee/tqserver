@@ -91,21 +91,19 @@ Edit `config/server.yaml` with your preferences:
 
 ```yaml
 server:
-  host: "0.0.0.0"
-  port: 8080
-  log_file: "logs/server-{date}.log"
-  
-  port_pool:
-    start: 9000
-    end: 9100
+  port: 3000
+  read_timeout_seconds: 60
+  write_timeout_seconds: 60
+  idle_timeout_seconds: 180
+  log_file: "logs/tqserver_{date}.log"
 
 workers:
-  base_path: "workers"
-  health_check:
-    enabled: true
-    interval: 30s
-    timeout: 5s
-    path: "/health"
+  directory: "workers"
+  port_range_start: 10000
+  port_range_end: 19999
+
+file_watcher:
+  debounce_ms: 100
 ```
 
 ### Directory Structure
@@ -213,12 +211,12 @@ Congratulations! You've successfully installed TQServer. Here are some next step
 
 ### Port Already in Use
 
-If port 8080 is already in use:
+If port 3000 is already in use:
 
 ```yaml
 # config/server.yaml
 server:
-  port: 8081  # Change to an available port
+  port: 3001  # Change to an available port
 ```
 
 ### Permission Denied

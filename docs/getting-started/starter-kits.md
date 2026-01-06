@@ -288,17 +288,12 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 ```yaml
 # config/server.yaml
 server:
-  host: "0.0.0.0"
-  port: 8080
-  port_pool:
-    start: 9000
-    end: 9100
+  port: 3000
 
 workers:
-  base_path: "workers"
-  health_check:
-    enabled: true
-    interval: 30s
+  directory: "workers"
+  port_range_start: 10000
+  port_range_end: 19999
 ```
 
 ### API Template
@@ -513,25 +508,23 @@ func ValidateToken(tokenString, secret string) (*Claims, error) {
 ```yaml
 # config/server.dev.yaml
 server:
-  host: "127.0.0.1"
-  port: 8080
+  port: 3000
 
 workers:
-  file_watcher:
-    enabled: true
-    debounce: 100ms
+  directory: "workers"
+
+file_watcher:
+  debounce_ms: 50
 ```
 
 ```yaml
 # config/server.prod.yaml
 server:
-  host: "0.0.0.0"
   port: 80
-  log_file: "/var/log/tqserver/server.log"
+  log_file: "/var/log/tqserver/server_{date}.log"
 
 workers:
-  file_watcher:
-    enabled: false
+  directory: "workers"
 ```
 
 ```bash
