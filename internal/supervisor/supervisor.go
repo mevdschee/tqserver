@@ -22,11 +22,13 @@ type SupervisorInterface interface {
 	Start(ctx context.Context) error
 	Stop(ctx context.Context) error
 	RestartWorker(worker *router.Worker) error
+	GetConfig() *config.Config
 }
 
 // Supervisor manages worker lifecycle: building, starting, stopping, and restarting
 type Supervisor struct {
 	config      *config.Config
+	configPath  string
 	projectRoot string
 	router      router.RouterInterface
 	watcher     *fsnotify.Watcher
@@ -36,12 +38,14 @@ type Supervisor struct {
 	cancel      context.CancelFunc
 	wg          sync.WaitGroup
 	mu          sync.Mutex
+	configMu    sync.RWMutex
 }
 
 // NewSupervisor creates a new supervisor
-func NewSupervisor(cfg *config.Config, projectRoot string, rtr router.RouterInterface) *Supervisor {
+func NewSupervisor(cfg *config.Config, configPath string, projectRoot string, rtr router.RouterInterface) *Supervisor {
 	return &Supervisor{
 		config:      cfg,
+		configPath:  configPath,
 		projectRoot: projectRoot,
 		router:      rtr,
 		portPool:    NewPortPool(cfg.Workers.PortRangeStart, cfg.Workers.PortRangeEnd),
@@ -83,6 +87,14 @@ func (s *Supervisor) Start(ctx context.Context) error {
 	pagesPath := filepath.Join(s.projectRoot, s.config.Pages.Directory)
 	if err := s.watchDirectory(pagesPath); err != nil {
 		return fmt.Errorf("failed to watch directory: %w", err)
+	}
+
+	// Watch config file directory
+	configDir := filepath.Dir(s.configPath)
+	if err := s.watcher.Add(configDir); err != nil {
+		log.Printf("Warning: failed to watch config directory %s: %v", configDir, err)
+	} else {
+		log.Printf("Watching config directory: %s", configDir)
 	}
 
 	// Start watching for changes
@@ -135,6 +147,13 @@ func (s *Supervisor) Stop(ctx context.Context) error {
 	}
 }
 
+// GetConfig returns the current configuration (thread-safe)
+func (s *Supervisor) GetConfig() *config.Config {
+	s.configMu.RLock()
+	defer s.configMu.RUnlock()
+	return s.config
+}
+
 // watchDirectory recursively watches a directory and its subdirectories
 func (s *Supervisor) watchDirectory(dir string) error {
 	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -163,6 +182,13 @@ func (s *Supervisor) watchForChanges() {
 		case event, ok := <-s.watcher.Events:
 			if !ok {
 				return
+			}
+
+			// Check if it's the config file
+			if event.Name == s.configPath && (event.Op&(fsnotify.Write|fsnotify.Create) != 0) {
+				log.Printf("Config file changed: %s", event.Name)
+				s.handleConfigChange()
+				continue
 			}
 
 			// Only process write and create events for .go files
@@ -206,6 +232,34 @@ func (s *Supervisor) handleFileChange(filePath string) {
 			return
 		}
 	}
+}
+
+// handleConfigChange handles a config file change event
+func (s *Supervisor) handleConfigChange() {
+	log.Printf("Reloading configuration...")
+
+	s.configMu.Lock()
+	defer s.configMu.Unlock()
+
+	// Reload the configuration
+	if err := s.config.Reload(s.configPath); err != nil {
+		log.Printf("Failed to reload config: %v", err)
+		return
+	}
+
+	log.Printf("✅ Configuration reloaded successfully")
+
+	// Restart all workers with new configuration
+	// Note: Workers will pick up new settings (GOMAXPROCS, GOMEMLIMIT, timeouts, etc.) on restart
+	workers := s.router.GetAllWorkers()
+	for _, worker := range workers {
+		log.Printf("Restarting worker for %s with new configuration", worker.Route)
+		if err := s.RestartWorker(worker); err != nil {
+			log.Printf("Failed to restart worker for %s: %v", worker.Route, err)
+		}
+	}
+
+	log.Printf("✅ All workers restarted with new configuration")
 }
 
 // buildWorker compiles a worker binary

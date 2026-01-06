@@ -81,7 +81,7 @@ func main() {
 	rtr := router.NewRouter(cfg.Pages.Directory, projectRoot)
 
 	// Initialize supervisor
-	sup := supervisor.NewSupervisor(cfg, projectRoot, rtr)
+	sup := supervisor.NewSupervisor(cfg, configFile, projectRoot, rtr)
 
 	// Create context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -93,7 +93,7 @@ func main() {
 	}
 
 	// Initialize and start HTTP proxy/load balancer
-	prx := proxy.NewProxy(cfg, rtr)
+	prx := proxy.NewProxy(sup, rtr)
 
 	// Start proxy in a goroutine
 	go func() {

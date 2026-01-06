@@ -51,10 +51,8 @@ type Config struct {
 	} `yaml:"pages"`
 }
 
-// LoadConfig loads configuration from a YAML file
-func LoadConfig(configPath string) (*Config, error) {
-	// Set defaults
-	config := &Config{}
+// setDefaults sets default values for the configuration
+func setDefaults(config *Config) {
 	config.Server.Port = 8080
 	config.Server.ReadTimeoutSeconds = 30
 	config.Server.WriteTimeoutSeconds = 30
@@ -76,6 +74,13 @@ func LoadConfig(configPath string) (*Config, error) {
 	config.Workers.Paths = make(map[string]WorkerSettings)
 	config.FileWatcher.DebounceMs = 50
 	config.Pages.Directory = "pages"
+}
+
+// LoadConfig loads configuration from a YAML file
+func LoadConfig(configPath string) (*Config, error) {
+	// Set defaults
+	config := &Config{}
+	setDefaults(config)
 
 	// If config file exists, load it
 	if _, err := os.Stat(configPath); err == nil {
@@ -90,6 +95,19 @@ func LoadConfig(configPath string) (*Config, error) {
 	}
 
 	return config, nil
+}
+
+// Reload reloads the configuration from the same file path
+func (c *Config) Reload(configPath string) error {
+	// Load new config
+	newConfig, err := LoadConfig(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to reload config: %w", err)
+	}
+
+	// Copy all values from newConfig to c
+	*c = *newConfig
+	return nil
 }
 
 // GetReadTimeout returns the read timeout as a time.Duration

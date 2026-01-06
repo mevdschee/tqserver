@@ -12,36 +12,42 @@ import (
 	"github.com/mevdschee/tqserver/internal/router"
 )
 
+// ConfigProvider interface for getting the current configuration
+type ConfigProvider interface {
+	GetConfig() *config.Config
+}
+
 // Proxy handles incoming HTTP requests and routes them to backend workers
 type Proxy struct {
-	config *config.Config
-	router router.RouterInterface
-	server *http.Server
-	mu     sync.RWMutex
+	configProvider ConfigProvider
+	router         router.RouterInterface
+	server         *http.Server
+	mu             sync.RWMutex
 }
 
 // NewProxy creates a new reverse proxy
-func NewProxy(cfg *config.Config, rtr router.RouterInterface) *Proxy {
+func NewProxy(configProvider ConfigProvider, rtr router.RouterInterface) *Proxy {
 	return &Proxy{
-		config: cfg,
-		router: rtr,
+		configProvider: configProvider,
+		router:         rtr,
 	}
 }
 
 // Start starts the HTTP server
 func (p *Proxy) Start() error {
+	cfg := p.configProvider.GetConfig()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", p.handleRequest)
 
 	p.server = &http.Server{
-		Addr:         fmt.Sprintf(":%d", p.config.Server.Port),
+		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),
 		Handler:      mux,
-		ReadTimeout:  p.config.GetReadTimeout(),
-		WriteTimeout: p.config.GetWriteTimeout(),
-		IdleTimeout:  p.config.GetIdleTimeout(),
+		ReadTimeout:  cfg.GetReadTimeout(),
+		WriteTimeout: cfg.GetWriteTimeout(),
+		IdleTimeout:  cfg.GetIdleTimeout(),
 	}
 
-	log.Printf("Proxy listening on http://localhost:%d", p.config.Server.Port)
+	log.Printf("Proxy listening on http://localhost:%d", cfg.Server.Port)
 	return p.server.ListenAndServe()
 }
 
@@ -91,8 +97,9 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 	// Increment request count for this worker
 	requestCount := worker.IncrementRequestCount()
 
-	// Get worker settings for this path
-	settings := p.config.GetWorkerSettings(worker.Route)
+	// Get current config and worker settings for this path
+	cfg := p.configProvider.GetConfig()
+	settings := cfg.GetWorkerSettings(worker.Route)
 
 	// Check if worker needs to be restarted due to max_requests limit
 	if settings.MaxRequests > 0 && requestCount >= settings.MaxRequests {
