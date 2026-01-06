@@ -1,0 +1,57 @@
+# Deployment Configuration
+# This file configures deployment targets and settings
+
+# Deployment targets
+targets:
+  staging:
+    server: "deploy@staging.example.com"
+    path: "/opt/tqserver"
+    description: "Staging environment for testing"
+    
+  production:
+    server: "deploy@prod.example.com"
+    path: "/opt/tqserver"
+    description: "Production environment"
+    backup_before_deploy: true
+    
+  development:
+    server: "localhost"
+    path: "/tmp/tqserver"
+    description: "Local development deployment"
+
+# Deployment settings
+deployment:
+  # Rsync options
+  rsync:
+    options: "-avz --checksum"
+    exclude:
+      - "src"
+      - ".git"
+      - ".gitignore"
+      - "*.log"
+      - "*.tmp"
+    
+  # Pre-deployment checks
+  checks:
+    - verify_binaries_exist
+    - check_server_connectivity
+    - ensure_remote_directory
+    
+  # Post-deployment actions
+  post_deploy:
+    trigger_reload: true
+    reload_command: "killall -HUP tqserver"
+    wait_for_health: true
+    health_check_timeout: 30
+    
+# Backup settings
+backup:
+  enabled: true
+  retention_days: 7
+  path: "/opt/tqserver/backups"
+  
+# Notification settings (optional)
+notifications:
+  enabled: false
+  slack_webhook: ""
+  email: ""
