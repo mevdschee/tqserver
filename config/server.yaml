@@ -10,8 +10,9 @@ server:
   write_timeout_seconds: 30
   idle_timeout_seconds: 120
 
-  # Server log file (use ~ or empty string to disable file logging)
+  # Server log file
   # Placeholders: {date} = YYYY-MM-DD date
+  # Use null, empty string, or ~ to disable file logging (only log to stdout/stderr)
   log_file: "logs/server_{date}.log"
 
 # Worker settings
