@@ -10,7 +10,7 @@ import (
 
 // Worker represents a running worker process
 type Worker struct {
-	Path         string // Path to the page directory (e.g., "pages/api/users")
+	Name         string // Worker name (directory name, e.g., "api", "index")
 	Route        string // URL route (e.g., "/api/users")
 	Port         int    // Port the worker listens on
 	Binary       string // Path to compiled binary
@@ -90,7 +90,7 @@ func (r *Router) RegisterWorker(worker *Worker) {
 	defer r.mu.Unlock()
 
 	r.workers[worker.Route] = worker
-	log.Printf("Registered worker: %s -> %s", worker.Route, worker.Path)
+	log.Printf("Registered worker: %s -> %s", worker.Route, worker.Name)
 }
 
 // GetWorker returns the worker for a given route

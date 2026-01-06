@@ -180,7 +180,7 @@ server:
 
 # Worker settings
 workers:
-  bin_dir: "bin" # Directory for compiled worker binaries
+  directory: "workers" # Directory containing workers
 
   # Port range for worker processes
   port_range_start: 9000 # First port for workers
@@ -191,33 +191,33 @@ workers:
   restart_delay_ms: 100 # Delay before stopping old worker
   shutdown_grace_period_ms: 500 # Grace period for shutdown
 
-  # Default per-worker settings (applies to all workers unless overridden)
-  default:
-    go_max_procs: 1 # CPU threads (0 = NumCPU)
-    max_requests: 0 # Restart worker after N requests (0 = unlimited)
-    read_timeout_seconds: 30 # HTTP read timeout for workers
-    write_timeout_seconds: 30 # HTTP write timeout for workers
-    idle_timeout_seconds: 120 # HTTP idle timeout for workers
-    go_mem_limit: "" # Memory limit (e.g., "512MiB", "2GiB", empty = unlimited)
-    log_file: "logs/worker_{name}_{date}.log" # Worker log file template
-
-  # Per-path worker overrides (optional)
-  paths:
-    "/api":
-      go_max_procs: 2
-      max_requests: 5000
-      read_timeout_seconds: 15
-      write_timeout_seconds: 15
-      idle_timeout_seconds: 60
-      go_mem_limit: "256MiB"
-
 # File watching settings
 file_watcher:
   debounce_ms: 50 # Debounce for file changes
+```
 
-# Pages directory
-pages:
-  directory: "pages" # Pages directory path (relative or absolute)
+**Note:** Per-worker configuration (path, runtime settings, timeouts, logging) is configured in each worker's `config/worker.yaml` file. See `config/worker.example.yaml` for details.
+
+**Example worker configuration** (`workers/index/config/worker.yaml`):
+
+```yaml
+# Path prefix for this worker (required)
+path: "/"
+
+# Worker runtime settings
+runtime:
+  go_max_procs: 2
+  go_mem_limit: "512MiB"
+  max_requests: 10000
+
+# Timeout settings
+timeouts:
+  request_timeout_seconds: 30
+  idle_timeout_seconds: 120
+
+# Logging
+logging:
+  log_file: "logs/worker_{name}_{date}.log"
 ```
 
 ### Configuration Options Reference
@@ -234,25 +234,24 @@ pages:
 
 #### Worker Settings
 
-| Option                     | Type   | Default | Description                                        |
-| -------------------------- | ------ | ------- | -------------------------------------------------- |
-| `bin_dir`                  | string | `bin`   | Directory for compiled worker binaries             |
-| `port_range_start`         | int    | 9000    | First port in worker port pool                     |
-| `port_range_end`           | int    | 9999    | Last port in worker port pool                      |
-| `startup_delay_ms`         | int    | 100     | Delay after starting worker before routing traffic |
-| `restart_delay_ms`         | int    | 100     | Delay before stopping old worker during restart    |
-| `shutdown_grace_period_ms` | int    | 500     | Time allowed for graceful shutdown                 |
+| Option                     | Type   | Default     | Description                                        |
+| -------------------------- | ------ | ----------- | -------------------------------------------------- |
+| `port_range_start`         | int    | 9000        | First port in worker port pool                     |
+| `port_range_end`           | int    | 9999        | Last port in worker port pool                      |
+| `startup_delay_ms`         | int    | 100         | Delay after starting worker before routing traffic |
+| `restart_delay_ms`         | int    | 100         | Delay before stopping old worker during restart    |
+| `shutdown_grace_period_ms` | int    | 500         | Time allowed for graceful shutdown                 |
 
-#### Worker Default Settings
+#### Per-Worker Settings
 
-These settings apply to all workers unless overridden in `paths`:
+Each worker is configured via its own `config/worker.yaml` file:
 
 | Option                  | Type   | Default                         | Description                                                                                                 |
 | ----------------------- | ------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `go_max_procs`          | int    | 1                               | Sets Go's GOMAXPROCS (CPU threads). 0 = NumCPU                                                              |
+| `path`                  | string | (required)                      | URL path prefix for this worker (e.g., "/", "/api")                                                       |
+| `go_max_procs`          | int    | 2                               | Sets Go's GOMAXPROCS (CPU threads). 0 = NumCPU                                                              |
 | `max_requests`          | int    | 0                               | Restart worker after N requests. 0 = unlimited                                                              |
-| `read_timeout_seconds`  | int    | 30                              | HTTP read timeout for worker                                                                                |
-| `write_timeout_seconds` | int    | 30                              | HTTP write timeout for worker                                                                               |
+| `request_timeout_seconds` | int  | 30                              | HTTP request timeout for worker                                                                             |
 | `idle_timeout_seconds`  | int    | 120                             | HTTP idle timeout for worker                                                                                |
 | `go_mem_limit`          | string | ""                              | Go's GOMEMLIMIT (e.g., "512MiB", "2GiB"). Empty = unlimited                                                 |
 | `log_file`              | string | `logs/worker_{name}_{date}.log` | Worker log file template. Supports `{name}` and `{date}` placeholders. Use `~`, `null`, or empty to disable |
@@ -263,49 +262,49 @@ These settings apply to all workers unless overridden in `paths`:
 | ------------- | ---- | ------- | ---------------------------------------------------------------- |
 | `debounce_ms` | int  | 50      | Debounce delay to avoid multiple rebuilds for rapid file changes |
 
-#### Pages Settings
+### Per-Worker Configuration
 
-| Option      | Type   | Default | Description                                                 |
-| ----------- | ------ | ------- | ----------------------------------------------------------- |
-| `directory` | string | `pages` | Pages directory path (relative to project root or absolute) |
+Each worker has its own configuration file at `workers/{name}/config/worker.yaml`. This allows you to:
 
-### Per-Path Worker Configuration
+- Set different resource limits per worker
+- Configure URL path routing individually
+- Apply different restart policies per worker
 
-You can configure different resource limits for specific routes using the
-`workers.paths` section. This allows you to:
-
-- Limit resource usage for certain endpoints (e.g., public APIs)
-- Allocate more resources to critical paths (e.g., webhooks)
-- Apply different restart policies per route
-
-**Example:**
+**Example:** API worker with conservative limits (`workers/api/config/worker.yaml`):
 
 ```yaml
-workers:
-  default:
-    go_max_procs: 1
-    max_requests: 0
-    go_mem_limit: "512MiB"
+path: "/api"
 
-  paths:
-    "/api": # More conservative limits for API endpoints
-      go_max_procs: 2
-      max_requests: 5000
-      read_timeout_seconds: 15
-      write_timeout_seconds: 15
-      go_mem_limit: "256MiB"
+runtime:
+  go_max_procs: 2
+  go_mem_limit: "256MiB"
+  max_requests: 5000
 
-    "/webhooks": # More generous for webhooks
-      go_max_procs: 1
-      max_requests: 20000
-      go_mem_limit: "1GiB"
+timeouts:
+  request_timeout_seconds: 15
+  idle_timeout_seconds: 60
+
+logging:
+  log_file: "logs/api_{date}.log"
 ```
 
-Path matching uses the most specific prefix match:
+**Example:** Webhook worker with generous limits (`workers/webhooks/config/worker.yaml`):
 
-- Exact matches take priority: `/api` exactly matches `/api`
-- Prefix matches work: `/api` matches `/api/users`, `/api/posts`, etc.
-- Falls back to default settings if no match found
+```yaml
+path: "/webhooks"
+
+runtime:
+  go_max_procs: 1
+  go_mem_limit: "1GiB"
+  max_requests: 20000
+
+timeouts:
+  request_timeout_seconds: 120
+  idle_timeout_seconds: 300
+
+logging:
+  log_file: "logs/webhooks_{date}.log"
+```
 
 ## Configuration Hot Reload
 

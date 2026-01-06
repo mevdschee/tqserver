@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -57,9 +58,8 @@ func (s *Supervisor) Start() error {
 	// Build and start all workers from worker configs
 	for _, workerMeta := range s.workerConfigs {
 		// Create worker entry
-		workerSrcPath := filepath.Join(s.projectRoot, s.config.Workers.Directory, workerMeta.Name, "src")
 		worker := &Worker{
-			Path:  workerSrcPath,
+			Name:  workerMeta.Name,
 			Route: workerMeta.Config.Path,
 		}
 
@@ -177,7 +177,9 @@ func (s *Supervisor) handleFileChange(filePath string) {
 	// Find the worker for this page
 	workers := s.router.GetAllWorkers()
 	for _, worker := range workers {
-		if worker.Path == pageDir || filepath.Dir(worker.Path) == pageDir {
+		// Check if the changed file belongs to this worker's directory
+		workerDir := filepath.Join(s.projectRoot, s.config.Workers.Directory, worker.Name)
+		if strings.HasPrefix(pageDir, workerDir) {
 			log.Printf("Rebuilding worker for %s", worker.Route)
 
 			// Rebuild the worker
@@ -203,23 +205,27 @@ func (s *Supervisor) buildWorker(worker *Worker) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Create bin directory inside worker directory if it doesn't exist
-	workerBinDir := filepath.Join(worker.Path, "../bin") // Go up from src to worker root, then into bin
+	// Construct worker paths from name
+	workerRoot := filepath.Join(s.projectRoot, s.config.Workers.Directory, worker.Name)
+	workerSrcDir := filepath.Join(workerRoot, "src")
+	workerBinDir := filepath.Join(workerRoot, "bin")
+
+	// Create bin directory if it doesn't exist
 	if err := os.MkdirAll(workerBinDir, 0755); err != nil {
 		return fmt.Errorf("failed to create bin directory: %w", err)
 	}
 
 	// Generate binary name
 	binaryName := fmt.Sprintf("tqworker_%s_%d",
-		filepath.Base(filepath.Dir(worker.Path)), // Worker name from parent directory
+		worker.Name,
 		time.Now().Unix())
 	binaryPath := filepath.Join(workerBinDir, binaryName)
 
-	log.Printf("Building %s -> %s", worker.Path, binaryPath)
+	log.Printf("Building %s -> %s", worker.Name, binaryPath)
 
 	// Build the worker
 	cmd := exec.Command("go", "build", "-o", binaryPath)
-	cmd.Dir = worker.Path
+	cmd.Dir = workerSrcDir
 	cmd.Env = os.Environ()
 
 	output, err := cmd.CombinedOutput()
@@ -250,9 +256,13 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 
 	log.Printf("Starting worker for %s on port %d", worker.Route, port)
 
+	// Set working directory to worker root (parent of src/)
+	// This allows workers to access views/, config/, data/ folders using relative paths
+	workerRoot := filepath.Join(s.projectRoot, s.config.Workers.Directory, worker.Name)
+
 	// Start the worker process
 	cmd := exec.Command(worker.Binary)
-	cmd.Dir = s.projectRoot // Set working directory to project root
+	cmd.Dir = workerRoot // Set working directory to worker root (e.g., workers/index/)
 	envVars := []string{
 		fmt.Sprintf("PORT=%d", port),
 		fmt.Sprintf("ROUTE=%s", worker.Route),

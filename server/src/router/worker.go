@@ -8,7 +8,7 @@ import (
 
 // Worker represents a running worker process
 type Worker struct {
-	Path         string // Path to the page directory (e.g., "pages/api/users")
+	Path         string // Path to the worker source directory (e.g., "workers/api/src")
 	Route        string // URL route (e.g., "/api/users")
 	Port         int    // Port the worker listens on
 	Binary       string // Path to compiled binary
