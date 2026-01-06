@@ -41,6 +41,7 @@ The following features are planned but not yet implemented:
   without worker overhead
 - **Request Logging** - Access logs with configurable format (Common Log Format,
   JSON, etc.)
+- **Correlation ID** - To log over multiple workers (and remote API's)
 - **Load Balancing** - Multiple worker instances per route for horizontal
   scaling
 - **Circuit Breaker** - Automatic failure detection and traffic routing around
@@ -62,6 +63,12 @@ The following features are planned but not yet implemented:
   functions
 - **CLI Improvements** - Better command-line interface with subcommands (start,
   stop, reload, status)
+- **Log Rotation** - Ensure log files are automatically compressed and/or
+  removed
+- **Cluster support** - See also Load Balancing, but also take deployment into
+  account
+- **State management** - Database and cache should be suported
+- **Session management** - Session storage should be suported
 
 ## Quick Start
 
