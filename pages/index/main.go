@@ -6,46 +6,17 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
+	"github.com/mevdschee/tqserver/pkg/worker"
 	"github.com/mevdschee/tqtemplate"
 )
 
 var tmpl *tqtemplate.Template
 
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "9000"
-	}
-
-	route := os.Getenv("ROUTE")
-	if route == "" {
-		route = "/"
-	}
-
-	// Get timeout settings from environment
-	readTimeout := 30 * time.Second
-	if val := os.Getenv("READ_TIMEOUT_SECONDS"); val != "" {
-		if n, err := strconv.Atoi(val); err == nil && n > 0 {
-			readTimeout = time.Duration(n) * time.Second
-		}
-	}
-
-	writeTimeout := 30 * time.Second
-	if val := os.Getenv("WRITE_TIMEOUT_SECONDS"); val != "" {
-		if n, err := strconv.Atoi(val); err == nil && n > 0 {
-			writeTimeout = time.Duration(n) * time.Second
-		}
-	}
-
-	idleTimeout := 120 * time.Second
-	if val := os.Getenv("IDLE_TIMEOUT_SECONDS"); val != "" {
-		if n, err := strconv.Atoi(val); err == nil && n > 0 {
-			idleTimeout = time.Duration(n) * time.Second
-		}
-	}
+	// Initialize worker runtime
+	runtime := worker.NewRuntime()
 
 	// Initialize templates with file loader
 	loader := func(name string) (string, error) {
@@ -62,8 +33,8 @@ func main() {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 		data := map[string]interface{}{
-			"Route":     route,
-			"Port":      port,
+			"Route":     runtime.Route,
+			"Port":      runtime.Port,
 			"Method":    r.Method,
 			"Path":      r.URL.Path,
 			"Time":      time.Now().Format("2006-01-02 15:04:05"),
@@ -109,18 +80,8 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	log.Printf("Worker listening on port %s for route %s (read:%v write:%v idle:%v)",
-		port, route, readTimeout, writeTimeout, idleTimeout)
-
-	server := &http.Server{
-		Addr:         ":" + port,
-		Handler:      nil, // Use default ServeMux
-		ReadTimeout:  readTimeout,
-		WriteTimeout: writeTimeout,
-		IdleTimeout:  idleTimeout,
-	}
-
-	if err := server.ListenAndServe(); err != nil {
+	// Start server using runtime
+	if err := runtime.StartServer(nil); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

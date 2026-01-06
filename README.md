@@ -20,7 +20,7 @@ sub-second hot reloads with native Go performance.
 ### 1. Build the server
 
 ```bash
-go build -o bin/tqserver ./server
+go build -o bin/tqserver ./cmd/tqserver
 ```
 
 ### 2. Configure (optional)
@@ -53,6 +53,65 @@ reload in under 1 second with zero downtime.
 
 ```bash
 ./tqserver [options]
+
+Options:
+  -config string
+        Path to config file (default "config/server.yaml")
+```
+
+## Project Structure
+
+The project follows Go's standard project layout for better modularity and
+maintainability:
+
+```
+tqserver/
+├── cmd/
+│   └── tqserver/          # Application entry point
+│       └── main.go
+├── internal/              # Private application code
+│   ├── config/            # Configuration management
+│   │   └── config.go
+│   ├── proxy/             # HTTP reverse proxy
+│   │   └── proxy.go
+│   ├── router/            # Route discovery and worker management
+│   │   ├── router.go
+│   │   └── worker.go
+│   └── supervisor/        # Worker lifecycle management
+│       ├── supervisor.go  # Main supervisor logic
+│       ├── ports.go       # Port pool management
+│       ├── healthcheck.go # Worker health monitoring
+│       └── cleanup.go     # Binary cleanup
+├── pkg/                   # Public, reusable packages
+│   └── worker/            # Common worker runtime
+│       └── runtime.go
+├── pages/                 # User application code
+│   └── index/
+│       ├── main.go        # Worker implementation
+│       └── *.html         # Templates
+├── config/                # Configuration files
+│   └── server.yaml
+└── templates/             # Shared templates
+```
+
+### Architecture Improvements
+
+- **Proper Package Structure**: Separated into `cmd/`, `internal/`, and `pkg/`
+  following Go conventions
+- **Interface-Based Design**: Key components implement interfaces for better
+  testability
+- **Port Pool Management**: Efficient port allocation/deallocation instead of
+  naive increment
+- **Health Checks**: Periodic HTTP health checks on worker processes
+- **Binary Cleanup**: Automatic cleanup of old compiled binaries
+- **Context Support**: Proper cancellation and graceful shutdown with timeouts
+- **Shared Worker Runtime**: Common initialization code in `pkg/worker` reduces
+  boilerplate
+
+## Command Line Options
+
+```bash
+bin/tqserver [options]
 
 Options:
   -config string
