@@ -1,0 +1,45 @@
+# Example: Worker Configuration
+# This file should be placed at: workers/{worker_name}/config/worker.yaml
+# Each worker MUST have its own config/worker.yaml file
+#
+# This configuration is per-worker and CANNOT be overridden by server.yaml
+
+# Path prefix for this worker (required)
+# This is the URL path where this worker will be mounted
+# Examples: "/", "/api", "/webhooks", "/admin"
+path: "/"
+
+# Worker runtime settings
+runtime:
+  # Maximum number of CPU cores to use (0 = use all available)
+  # Default: 2
+  go_max_procs: 2
+
+  # Maximum memory limit (e.g., "512MiB", "2GiB", empty = unlimited)
+  # Default: "" (unlimited)
+  go_mem_limit: "512MiB"
+
+  # Restart worker after N requests (0 = unlimited)
+  # Useful for preventing memory leaks
+  # Default: 0 (unlimited)
+  max_requests: 10000
+
+# Timeout settings
+timeouts:
+  # HTTP request timeout (seconds)
+  # Default: 30
+  request_timeout_seconds: 30
+
+  # HTTP idle timeout (seconds)
+  # Default: 120
+  idle_timeout_seconds: 120
+
+# Logging
+logging:
+  # Log file path
+  # Placeholders: 
+  #   {name} = worker name (from directory name)
+  #   {date} = current date (YYYY-MM-DD)
+  # Use null, empty string, or ~ to disable file logging (stdout/stderr only)
+  # Default: "logs/worker_{name}_{date}.log"
+  log_file: "logs/worker_{name}_{date}.log"

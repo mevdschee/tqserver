@@ -49,21 +49,31 @@ func (s *Supervisor) getWorkerConfig(workerName string) *WorkerConfigWithMeta {
 
 // Start starts the supervisor
 func (s *Supervisor) Start() error {
-	// Discover all routes
+	// Discover all routes (just logs them)
 	if err := s.router.DiscoverRoutes(); err != nil {
 		return fmt.Errorf("failed to discover routes: %w", err)
 	}
 
-	// Build and start all workers
-	workers := s.router.GetAllWorkers()
-	for _, worker := range workers {
+	// Build and start all workers from worker configs
+	for _, workerMeta := range s.workerConfigs {
+		// Create worker entry
+		workerSrcPath := filepath.Join(s.projectRoot, s.config.Workers.Directory, workerMeta.Name, "src")
+		worker := &Worker{
+			Path:  workerSrcPath,
+			Route: workerMeta.Config.Path,
+		}
+
+		// Register worker with router
+		s.router.RegisterWorker(worker)
+
+		// Build and start the worker
 		if err := s.buildWorker(worker); err != nil {
-			log.Printf("Failed to build worker for %s: %v", worker.Route, err)
+			log.Printf("Failed to build worker %s: %v", workerMeta.Name, err)
 			continue
 		}
 
 		if err := s.startWorker(worker); err != nil {
-			log.Printf("Failed to start worker for %s: %v", worker.Route, err)
+			log.Printf("Failed to start worker %s: %v", workerMeta.Name, err)
 			continue
 		}
 	}
@@ -111,6 +121,12 @@ func (s *Supervisor) Stop() {
 
 // watchDirectory recursively watches a directory and its subdirectories
 func (s *Supervisor) watchDirectory(dir string) error {
+	// Check if directory exists
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		log.Printf("Warning: directory does not exist, skipping watch: %s", dir)
+		return nil
+	}
+
 	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err

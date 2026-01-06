@@ -84,6 +84,15 @@ func (r *Router) DiscoverRoutes() error {
 	return nil
 }
 
+// RegisterWorker registers a worker for a specific route
+func (r *Router) RegisterWorker(worker *Worker) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.workers[worker.Route] = worker
+	log.Printf("Registered worker: %s -> %s", worker.Route, worker.Path)
+}
+
 // GetWorker returns the worker for a given route
 func (r *Router) GetWorker(path string) *Worker {
 	r.mu.RLock()

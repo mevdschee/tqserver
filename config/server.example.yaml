@@ -1,5 +1,9 @@
 # Example: Custom TQServer Configuration
-# This file demonstrates all available configuration options
+# This file demonstrates all available server-level configuration options
+# 
+# IMPORTANT: Per-worker configuration (path, runtime, timeouts, logging) is configured
+# in each worker's config/worker.yaml file, NOT in this server.yaml file.
+# See workers/index/config/worker.yaml for an example worker configuration.
 
 # Server settings
 server:
@@ -18,13 +22,13 @@ server:
 
 # Worker settings
 workers:
-  # Directory for temporary worker binaries
-  # Can be absolute path or relative to project root
-  temp_dir: "bin" # Default: bin
+  # Directory containing workers (each subdirectory is a worker)
+  # Each worker should have: src/, bin/, config/worker.yaml
+  directory: "workers" # Default: workers
 
   # Port range for worker processes
   # Workers are assigned ports sequentially from this range
-  # Make sure the range is large enough for all your pages
+  # Make sure the range is large enough for all your workers
   port_range_start: 10000 # Default: 9000
   port_range_end: 19999 # Default: 9999
 
@@ -35,39 +39,7 @@ workers:
   restart_delay_ms: 200 # Default: 100 - Delay before stopping old worker
   shutdown_grace_period_ms: 1000 # Default: 500 - Time to wait for graceful shutdown
 
-  # Default per-worker configuration (applies to all workers unless overridden)
-  default:
-    go_max_procs: 2 # Default: 1 - Sets Go's GOMAXPROCS (CPU threads, 0 = NumCPU)
-    max_requests: 10000 # Default: 0 (unlimited) - Restart worker after N requests
-    read_timeout_seconds: 60 # Default: 30 - HTTP read timeout for workers
-    write_timeout_seconds: 60 # Default: 30 - HTTP write timeout for workers
-    idle_timeout_seconds: 180 # Default: 120 - Idle timeout for workers
-    go_mem_limit: "512MiB" # Default: "" (unlimited) - Go's GOMEMLIMIT (e.g., "512MiB", "2GiB")
-    # Placeholders: {path} = worker path (e.g., api/users), {date} = YYYY-MM-DD date
-    # Use null, empty string, or ~ to disable file logging (only log to stdout/stderr)
-    log_file: "logs/tqworker_{path}_{date}.log" # Default: logs/tqworker_{path}_{date}.log
-
-  # Per-path worker configuration overrides (optional)
-  # Use this to apply different resource limits to specific routes
-  paths:
-    # Example: Limit resources for API endpoints
-    "/api":
-      go_max_procs: 2
-      max_requests: 5000
-      read_timeout_seconds: 15
-      write_timeout_seconds: 15
-      idle_timeout_seconds: 60
-      go_mem_limit: "256MiB"
-      request_timeout_seconds: 15
-      idle_timeout_seconds: 60
-      gomemlimit: "256MiB"
-      log_file: "logs/api_{date}.log"
-
-    # Example: Allow more resources for webhooks
-    "/webhooks":
-      go_max_procs: 1
-      max_requests: 20000
-      request_timeout_seconds: 120
-      idle_timeout_seconds: 300
-      go_mem_limit: "1GiB"
-      log_file: "logs/webhooks_{date}.log"
+# File watching settings
+file_watcher:
+  # Debounce delay to avoid multiple rebuilds for rapid file changes (in milliseconds)
+  debounce_ms: 100 # Default: 50
