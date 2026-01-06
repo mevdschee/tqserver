@@ -32,11 +32,37 @@
 ✅ Worker binary built: `workers/index/bin/index` (8.8M)
 ✅ Server binary built: `server/bin/tqserver` (9.8M)
 
+## Completed Phase 2: Timestamp-Based Change Detection
+
+### What was done:
+
+1. **Created timestamp tracking utilities:**
+   - `pkg/supervisor/timestamps.go` - Functions to get file mtimes and compare timestamps
+   - `GetFileMtime()` - Get modification time of a file
+   - `GetDirLatestMtime()` - Get latest mtime from any file in a directory (recursive)
+   - `HasFileChanged()` - Check if file is newer than recorded time
+   - `HasDirChanged()` - Check if any file in directory changed
+
+2. **Created worker registry:**
+   - `pkg/supervisor/registry.go` - Track running workers with file timestamps
+   - `WorkerInstance` struct - Stores worker info + file mtimes
+   - `WorkerRegistry` - Thread-safe registry with Register/Get/Remove/List operations
+   - `UpdateMtimes()` - Refresh mtimes from filesystem
+   - `CheckChanges()` - Detect changes and classify as "binary", "assets", or "both"
+
+3. **Created SIGHUP checker:**
+   - `pkg/supervisor/checker.go` - SIGHUP signal handling
+   - `SignalWatcher` - Listens for SIGHUP and triggers timestamp checking
+   - `CheckNow()` - Manual trigger for testing
+   - Integrates registry + timestamps to detect changes
+
+4. **Tests:**
+   - `pkg/supervisor/timestamps_test.go` - Comprehensive test suite
+   - All tests passing ✅
+
 ### Next steps:
-- Phase 2: Implement timestamp-based change detection
-- Phase 3: Update import paths in Go code to reference new structure
-- Phase 4: Implement file watcher for development mode
-- Phase 5: Implement SIGHUP-triggered checking for production mode
+- Phase 4: Development mode with file watchers
+- Phase 5: Production mode with SIGHUP handling
 - Update configuration files (deployment.yaml, server.yaml)
 - Create deployment script (scripts/deploy.sh)
 - Update start.sh to use new binary locations
