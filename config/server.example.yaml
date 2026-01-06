@@ -11,6 +11,10 @@ server:
   write_timeout_seconds: 60 # Default: 30 - Time allowed to write response
   idle_timeout_seconds: 180 # Default: 120 - Keep-alive timeout
 
+  # Server log file path (use ~ or empty string to disable file logging)
+  # Placeholders: {date} = YYYY-MM-DD date
+  log_file: "logs/server_{date}.log" # Default: logs/server_{date}.log
+
 # Worker settings
 workers:
   # Directory for temporary worker binaries

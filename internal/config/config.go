@@ -24,10 +24,11 @@ type WorkerSettings struct {
 // Config represents the server configuration
 type Config struct {
 	Server struct {
-		Port                int `yaml:"port"`
-		ReadTimeoutSeconds  int `yaml:"read_timeout_seconds"`
-		WriteTimeoutSeconds int `yaml:"write_timeout_seconds"`
-		IdleTimeoutSeconds  int `yaml:"idle_timeout_seconds"`
+		Port                int    `yaml:"port"`
+		ReadTimeoutSeconds  int    `yaml:"read_timeout_seconds"`
+		WriteTimeoutSeconds int    `yaml:"write_timeout_seconds"`
+		IdleTimeoutSeconds  int    `yaml:"idle_timeout_seconds"`
+		LogFile             string `yaml:"log_file"`
 	} `yaml:"server"`
 
 	Workers struct {
@@ -58,6 +59,7 @@ func LoadConfig(configPath string) (*Config, error) {
 	config.Server.ReadTimeoutSeconds = 30
 	config.Server.WriteTimeoutSeconds = 30
 	config.Server.IdleTimeoutSeconds = 120
+	config.Server.LogFile = "logs/server_{date}.log"
 	config.Workers.TempDir = "/tmp/tqserver/bin"
 	config.Workers.PortRangeStart = 9000
 	config.Workers.PortRangeEnd = 9999
