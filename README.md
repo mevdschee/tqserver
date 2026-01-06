@@ -79,10 +79,16 @@ The following features are planned but not yet implemented:
 
 ## Quick Start
 
-### 1. Build the server
+### 1. Build the server and workers
 
+For development:
 ```bash
-go build -o bin/tqserver ./cmd/tqserver
+./scripts/build-dev.sh
+```
+
+For production:
+```bash
+./scripts/build-prod.sh
 ```
 
 ### 2. Configure (optional)
@@ -93,23 +99,55 @@ Edit `config/server.yaml` to customize:
 - Worker port range (default: 9000-9999)
 - Timeouts (read, write, idle)
 - Worker startup and restart delays
-- Pages directory location
 
 ### 3. Run the server
 
+Development mode with automatic reloading:
 ```bash
-bin/tqserver
+./server/bin/tqserver --mode dev
 ```
 
-The server will listen on port **8080** by default (or as configured) and serve
-pages from the `pages/` directory.
+Production mode:
+```bash
+./server/bin/tqserver --mode prod
+```
+
+The server will listen on port **8080** by default (or as configured).
 
 Visit http://localhost:8080 to see it in action!
 
 ### 4. Edit and watch hot reload
 
-Edit `pages/index/main.go` and save. The server will automatically rebuild and
-reload in under 1 second with zero downtime.
+In development mode, edit worker source files (e.g., `workers/index/src/main.go`) and save. The server will automatically rebuild and reload in under 1 second with zero downtime.
+
+In production mode, deploy changes and send a SIGHUP signal to trigger reload:
+```bash
+./scripts/deploy.sh production
+ssh user@hostname pkill -SIGHUP tqserver
+```
+
+## Deployment
+
+For production deployment to remote servers, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
+Quick deployment example:
+```bash
+# Build for production
+./scripts/build-prod.sh
+
+# Deploy to production
+./scripts/deploy.sh production
+
+# Deploy specific worker only
+./scripts/deploy.sh production index
+```
+
+The deployment system uses rsync for efficient incremental updates and supports:
+- Multiple deployment targets (staging, production, custom)
+- Selective worker deployment
+- Pre/post-deployment hooks
+- Zero-downtime reloads via SIGHUP signal
+- Health checks after deployment
 
 ## Command Line Options
 
