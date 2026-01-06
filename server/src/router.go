@@ -53,18 +53,20 @@ func (w *Worker) SetHealthy(healthy bool) {
 
 // Router manages routing from URL paths to workers
 type Router struct {
-	pagesDir    string
-	projectRoot string
-	workers     map[string]*Worker // route -> worker
-	mu          sync.RWMutex
+	workersDir    string
+	projectRoot   string
+	workerConfigs []*WorkerConfigWithMeta
+	workers       map[string]*Worker // route -> worker
+	mu            sync.RWMutex
 }
 
 // NewRouter creates a new router
-func NewRouter(pagesDir, projectRoot string) *Router {
+func NewRouter(workersDir, projectRoot string, workerConfigs []*WorkerConfigWithMeta) *Router {
 	return &Router{
-		pagesDir:    pagesDir,
-		projectRoot: projectRoot,
-		workers:     make(map[string]*Worker),
+		workersDir:    workersDir,
+		projectRoot:   projectRoot,
+		workerConfigs: workerConfigs,
+		workers:       make(map[string]*Worker),
 	}
 }
 

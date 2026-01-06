@@ -14,5 +14,5 @@ else
 fi
 
 # Run server
-echo "Starting server in $MODE mode..."
-./server/bin/tqserver --mode "$MODE"
+echo "Starting server..."
+./server/bin/tqserver

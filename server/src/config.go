@@ -2,51 +2,61 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
-// WorkerSettings represents per-worker configuration
-type WorkerSettings struct {
-	GOMAXPROCS            int    `yaml:"gomaxprocs"`
-	MaxRequests           int    `yaml:"max_requests"`
-	RequestTimeoutSeconds int    `yaml:"request_timeout_seconds"`
-	IdleTimeoutSeconds    int    `yaml:"idle_timeout_seconds"`
-	GOMEMLIMIT            string `yaml:"gomemlimit"`
-	LogFile               string `yaml:"log_file"`
+// WorkerConfig represents a worker's configuration from worker.yaml
+type WorkerConfig struct {
+	Path    string `yaml:"path"`
+	Runtime struct {
+		GOMAXPROCS  int    `yaml:"go_max_procs"`
+		GOMEMLIMIT  string `yaml:"go_mem_limit"`
+		MaxRequests int    `yaml:"max_requests"`
+	} `yaml:"runtime"`
+	Timeouts struct {
+		RequestTimeoutSeconds int `yaml:"request_timeout_seconds"`
+		IdleTimeoutSeconds    int `yaml:"idle_timeout_seconds"`
+	} `yaml:"timeouts"`
+	Logging struct {
+		LogFile string `yaml:"log_file"`
+	} `yaml:"logging"`
+}
+
+// WorkerConfigWithMeta includes config and metadata
+type WorkerConfigWithMeta struct {
+	Name       string
+	ConfigPath string
+	Config     WorkerConfig
+	ModTime    time.Time
 }
 
 // Config represents the server configuration
 type Config struct {
 	Server struct {
-		Port                int `yaml:"port"`
-		ReadTimeoutSeconds  int `yaml:"read_timeout_seconds"`
-		WriteTimeoutSeconds int `yaml:"write_timeout_seconds"`
-		IdleTimeoutSeconds  int `yaml:"idle_timeout_seconds"`
+		Port                int    `yaml:"port"`
+		ReadTimeoutSeconds  int    `yaml:"read_timeout_seconds"`
+		WriteTimeoutSeconds int    `yaml:"write_timeout_seconds"`
+		IdleTimeoutSeconds  int    `yaml:"idle_timeout_seconds"`
+		LogFile             string `yaml:"log_file"`
 	} `yaml:"server"`
 
 	Workers struct {
-		TempDir               string                    `yaml:"temp_dir"`
-		PortRangeStart        int                       `yaml:"port_range_start"`
-		PortRangeEnd          int                       `yaml:"port_range_end"`
-		StartupDelayMs        int                       `yaml:"startup_delay_ms"`
-		RestartDelayMs        int                       `yaml:"restart_delay_ms"`
-		ShutdownGracePeriodMs int                       `yaml:"shutdown_grace_period_ms"`
-		Default               WorkerSettings            `yaml:"default"`
-		Paths                 map[string]WorkerSettings `yaml:"paths"`
+		Directory             string `yaml:"directory"`
+		PortRangeStart        int    `yaml:"port_range_start"`
+		PortRangeEnd          int    `yaml:"port_range_end"`
+		StartupDelayMs        int    `yaml:"startup_delay_ms"`
+		RestartDelayMs        int    `yaml:"restart_delay_ms"`
+		ShutdownGracePeriodMs int    `yaml:"shutdown_grace_period_ms"`
 	} `yaml:"workers"`
 
 	FileWatcher struct {
 		DebounceMs int `yaml:"debounce_ms"`
 	} `yaml:"file_watcher"`
-
-	Pages struct {
-		Directory string `yaml:"directory"`
-	} `yaml:"pages"`
 }
 
 // LoadConfig loads configuration from a YAML file
@@ -57,21 +67,14 @@ func LoadConfig(configPath string) (*Config, error) {
 	config.Server.ReadTimeoutSeconds = 30
 	config.Server.WriteTimeoutSeconds = 30
 	config.Server.IdleTimeoutSeconds = 120
-	config.Workers.TempDir = "bin"
+	config.Server.LogFile = "logs/tqserver_{date}.log"
+	config.Workers.Directory = "workers"
 	config.Workers.PortRangeStart = 9000
 	config.Workers.PortRangeEnd = 9999
 	config.Workers.StartupDelayMs = 100
 	config.Workers.RestartDelayMs = 100
 	config.Workers.ShutdownGracePeriodMs = 500
-	config.Workers.Default.GOMAXPROCS = 1
-	config.Workers.Default.MaxRequests = 0 // 0 = unlimited
-	config.Workers.Default.RequestTimeoutSeconds = 30
-	config.Workers.Default.IdleTimeoutSeconds = 120
-	config.Workers.Default.GOMEMLIMIT = "" // empty = unlimited
-	config.Workers.Default.LogFile = "logs/{path}/worker_{date}.log"
-	config.Workers.Paths = make(map[string]WorkerSettings)
 	config.FileWatcher.DebounceMs = 50
-	config.Pages.Directory = "pages"
 
 	// If config file exists, load it
 	if _, err := os.Stat(configPath); err == nil {
@@ -86,6 +89,112 @@ func LoadConfig(configPath string) (*Config, error) {
 	}
 
 	return config, nil
+}
+
+// LoadWorkerConfigs scans the workers directory and loads all worker configs
+func LoadWorkerConfigs(workersDir string) ([]*WorkerConfigWithMeta, error) {
+	var configs []*WorkerConfigWithMeta
+
+	entries, err := os.ReadDir(workersDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read workers directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		workerName := entry.Name()
+		configPath := filepath.Join(workersDir, workerName, "config", "worker.yaml")
+
+		// Check if worker.yaml exists
+		stat, err := os.Stat(configPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				log.Printf("Warning: Worker '%s' has no config/worker.yaml, skipping", workerName)
+				continue
+			}
+			return nil, fmt.Errorf("failed to stat config for worker '%s': %w", workerName, err)
+		}
+
+		// Load worker config
+		workerConfig, err := loadWorkerConfig(configPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load config for worker '%s': %w", workerName, err)
+		}
+
+		// Validate path is set
+		if workerConfig.Path == "" {
+			return nil, fmt.Errorf("worker '%s' has no path configured", workerName)
+		}
+
+		configs = append(configs, &WorkerConfigWithMeta{
+			Name:       workerName,
+			ConfigPath: configPath,
+			Config:     *workerConfig,
+			ModTime:    stat.ModTime(),
+		})
+
+		log.Printf("Loaded worker '%s' at path '%s'", workerName, workerConfig.Path)
+	}
+
+	return configs, nil
+}
+
+// loadWorkerConfig loads a single worker config file
+func loadWorkerConfig(configPath string) (*WorkerConfig, error) {
+	// Set defaults
+	config := &WorkerConfig{}
+	config.Runtime.GOMAXPROCS = 2
+	config.Runtime.GOMEMLIMIT = ""
+	config.Runtime.MaxRequests = 0
+	config.Timeouts.RequestTimeoutSeconds = 30
+	config.Timeouts.IdleTimeoutSeconds = 120
+	config.Logging.LogFile = "logs/worker_{name}_{date}.log"
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	if err := yaml.Unmarshal(data, config); err != nil {
+		return nil, fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	return config, nil
+}
+
+// CheckWorkerConfigChanges checks if any worker configs have been modified
+func CheckWorkerConfigChanges(configs []*WorkerConfigWithMeta) ([]string, error) {
+	var changed []string
+
+	for _, meta := range configs {
+		stat, err := os.Stat(meta.ConfigPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				log.Printf("Warning: Config file removed for worker '%s'", meta.Name)
+				continue
+			}
+			return nil, fmt.Errorf("failed to stat config for worker '%s': %w", meta.Name, err)
+		}
+
+		if stat.ModTime().After(meta.ModTime) {
+			changed = append(changed, meta.Name)
+			meta.ModTime = stat.ModTime()
+
+			// Reload the config
+			newConfig, err := loadWorkerConfig(meta.ConfigPath)
+			if err != nil {
+				log.Printf("Error reloading config for worker '%s': %v", meta.Name, err)
+				continue
+			}
+			meta.Config = *newConfig
+			log.Printf("Reloaded config for worker '%s'", meta.Name)
+		}
+	}
+
+	return changed, nil
 }
 
 // GetReadTimeout returns the read timeout as a time.Duration
@@ -121,46 +230,4 @@ func (c *Config) GetShutdownGracePeriod() time.Duration {
 // GetDebounceDelay returns the debounce delay as a time.Duration
 func (c *Config) GetDebounceDelay() time.Duration {
 	return time.Duration(c.FileWatcher.DebounceMs) * time.Millisecond
-}
-
-// GetWorkerRequestTimeout returns the worker request timeout as a time.Duration
-func (c *Config) GetWorkerRequestTimeout() time.Duration {
-	return time.Duration(c.Workers.Default.RequestTimeoutSeconds) * time.Second
-}
-
-// GetWorkerIdleTimeout returns the worker idle timeout as a time.Duration
-func (c *Config) GetWorkerIdleTimeout() time.Duration {
-	return time.Duration(c.Workers.Default.IdleTimeoutSeconds) * time.Second
-}
-
-// GetWorkerSettings returns the worker settings for a given path.
-// It checks for exact matches first, then prefix matches, and falls back to default settings.
-func (c *Config) GetWorkerSettings(path string) WorkerSettings {
-	// Check for exact match
-	if settings, ok := c.Workers.Paths[path]; ok {
-		return settings
-	}
-
-	// Check for prefix matches (e.g., /api matches /api/users)
-	bestMatch := ""
-	for configPath := range c.Workers.Paths {
-		if strings.HasPrefix(path, configPath) && len(configPath) > len(bestMatch) {
-			bestMatch = configPath
-		}
-	}
-
-	if bestMatch != "" {
-		return c.Workers.Paths[bestMatch]
-	}
-
-	// Fall back to default settings
-	return c.Workers.Default
-}
-
-// GetPagesPath returns the absolute path to the pages directory
-func (c *Config) GetPagesPath(projectRoot string) string {
-	if filepath.IsAbs(c.Pages.Directory) {
-		return c.Pages.Directory
-	}
-	return filepath.Join(projectRoot, c.Pages.Directory)
 }

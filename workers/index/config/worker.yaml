@@ -1,0 +1,30 @@
+# Worker Configuration for Index
+
+# Path prefix for this worker (required)
+# This is the URL path where this worker will be mounted
+path: "/"
+
+# Worker runtime settings
+runtime:
+  # Maximum number of CPU cores to use (0 = use all available)
+  go_max_procs: 2
+
+  # Maximum memory limit (e.g., "512MiB", "2GiB", empty = unlimited)
+  go_mem_limit: ""
+
+  # Restart worker after N requests (0 = unlimited)
+  max_requests: 0
+
+# Timeout settings
+timeouts:
+  # HTTP request timeout
+  request_timeout_seconds: 30
+
+  # HTTP idle timeout
+  idle_timeout_seconds: 120
+
+# Logging
+logging:
+  # Log file path (placeholders: {name}, {date})
+  # Use null, empty string, or ~ to disable file logging
+  log_file: "logs/worker_{name}_{date}.log"

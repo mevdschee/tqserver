@@ -24,12 +24,12 @@ Total: 400-800ms with zero dropped requests
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                   Hot Reload Cycle                        │
-│                                                           │
-│  1. File Change   →  2. Detection  →  3. Debounce       │
-│         ↓                                                 │
-│  6. Swap Traffic  ←  5. Health Check  ←  4. Build       │
-│         ↓                                                 │
+│                   Hot Reload Cycle                       │
+│                                                          │
+│  1. File Change   →  2. Detection  →  3. Debounce        │
+│                                             ↓            │
+│  6. Swap Traffic  ←  5. Health Check  ←  4. Build        │
+│         ↓                                                │
 │  7. Old Worker Shutdown  →  8. Cleanup  →  9. Complete   │
 └──────────────────────────────────────────────────────────┘
 ```

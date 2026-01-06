@@ -29,15 +29,22 @@ func main() {
 	log.Printf("TQServer starting...")
 	log.Printf("Project root: %s", projectRoot)
 	log.Printf("Config file: %s", configFile)
-	log.Printf("Pages directory: %s", config.Pages.Directory)
+	log.Printf("Workers directory: %s", config.Workers.Directory)
 	log.Printf("Listening on port: %d", config.Server.Port)
 	log.Printf("Worker port range: %d-%d", config.Workers.PortRangeStart, config.Workers.PortRangeEnd)
 
+	// Load worker configs
+	workerConfigs, err := LoadWorkerConfigs(config.Workers.Directory)
+	if err != nil {
+		log.Fatalf("Failed to load worker configs: %v", err)
+	}
+	log.Printf("Loaded %d worker(s)", len(workerConfigs))
+
 	// Initialize router
-	router := NewRouter(config.Pages.Directory, projectRoot)
+	router := NewRouter(config.Workers.Directory, projectRoot, workerConfigs)
 
 	// Initialize supervisor
-	supervisor := NewSupervisor(config, projectRoot, router)
+	supervisor := NewSupervisor(config, projectRoot, router, workerConfigs)
 
 	// Start supervisor (watches for changes and builds workers)
 	if err := supervisor.Start(); err != nil {
