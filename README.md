@@ -354,6 +354,55 @@ documentation.
 
 ## Worker Development
 
+TQServer supports workers written in multiple programming languages, each compiled or managed according to its runtime requirements.
+
+### Supported Worker Types
+
+#### Go Workers
+
+Native Go workers provide the highest performance and fastest reload times. Workers are compiled as standalone binaries and managed directly by the supervisor.
+
+**Features:**
+- Sub-second hot reloads (~300-1000ms)
+- Native Go performance with no runtime overhead
+- Direct process management by supervisor
+- Full access to Go standard library and ecosystem
+- Built-in health check support via `/health` endpoint
+
+**Example:** `workers/index/` - Default homepage worker written in Go
+
+**Documentation:** See [Worker Development](#worker-development) section below for Go worker examples.
+
+#### Kotlin Workers
+
+Kotlin workers use the Ktor framework and are compiled to JVM bytecode. They run as standalone JAR files managed by the supervisor.
+
+**Features:**
+- JVM ecosystem and library support
+- Ktor framework for HTTP routing
+- Gradle build system integration
+- Hot reload support with automatic rebuilding
+- Type-safe language with modern syntax
+
+**Example:** `workers/api/` - REST API worker demonstrating CRUD operations
+
+**Documentation:** See [workers/api/README.md](workers/api/README.md) and [docs/workers/kotlin.md](docs/workers/kotlin.md)
+
+#### PHP Workers
+
+PHP workers use the FastCGI protocol to communicate with TQServer. The supervisor manages php-cgi worker processes and handles request routing.
+
+**Features:**
+- FastCGI protocol integration
+- Dynamic worker pool management (static, dynamic, on-demand)
+- PHP-FPM style configuration via YAML
+- Support for existing PHP applications
+- Configurable process pools and resource limits
+
+**Example:** `workers/blog/` - Blog worker demonstrating PHP integration
+
+**Documentation:** See [workers/blog/README.md](workers/blog/README.md) and [pkg/php/README.md](pkg/php/README.md)
+
 ### Environment Variables
 
 TQServer passes configuration to workers via environment variables:

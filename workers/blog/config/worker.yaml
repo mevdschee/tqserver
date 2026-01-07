@@ -23,15 +23,17 @@ php:
 
   # Process pool configuration
   pool:
-    # static: fixed number of workers
-    # dynamic: scale workers based on load
-    # ondemand: spawn workers only when needed
-    manager: static
+    # dynamic: scale workers based on load (MOST POPULAR - like PHP-FPM default)
+    manager: dynamic
 
-    # Number of workers (static) or min/max (dynamic)
+    # Minimum idle workers to keep running
     min_workers: 2
-    max_workers: 5
-    start_workers: 2
+    
+    # Maximum workers under load
+    max_workers: 10
+    
+    # Number of workers to start initially
+    start_workers: 3
 
     # Maximum requests per worker before restart (0 = unlimited)
     max_requests: 1000
@@ -39,14 +41,14 @@ php:
     # Request timeout in seconds
     request_timeout: 30
 
-    # Process idle timeout (ondemand mode)
+    # Process idle timeout (not used in dynamic mode)
     idle_timeout: 10
 
 # FastCGI Server Configuration
 fastcgi:
   # Listen address for FastCGI protocol
   # Can be TCP (127.0.0.1:9000) or Unix socket (/var/run/blog.sock)
-  listen: "127.0.0.1:9000"
+  listen: "127.0.0.1:9001"
 
   # Enable for Unix socket
   # socket: /var/run/blog.sock

@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/mevdschee/tqserver/pkg/fastcgi"
+	"github.com/mevdschee/tqserver/pkg/php"
 )
 
 // Supervisor manages worker lifecycle: building, starting, stopping, and restarting
@@ -25,17 +27,23 @@ type Supervisor struct {
 	wg            sync.WaitGroup
 	mu            sync.Mutex
 	proxy         *Proxy
+
+	// PHP support
+	phpManagers    map[string]*php.Manager    // keyed by worker name
+	fastcgiServers map[string]*fastcgi.Server // keyed by worker name
 }
 
 // NewSupervisor creates a new supervisor
 func NewSupervisor(config *Config, projectRoot string, router *Router, workerConfigs []*WorkerConfigWithMeta) *Supervisor {
 	return &Supervisor{
-		config:        config,
-		projectRoot:   projectRoot,
-		router:        router,
-		workerConfigs: workerConfigs,
-		nextPort:      config.Workers.PortRangeStart,
-		stopChan:      make(chan struct{}),
+		config:         config,
+		projectRoot:    projectRoot,
+		router:         router,
+		workerConfigs:  workerConfigs,
+		nextPort:       config.Workers.PortRangeStart,
+		stopChan:       make(chan struct{}),
+		phpManagers:    make(map[string]*php.Manager),
+		fastcgiServers: make(map[string]*fastcgi.Server),
 	}
 }
 
@@ -63,6 +71,12 @@ func (s *Supervisor) Start() error {
 
 	// Build and start all workers from worker configs
 	for _, workerMeta := range s.workerConfigs {
+		// Skip disabled workers
+		if !workerMeta.Config.Enabled {
+			log.Printf("Worker %s is disabled, skipping", workerMeta.Name)
+			continue
+		}
+
 		// Create worker entry
 		worker := &Worker{
 			Name:  workerMeta.Name,
@@ -72,21 +86,30 @@ func (s *Supervisor) Start() error {
 		// Register worker with router
 		s.router.RegisterWorker(worker)
 
-		// Build and start the worker
-		if err := s.buildWorker(worker); err != nil {
-			log.Printf("Failed to build worker %s: %v", workerMeta.Name, err)
-			continue
-		}
+		// Check if this is a PHP worker
+		if workerMeta.Config.Type == "php" {
+			if err := s.startPHPWorker(worker, workerMeta); err != nil {
+				log.Printf("Failed to start PHP worker %s: %v", workerMeta.Name, err)
+				continue
+			}
+		} else {
+			// Standard Go worker
+			// Build and start the worker
+			if err := s.buildWorker(worker); err != nil {
+				log.Printf("Failed to build worker %s: %v", workerMeta.Name, err)
+				continue
+			}
 
-		// Skip starting if there was a build error (in dev mode, error is stored)
-		if hasBuildError, _ := worker.GetBuildError(); hasBuildError {
-			log.Printf("Skipping start of worker %s due to build error", workerMeta.Name)
-			continue
-		}
+			// Skip starting if there was a build error (in dev mode, error is stored)
+			if hasBuildError, _ := worker.GetBuildError(); hasBuildError {
+				log.Printf("Skipping start of worker %s due to build error", workerMeta.Name)
+				continue
+			}
 
-		if err := s.startWorker(worker); err != nil {
-			log.Printf("Failed to start worker %s: %v", workerMeta.Name, err)
-			continue
+			if err := s.startWorker(worker); err != nil {
+				log.Printf("Failed to start worker %s: %v", workerMeta.Name, err)
+				continue
+			}
 		}
 	}
 
@@ -122,11 +145,24 @@ func (s *Supervisor) Stop() {
 		s.watcher.Close()
 	}
 
-	// Stop all workers
+	// Stop all Go workers
 	workers := s.router.GetAllWorkers()
 	for _, worker := range workers {
 		s.stopWorker(worker)
 	}
+
+	// Stop all PHP managers
+	s.mu.Lock()
+	for name, manager := range s.phpManagers {
+		log.Printf("Stopping PHP manager for %s", name)
+		manager.Stop()
+	}
+	// Stop all FastCGI servers
+	for name, server := range s.fastcgiServers {
+		log.Printf("Stopping FastCGI server for %s", name)
+		server.Shutdown(nil)
+	}
+	s.mu.Unlock()
 
 	s.wg.Wait()
 }
@@ -457,6 +493,90 @@ func (s *Supervisor) stopWorker(worker *Worker) error {
 
 	worker.SetHealthy(false)
 	worker.Process = nil
+
+	return nil
+}
+
+// startPHPWorker starts a PHP worker pool with FastCGI server
+func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWithMeta) error {
+	if workerMeta.Config.PHP == nil {
+		return fmt.Errorf("PHP configuration not found for worker %s", worker.Name)
+	}
+
+	log.Printf("Starting PHP worker pool for %s (dynamic manager)", worker.Name)
+
+	// Determine document root
+	workerRoot := filepath.Join(s.projectRoot, s.config.Workers.Directory, worker.Name)
+	documentRoot := filepath.Join(workerRoot, "public")
+
+	// Detect PHP binary
+	binary, err := php.DetectBinary(workerMeta.Config.PHP.Binary)
+	if err != nil {
+		return fmt.Errorf("failed to detect PHP binary: %w", err)
+	}
+
+	log.Printf("Using PHP binary: %s (version %s)", binary.Path, binary.Version)
+
+	// Build PHP configuration
+	phpConfig := &php.Config{
+		Binary:       binary.Path,
+		ConfigFile:   workerMeta.Config.PHP.ConfigFile,
+		Settings:     workerMeta.Config.PHP.Settings,
+		DocumentRoot: documentRoot,
+		Pool: php.PoolConfig{
+			Manager:        workerMeta.Config.PHP.Pool.Manager,
+			MinWorkers:     workerMeta.Config.PHP.Pool.MinWorkers,
+			MaxWorkers:     workerMeta.Config.PHP.Pool.MaxWorkers,
+			StartWorkers:   workerMeta.Config.PHP.Pool.StartWorkers,
+			MaxRequests:    workerMeta.Config.PHP.Pool.MaxRequests,
+			RequestTimeout: time.Duration(workerMeta.Config.PHP.Pool.RequestTimeout) * time.Second,
+			IdleTimeout:    time.Duration(workerMeta.Config.PHP.Pool.IdleTimeout) * time.Second,
+			ListenAddr:     workerMeta.Config.FastCGI.Listen,
+		},
+	}
+
+	// Create PHP manager
+	manager, err := php.NewManager(binary, phpConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create PHP manager: %w", err)
+	}
+
+	// Start the pool
+	if err := manager.Start(); err != nil {
+		return fmt.Errorf("failed to start PHP pool: %w", err)
+	}
+
+	// Store manager
+	s.mu.Lock()
+	s.phpManagers[worker.Name] = manager
+	s.mu.Unlock()
+
+	// Create FastCGI handler
+	handler := php.NewFastCGIHandler(manager)
+
+	// Create and start FastCGI server
+	fcgiServer := fastcgi.NewServer(workerMeta.Config.FastCGI.Listen, handler)
+	go func() {
+		if err := fcgiServer.ListenAndServe(); err != nil {
+			log.Printf("FastCGI server for %s stopped: %v", worker.Name, err)
+		}
+	}()
+
+	// Store server
+	s.mu.Lock()
+	s.fastcgiServers[worker.Name] = fcgiServer
+	s.mu.Unlock()
+
+	// Mark worker as healthy (PHP workers don't have a Process)
+	worker.SetHealthy(true)
+
+	log.Printf("✅ PHP worker pool started for %s on %s (%s mode: %d-%d workers)",
+		worker.Name,
+		workerMeta.Config.FastCGI.Listen,
+		workerMeta.Config.PHP.Pool.Manager,
+		workerMeta.Config.PHP.Pool.MinWorkers,
+		workerMeta.Config.PHP.Pool.MaxWorkers,
+	)
 
 	return nil
 }
