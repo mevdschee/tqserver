@@ -36,10 +36,10 @@ func NewManager(binary *Binary, config *Config) (*Manager, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Determine base socket path
-	baseSocket := config.Pool.ListenAddr
-	if config.Pool.UnixSocket != "" {
-		baseSocket = config.Pool.UnixSocket
+	// Determine base socket path - prefer Unix socket over TCP
+	baseSocket := config.Pool.UnixSocket
+	if baseSocket == "" {
+		baseSocket = config.Pool.ListenAddr
 	}
 
 	m := &Manager{

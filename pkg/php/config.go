@@ -47,11 +47,11 @@ type PoolConfig struct {
 	// IdleTimeout is the time before an idle worker is killed (ondemand)
 	IdleTimeout time.Duration
 
-	// ListenAddr is the FastCGI listen address (e.g., "127.0.0.1:9000")
-	ListenAddr string
-
-	// UnixSocket is the optional Unix socket path
+	// UnixSocket is the Unix socket path (default and recommended)
 	UnixSocket string
+
+	// ListenAddr is the TCP address (e.g., "127.0.0.1:9000") - only if UnixSocket is not set
+	ListenAddr string
 }
 
 // Validate checks if the configuration is valid
@@ -74,6 +74,11 @@ func (c *Config) Validate() error {
 
 // Validate checks if the pool configuration is valid
 func (p *PoolConfig) Validate() error {
+	// Ensure at least one listen method is configured
+	if p.UnixSocket == "" && p.ListenAddr == "" {
+		return fmt.Errorf("either unix_socket or listen_addr must be configured")
+	}
+
 	switch p.Manager {
 	case "static", "dynamic", "ondemand":
 		// Valid

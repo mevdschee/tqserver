@@ -28,10 +28,10 @@ php:
 
     # Minimum idle workers to keep running
     min_workers: 2
-    
+
     # Maximum workers under load
     max_workers: 10
-    
+
     # Number of workers to start initially
     start_workers: 3
 
@@ -46,17 +46,8 @@ php:
 
 # FastCGI Server Configuration
 fastcgi:
-  # Listen address for FastCGI protocol
-  # Can be TCP (127.0.0.1:9000) or Unix socket (/var/run/blog.sock)
+  # TCP listen address for FastCGI protocol
   listen: "127.0.0.1:9001"
-
-  # Enable for Unix socket
-  # socket: /var/run/blog.sock
-
-# HTTP Configuration (for direct access during development)
-http:
-  enabled: true
-  port: 8001
 
 # Document root
 document_root: ./public

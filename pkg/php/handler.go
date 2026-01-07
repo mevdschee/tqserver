@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/mevdschee/tqserver/pkg/fastcgi"
@@ -40,10 +41,15 @@ func (h *FastCGIHandler) ServeFastCGI(conn *fastcgi.Conn, req *fastcgi.Request) 
 	worker.setState(WorkerStateActive)
 	defer worker.setState(WorkerStateIdle)
 
-	// Connect to the PHP worker
-	phpConn, err := net.DialTimeout("tcp", worker.socketPath, 5*time.Second)
+	// Connect to the PHP worker (auto-detect Unix socket vs TCP)
+	network := "tcp"
+	if !isNetworkAddr(worker.socketPath) {
+		network = "unix"
+	}
+
+	phpConn, err := net.DialTimeout(network, worker.socketPath, 5*time.Second)
 	if err != nil {
-		log.Printf("[Worker %d] Failed to connect: %v", worker.ID, err)
+		log.Printf("[Worker %d] Failed to connect to %s socket %s: %v", worker.ID, network, worker.socketPath, err)
 		conn.SendStderr(req.RequestID, []byte(fmt.Sprintf("Failed to connect to PHP worker: %v", err)))
 		conn.SendEndRequest(req.RequestID, 1, uint8(fastcgi.StatusRequestComplete))
 		return err
@@ -137,4 +143,9 @@ func (h *FastCGIHandler) ServeFastCGI(conn *fastcgi.Conn, req *fastcgi.Request) 
 	}
 
 	return nil
+}
+
+// isNetworkAddr checks if the address is a network address (host:port) vs a Unix socket path
+func isNetworkAddr(addr string) bool {
+	return strings.Contains(addr, ":")
 }

@@ -39,7 +39,7 @@ func main() {
             Manager:        "static",
             MaxWorkers:     4,
             RequestTimeout: 30 * time.Second,
-            ListenAddr:     "127.0.0.1:9000",
+            UnixSocket:     "/tmp/tqserver-php.sock",
         },
     }
 
@@ -318,7 +318,7 @@ config := &php.Config{
         MaxWorkers:     8,
         MaxRequests:    5000,
         RequestTimeout: 60 * time.Second,
-        ListenAddr:     "127.0.0.1:9000",
+        UnixSocket:     "/var/run/tqserver-php.sock",
     },
 }
 ```
@@ -337,7 +337,7 @@ config := &php.Config{
         MaxRequests:    1000,
         RequestTimeout: 30 * time.Second,
         IdleTimeout:    60 * time.Second,
-        ListenAddr:     "127.0.0.1:9000",
+        UnixSocket:     "/var/run/tqserver-php.sock",
     },
 }
 ```
@@ -357,7 +357,7 @@ config := &php.Config{
         MaxWorkers:     2,
         RequestTimeout: 30 * time.Second,
         IdleTimeout:    10 * time.Second,
-        ListenAddr:     "127.0.0.1:9001",
+        UnixSocket:     "/tmp/tqserver-php.sock",
     },
 }
 ```
