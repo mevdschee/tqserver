@@ -225,7 +225,7 @@ func (s *Supervisor) handleFileChange(filePath string) {
 			// If there was a build error (in dev mode), broadcast reload to show error page
 			if hasBuildError, _ := worker.GetBuildError(); hasBuildError {
 				log.Printf("Worker %s has build error, not restarting", worker.Route)
-				
+
 				// Broadcast reload to show error page in dev mode
 				if s.config.IsDevelopmentMode() && s.proxy != nil {
 					s.proxy.BroadcastReload()
@@ -289,6 +289,11 @@ func (s *Supervisor) handleConfigChange(filePath string) {
 			}
 
 			log.Printf("✅ Worker restarted with new config for %s", worker.Route)
+
+			// Broadcast reload to connected clients in dev mode
+			if s.config.IsDevelopmentMode() && s.proxy != nil {
+				s.proxy.BroadcastReload()
+			}
 			return
 		}
 	}

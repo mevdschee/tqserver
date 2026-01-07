@@ -164,6 +164,7 @@ func (p *Proxy) serveBuildErrorPage(w http.ResponseWriter, r *http.Request, work
 	data := map[string]interface{}{
 		"WorkerName": workerName,
 		"BuildError": buildError,
+		"DevMode":    p.config.IsDevelopmentMode(),
 	}
 
 	templatePath := filepath.Join(p.projectRoot, "server", "views", "build-error.html")

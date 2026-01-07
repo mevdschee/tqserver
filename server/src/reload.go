@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"time"
 )
 
 // wsConn wraps a net.Conn for WebSocket communication
@@ -84,10 +85,25 @@ func (rb *ReloadBroadcaster) HandleWebSocket(w http.ResponseWriter, r *http.Requ
 		log.Printf("WebSocket client disconnected (total: %d)", clientCount)
 	}()
 
-	// Read messages to detect disconnect
+	// Set read deadline to detect stale connections
+	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+
+	// Read messages to detect disconnect and close frames
 	buf := make([]byte, 1024)
 	for {
-		if _, err := conn.Read(buf); err != nil {
+		n, err := conn.Read(buf)
+		if err != nil {
+			break
+		}
+		
+		// Reset read deadline on any data received
+		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		
+		// Check if this is a close frame (opcode 0x8)
+		if n > 0 && (buf[0]&0x0F) == 0x08 {
+			// Send close frame back and exit
+			closeFrame := []byte{0x88, 0x00}
+			conn.Write(closeFrame)
 			break
 		}
 	}
@@ -95,8 +111,8 @@ func (rb *ReloadBroadcaster) HandleWebSocket(w http.ResponseWriter, r *http.Requ
 
 // BroadcastReload sends a reload message to all connected clients
 func (rb *ReloadBroadcaster) BroadcastReload() {
-	rb.mu.RLock()
-	defer rb.mu.RUnlock()
+	rb.mu.Lock()
+	defer rb.mu.Unlock()
 
 	if len(rb.clients) == 0 {
 		return
@@ -108,12 +124,24 @@ func (rb *ReloadBroadcaster) BroadcastReload() {
 	message := []byte("reload")
 	frame := makeTextFrame(message)
 
+	// Collect dead connections
+	var deadClients []*wsConn
+
 	for client := range rb.clients {
 		if _, err := client.conn.Write(frame); err != nil {
 			log.Printf("Failed to send reload message: %v", err)
 			client.conn.Close()
-			delete(rb.clients, client)
+			deadClients = append(deadClients, client)
 		}
+	}
+
+	// Remove dead connections
+	for _, client := range deadClients {
+		delete(rb.clients, client)
+	}
+
+	if len(deadClients) > 0 {
+		log.Printf("Cleaned up %d dead connection(s), active: %d", len(deadClients), len(rb.clients))
 	}
 }
 

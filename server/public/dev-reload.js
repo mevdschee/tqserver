@@ -8,6 +8,7 @@
     let ws;
     let reconnectInterval = 1000;
     let reconnectTimeout;
+    let isReloading = false;
     
     function connect() {
         console.log('[TQServer] Connecting to live reload...');
@@ -21,10 +22,19 @@
         
         ws.onmessage = function(event) {
             console.log('[TQServer] Reload signal received, reloading page...');
+            isReloading = true;
+            // Close WebSocket cleanly before reload
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close();
+            }
             location.reload();
         };
         
         ws.onclose = function() {
+            // Don't reconnect if we're reloading
+            if (isReloading) {
+                return;
+            }
             console.log('[TQServer] Live reload disconnected, reconnecting...');
             scheduleReconnect();
         };
@@ -42,6 +52,14 @@
             reconnectInterval = Math.min(reconnectInterval * 1.5, 10000); // Max 10s
         }, reconnectInterval);
     }
+    
+    // Close WebSocket when navigating away
+    window.addEventListener('beforeunload', function() {
+        isReloading = true;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.close();
+        }
+    });
     
     // Start connection
     connect();
