@@ -103,7 +103,7 @@ func (h *FastCGIHandler) ServeFastCGI(conn *fastcgi.Conn, req *fastcgi.Request) 
 		}
 
 		// Forward the record to the client
-		switch record.Type {
+		switch record.Header.Type {
 		case fastcgi.TypeStdout:
 			if len(record.Content) > 0 {
 				if err := conn.SendStdout(req.RequestID, record.Content); err != nil {

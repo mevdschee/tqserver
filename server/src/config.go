@@ -13,6 +13,10 @@ import (
 // WorkerConfig represents a worker's configuration from worker.yaml
 type WorkerConfig struct {
 	Path    string `yaml:"path"`
+	Name    string `yaml:"name"`
+	Type    string `yaml:"type"` // "go" or "php"
+	Enabled bool   `yaml:"enabled"`
+
 	Runtime struct {
 		GOMAXPROCS  int    `yaml:"go_max_procs"`
 		GOMEMLIMIT  string `yaml:"go_mem_limit"`
@@ -26,6 +30,27 @@ type WorkerConfig struct {
 	Logging struct {
 		LogFile string `yaml:"log_file"`
 	} `yaml:"logging"`
+
+	// PHP-specific configuration
+	PHP *struct {
+		Binary     string            `yaml:"binary"`
+		ConfigFile string            `yaml:"config_file"`
+		Settings   map[string]string `yaml:"settings"`
+		Pool       struct {
+			Manager        string `yaml:"manager"`
+			MinWorkers     int    `yaml:"min_workers"`
+			MaxWorkers     int    `yaml:"max_workers"`
+			StartWorkers   int    `yaml:"start_workers"`
+			MaxRequests    int    `yaml:"max_requests"`
+			RequestTimeout int    `yaml:"request_timeout"`
+			IdleTimeout    int    `yaml:"idle_timeout"`
+		} `yaml:"pool"`
+	} `yaml:"php"`
+
+	// FastCGI-specific configuration
+	FastCGI *struct {
+		Listen string `yaml:"listen"`
+	} `yaml:"fastcgi"`
 }
 
 // WorkerConfigWithMeta includes config and metadata
