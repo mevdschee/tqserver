@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"sync"
-	"time"
 )
 
 // wsConn wraps a net.Conn for WebSocket communication
@@ -85,9 +84,6 @@ func (rb *ReloadBroadcaster) HandleWebSocket(w http.ResponseWriter, r *http.Requ
 		log.Printf("WebSocket client disconnected (total: %d)", clientCount)
 	}()
 
-	// Set read deadline to detect stale connections
-	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-
 	// Read messages to detect disconnect and close frames
 	buf := make([]byte, 1024)
 	for {
@@ -95,10 +91,7 @@ func (rb *ReloadBroadcaster) HandleWebSocket(w http.ResponseWriter, r *http.Requ
 		if err != nil {
 			break
 		}
-		
-		// Reset read deadline on any data received
-		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-		
+
 		// Check if this is a close frame (opcode 0x8)
 		if n > 0 && (buf[0]&0x0F) == 0x08 {
 			// Send close frame back and exit
