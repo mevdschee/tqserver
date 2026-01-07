@@ -1,8 +1,8 @@
 {% extends "server/views/base.html" %}
 
-{% block title %}Compilation Error - {{ WorkerName }}{% endblock %}
+{% block title %}Compilation Error{% endblock %}
 
-{% block styles %}
+{% block head %}
 <style>
     body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -61,22 +61,15 @@
     .info p {
         margin: 5px 0;
     }
-    .refresh-note {
-        margin-top: 20px;
-        padding: 15px;
-        background: #2d2d2d;
-        border-radius: 4px;
-        text-align: center;
-        color: #888;
-    }
 </style>
 {% endblock %}
 
-{% block content %}
+{% block body %}
 <div class="container">
     <div class="error-header">
         <h1>⚠️ Compilation Error</h1>
         <p>Worker: <strong>{{ WorkerName }}</strong></p>
+        <p>Time: <strong>{{ BuildTime }}</strong></p>
     </div>
     <div class="error-content">
         <div class="error-box">{{ BuildError }}</div>
@@ -84,9 +77,6 @@
             <p><strong>ℹ️ Development Mode</strong></p>
             <p>The compilation failed. Fix the errors in your code and save the file.</p>
             <p>The page will automatically reload once the build succeeds.</p>
-        </div>
-        <div class="refresh-note">
-            <p>💡 This error page will reload automatically.</p>
         </div>
     </div>
 </div>

@@ -53,7 +53,7 @@ func main() {
 	})
 
 	// Hello world route
-	http.Handlesunc("/hello", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%s %s", r.Method, r.URL.Path)
 
 		// Set content type first

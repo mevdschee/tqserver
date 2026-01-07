@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/mevdschee/tqtemplate"
 )
@@ -165,6 +166,7 @@ func (p *Proxy) serveBuildErrorPage(w http.ResponseWriter, r *http.Request, work
 		"WorkerName": workerName,
 		"BuildError": buildError,
 		"DevMode":    p.config.IsDevelopmentMode(),
+		"BuildTime":  time.Now().Format("2006-01-02 15:04:05"),
 	}
 
 	templatePath := filepath.Join(p.projectRoot, "server", "views", "build-error.html")

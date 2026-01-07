@@ -3,17 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}TQServer{% endblock %}</title>
-    <style>
-    </style>
-    {% block styles %}{% endblock %}
+    <title>{% block title %}{% endblock %} - TQServer</title>
+    {% block head %}{% endblock %}
 </head>
 <body>
-        {% block content %}{% endblock %}
-    <main class="container">
-    </main>
-    {% block scripts %}
-        {% if DevMode %}<script src="/dev-reload.js"></script>{% endif %}
-    {% endblock %}
+    {% block body %}{% endblock %}
+
+    {% block scripts %}{% endblock %}
+    {% if DevMode %}
+    <script src="/dev-reload.js"></script>
+    {% endif %}
 </body>
 </html>
