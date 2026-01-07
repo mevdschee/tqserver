@@ -7,8 +7,9 @@ In development mode, when a worker fails to compile, TQServer will serve an HTML
 ## Features
 
 - **Automatic Error Detection**: When a worker fails to build, the error is captured and stored
-- **HTML Error Page**: A clean, readable error page shows the compilation output
-- **Auto-Refresh**: The error page automatically refreshes every 2 seconds to check if the build is fixed
+- **HTML Error Page**: A clean, readable error page shows the compilation output with timestamp
+- **Live Reload**: The page automatically reloads via WebSocket when the build succeeds or fails again
+- **WebSocket Integration**: Real-time updates without manual refresh or polling
 - **Development Mode Only**: This feature only activates in development mode to avoid exposing errors in production
 
 ## How It Works
@@ -18,7 +19,46 @@ In development mode, when a worker fails to compile, TQServer will serve an HTML
    - In **dev mode**: The error is stored and an HTML error page is served for that worker's routes
    - In **prod mode**: The error is returned and the old binary continues to run (if available)
 3. When you fix the error and save, the build succeeds and the worker restarts normally
-4. The error page auto-refreshes, so you'll see your working application as soon as the build succeeds
+4. The error page receives a WebSocket reload signal and automatically refreshes to show the working application
+
+## Live Reload System
+
+### WebSocket Connection
+
+In development mode, a lightweight WebSocket connection is established between the browser and server at `ws://localhost:8080/ws/reload`. This connection:
+
+- Automatically connects when a page loads
+- Receives reload signals when workers are rebuilt (successful or failed)
+- Automatically reconnects if disconnected
+- Is disabled in production mode
+
+### Client-Side Script
+
+A script (`/dev-reload.js`) is automatically included in templates when `DevMode` is true:
+
+```html
+{% if DevMode %}<script src="/dev-reload.js"></script>{% endif %}
+```
+
+The script:
+- Establishes WebSocket connection on page load
+- Listens for reload messages from the server
+- Reloads the page when a worker is rebuilt
+- Handles reconnection with exponential backoff
+- Cleans up connections on page navigation
+
+### Server-Side Broadcasting
+
+When workers are rebuilt (successfully or with errors), the server broadcasts a reload message to all connected clients:
+
+```go
+// After worker restart or build error
+if config.IsDevelopmentMode() && proxy != nil {
+    proxy.BroadcastReload()
+}
+```
+
+This ensures all open browser tabs reload simultaneously when code changes.
 
 ## Enabling Development Mode
 
@@ -43,15 +83,16 @@ When you have a compilation error, you'll see a page like this:
 ```
 ⚠️ Compilation Error
 Worker: index
+Time: 2026-01-07 21:15:42
 
 [Error output from Go compiler showing the syntax error]
 
 ℹ️ Development Mode
 The compilation failed. Fix the errors in your code and save the file.
 The page will automatically reload once the build succeeds.
-
-💡 This error page is only shown in development mode.
 ```
+
+The page will automatically reload when you fix the error and save the file.
 
 ## Testing the Feature
 

@@ -21,6 +21,7 @@ Welcome to the TQServer documentation. TQServer is a high-performance function e
 - [Worker Architecture](architecture/workers.md)
 - [Process Isolation](architecture/isolation.md)
 - [Hot Reload System](architecture/hot-reload.md)
+- [Live Reload (WebSocket)](architecture/live-reload.md)
 - [Supervisor Pattern](architecture/supervisor.md)
 
 ### The Basics
