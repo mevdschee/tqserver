@@ -26,28 +26,6 @@ func TestGetFileMtime(t *testing.T) {
 	}
 }
 
-func TestGetDirLatestMtime(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	file1 := filepath.Join(tmpDir, "file1.txt")
-	os.WriteFile(file1, []byte("test1"), 0644)
-
-	time.Sleep(10 * time.Millisecond)
-
-	file2 := filepath.Join(tmpDir, "file2.txt")
-	os.WriteFile(file2, []byte("test2"), 0644)
-
-	latest := GetDirLatestMtime(tmpDir)
-	if latest.IsZero() {
-		t.Error("Expected non-zero latest mtime")
-	}
-
-	file2Mtime := GetFileMtime(file2)
-	if !latest.Equal(file2Mtime) {
-		t.Error("Latest mtime should match file2's mtime")
-	}
-}
-
 func TestHasFileChanged(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
@@ -103,24 +81,15 @@ func TestCheckChanges(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	binFile := filepath.Join(tmpDir, "worker")
-	publicDir := filepath.Join(tmpDir, "public")
-	privateDir := filepath.Join(tmpDir, "private")
 
 	os.WriteFile(binFile, []byte("binary"), 0755)
-	os.MkdirAll(publicDir, 0755)
-	os.MkdirAll(privateDir, 0755)
-	os.WriteFile(filepath.Join(publicDir, "style.css"), []byte("css"), 0644)
 
 	registry := NewWorkerRegistry()
 
 	worker := &WorkerInstance{
-		Name:         "test",
-		BinaryPath:   binFile,
-		BinaryMtime:  GetFileMtime(binFile),
-		PublicPath:   publicDir,
-		PublicMtime:  GetDirLatestMtime(publicDir),
-		PrivatePath:  privateDir,
-		PrivateMtime: GetDirLatestMtime(privateDir),
+		Name:        "test",
+		BinaryPath:  binFile,
+		BinaryMtime: GetFileMtime(binFile),
 	}
 
 	registry.Register(worker)
@@ -140,11 +109,8 @@ func TestCheckChanges(t *testing.T) {
 
 	registry.UpdateMtimes("test")
 
-	time.Sleep(10 * time.Millisecond)
-	os.WriteFile(filepath.Join(publicDir, "app.js"), []byte("js"), 0644)
-
 	changed, changeType = registry.CheckChanges("test")
-	if !changed || changeType != "assets" {
-		t.Errorf("Expected assets change, got: %v, %s", changed, changeType)
+	if changed {
+		t.Error("Should not have changes after UpdateMtimes")
 	}
 }

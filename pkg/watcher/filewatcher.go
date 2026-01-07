@@ -140,10 +140,6 @@ func (fw *FileWatcher) processChange(path string) {
 
 		if strings.Contains(path, "/src/") && strings.HasSuffix(path, ".go") {
 			event.ChangeType = "source"
-		} else if strings.Contains(path, "/public/") {
-			event.ChangeType = "asset"
-		} else if strings.Contains(path, "/private/") {
-			event.ChangeType = "asset"
 		} else {
 			return
 		}

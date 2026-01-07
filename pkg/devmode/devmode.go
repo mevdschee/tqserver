@@ -115,14 +115,6 @@ func (dm *DevMode) handleChange(event watcher.ChangeEvent) {
 				dm.serverRestart()
 			}
 		}
-
-	case "asset":
-		// Asset changed - just notify, worker can reload templates
-		log.Printf("Worker %s assets changed", event.WorkerName)
-		if dm.restartHandler != nil {
-			dm.restartHandler(event.WorkerName)
-		}
-
 	case "config":
 		// Config changed - reload configuration
 		log.Println("Configuration changed - server restart recommended")

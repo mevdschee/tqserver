@@ -79,23 +79,8 @@ func New(cfg Config) (*Controller, error) {
 			RestartHandler: func(workerName string, changeType string) {
 				log.Printf("Prod mode change: worker=%s, type=%s", workerName, changeType)
 
-				switch changeType {
-				case "binary":
-					// Full restart required
-					if err := c.workerRestarter.RestartWorker(workerName); err != nil {
-						log.Printf("Failed to restart worker %s: %v", workerName, err)
-					}
-				case "assets":
-					// Asset-only change - can reload without full restart
-					// For now, still do full restart
-					if err := c.workerRestarter.RestartWorker(workerName); err != nil {
-						log.Printf("Failed to restart worker %s: %v", workerName, err)
-					}
-				case "both":
-					// Both changed - full restart
-					if err := c.workerRestarter.RestartWorker(workerName); err != nil {
-						log.Printf("Failed to restart worker %s: %v", workerName, err)
-					}
+				if err := c.workerRestarter.RestartWorker(workerName); err != nil {
+					log.Printf("Failed to restart worker %s: %v", workerName, err)
 				}
 			},
 		})

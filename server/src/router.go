@@ -10,15 +10,17 @@ import (
 
 // Worker represents a running worker process
 type Worker struct {
-	Name         string // Worker name (directory name, e.g., "api", "index")
-	Route        string // URL route (e.g., "/api/users")
-	Port         int    // Port the worker listens on
-	Binary       string // Path to compiled binary
-	Process      *os.Process
-	StartTime    time.Time
-	RequestCount int // Number of requests handled
-	healthy      bool
-	mu           sync.RWMutex
+	Name          string // Worker name (directory name, e.g., "api", "index")
+	Route         string // URL route (e.g., "/api/users")
+	Port          int    // Port the worker listens on
+	Binary        string // Path to compiled binary
+	Process       *os.Process
+	StartTime     time.Time
+	RequestCount  int // Number of requests handled
+	healthy       bool
+	HasBuildError bool   // True if the last build failed
+	BuildError    string // The compilation error message
+	mu            sync.RWMutex
 }
 
 // IsHealthy checks if the worker is healthy
@@ -48,6 +50,26 @@ func (w *Worker) SetHealthy(healthy bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.healthy = healthy
+}
+
+// SetBuildError sets the build error status and message
+func (w *Worker) SetBuildError(err error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if err != nil {
+		w.HasBuildError = true
+		w.BuildError = err.Error()
+	} else {
+		w.HasBuildError = false
+		w.BuildError = ""
+	}
+}
+
+// GetBuildError returns the build error message if any
+func (w *Worker) GetBuildError() (bool, string) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.HasBuildError, w.BuildError
 }
 
 // Router manages routing from URL paths to workers

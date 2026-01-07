@@ -11,6 +11,7 @@ import (
 
 func main() {
 	configPath := flag.String("config", "config/server.yaml", "Path to config file")
+	mode := flag.String("mode", "", "Server mode: dev or prod (defaults to TQSERVER_MODE env var or 'dev')")
 	flag.Parse()
 
 	// Get project root (current working directory)
@@ -26,7 +27,13 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	// Override mode if specified via flag
+	if *mode != "" {
+		config.Mode = *mode
+	}
+
 	log.Printf("TQServer starting...")
+	log.Printf("Mode: %s", config.Mode)
 	log.Printf("Project root: %s", projectRoot)
 	log.Printf("Config file: %s", configFile)
 	log.Printf("Workers directory: %s", config.Workers.Directory)

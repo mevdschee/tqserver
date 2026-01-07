@@ -72,6 +72,12 @@ func (s *Supervisor) Start() error {
 			continue
 		}
 
+		// Skip starting if there was a build error (in dev mode, error is stored)
+		if hasBuildError, _ := worker.GetBuildError(); hasBuildError {
+			log.Printf("Skipping start of worker %s due to build error", workerMeta.Name)
+			continue
+		}
+
 		if err := s.startWorker(worker); err != nil {
 			log.Printf("Failed to start worker %s: %v", workerMeta.Name, err)
 			continue
@@ -210,6 +216,12 @@ func (s *Supervisor) handleFileChange(filePath string) {
 				return
 			}
 
+			// If there was a build error (in dev mode), don't restart
+			if hasBuildError, _ := worker.GetBuildError(); hasBuildError {
+				log.Printf("Worker %s has build error, not restarting", worker.Route)
+				return
+			}
+
 			// Restart the worker
 			if err := s.restartWorker(worker); err != nil {
 				log.Printf("Failed to restart worker for %s: %v", worker.Route, err)
@@ -296,8 +308,20 @@ func (s *Supervisor) buildWorker(worker *Worker) error {
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("build failed: %w\n%s", err, output)
+		buildErr := fmt.Errorf("build failed: %w\n%s", err, output)
+
+		// In development mode, store the error instead of failing
+		if s.config.IsDevelopmentMode() {
+			worker.SetBuildError(buildErr)
+			log.Printf("Build error for %s (dev mode - will serve error page): %v", worker.Name, buildErr)
+			return nil // Don't return error in dev mode
+		}
+
+		return buildErr
 	}
+
+	// Clear any previous build errors
+	worker.SetBuildError(nil)
 
 	// Update worker binary path
 	worker.Binary = binaryPath

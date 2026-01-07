@@ -10,10 +10,11 @@ import (
 )
 
 type BuildResult struct {
-	WorkerName string
-	Success    bool
-	Error      error
-	OutputPath string
+	WorkerName  string
+	Success     bool
+	Error       error
+	ErrorOutput string // The stderr/stdout from failed build
+	OutputPath  string
 }
 
 type Builder struct {
@@ -56,6 +57,7 @@ func (b *Builder) BuildWorker(workerName string) (*BuildResult, error) {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		result.Error = fmt.Errorf("build failed: %w\n%s", err, string(output))
+		result.ErrorOutput = string(output)
 		log.Printf("Build error for %s: %v", workerName, result.Error)
 		return result, result.Error
 	}

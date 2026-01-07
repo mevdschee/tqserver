@@ -38,6 +38,8 @@ type WorkerConfigWithMeta struct {
 
 // Config represents the server configuration
 type Config struct {
+	Mode string // "dev" or "prod" - not from YAML, set via flag or env
+
 	Server struct {
 		Port                int    `yaml:"port"`
 		ReadTimeoutSeconds  int    `yaml:"read_timeout_seconds"`
@@ -76,6 +78,12 @@ func LoadConfig(configPath string) (*Config, error) {
 	config.Workers.RestartDelayMs = 100
 	config.Workers.ShutdownGracePeriodMs = 500
 	config.FileWatcher.DebounceMs = 50
+
+	// Set mode from environment variable (defaults to "dev")
+	config.Mode = os.Getenv("TQSERVER_MODE")
+	if config.Mode == "" {
+		config.Mode = "dev"
+	}
 
 	// If config file exists, load it
 	if _, err := os.Stat(configPath); err == nil {
@@ -232,4 +240,9 @@ func (c *Config) GetShutdownGracePeriod() time.Duration {
 // GetDebounceDelay returns the debounce delay as a time.Duration
 func (c *Config) GetDebounceDelay() time.Duration {
 	return time.Duration(c.FileWatcher.DebounceMs) * time.Millisecond
+}
+
+// IsDevelopmentMode returns true if the server is running in development mode
+func (c *Config) IsDevelopmentMode() bool {
+	return c.Mode == "dev" || c.Mode == "development"
 }

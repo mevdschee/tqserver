@@ -14,12 +14,8 @@ type WorkerInstance struct {
 	StartedAt time.Time
 
 	// File tracking
-	BinaryPath   string
-	BinaryMtime  time.Time
-	PublicPath   string
-	PublicMtime  time.Time
-	PrivatePath  string
-	PrivateMtime time.Time
+	BinaryPath  string
+	BinaryMtime time.Time
 
 	// Health
 	Status          string // "starting", "healthy", "stopping"
@@ -85,12 +81,10 @@ func (r *WorkerRegistry) UpdateMtimes(name string) {
 
 	// Update mtimes from filesystem
 	worker.BinaryMtime = GetFileMtime(worker.BinaryPath)
-	worker.PublicMtime = GetDirLatestMtime(worker.PublicPath)
-	worker.PrivateMtime = GetDirLatestMtime(worker.PrivatePath)
 }
 
 // CheckChanges checks if any files have changed for a worker.
-// Returns true and the type of change ("binary", "assets", or "both").
+// Returns true and the type of change ("binary").
 func (r *WorkerRegistry) CheckChanges(name string) (bool, string) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -101,17 +95,9 @@ func (r *WorkerRegistry) CheckChanges(name string) (bool, string) {
 	}
 
 	binaryChanged := HasFileChanged(worker.BinaryPath, worker.BinaryMtime)
-	publicChanged := HasDirChanged(worker.PublicPath, worker.PublicMtime)
-	privateChanged := HasDirChanged(worker.PrivatePath, worker.PrivateMtime)
 
-	assetsChanged := publicChanged || privateChanged
-
-	if binaryChanged && assetsChanged {
-		return true, "both"
-	} else if binaryChanged {
+	if binaryChanged {
 		return true, "binary"
-	} else if assetsChanged {
-		return true, "assets"
 	}
 
 	return false, ""

@@ -9,7 +9,7 @@ import (
 )
 
 // ChangeHandler is a function that handles file changes.
-// It receives the worker name and the type of change ("binary", "assets", or "both").
+// It receives the worker name and the type of change ("binary").
 type ChangeHandler func(workerName string, changeType string)
 
 // SignalWatcher watches for SIGHUP signals and checks for file changes.
