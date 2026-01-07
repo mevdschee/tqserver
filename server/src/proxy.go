@@ -1,16 +1,21 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/mevdschee/tqserver/pkg/fastcgi"
 	"github.com/mevdschee/tqtemplate"
 )
 
@@ -115,6 +120,13 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Check if this is a PHP worker
+	if worker.IsPHP {
+		// Handle PHP worker via FastCGI protocol
+		p.handlePHPRequest(w, r, worker)
+		return
+	}
+
 	// Check if worker is healthy
 	if !worker.IsHealthy() {
 		http.Error(w, "503 Service Unavailable", http.StatusServiceUnavailable)
@@ -181,4 +193,204 @@ func (p *Proxy) serveBuildErrorPage(w http.ResponseWriter, r *http.Request, work
 	w.Write([]byte(output))
 
 	log.Printf("%s %s -> build error page (worker: %s)", r.Method, r.URL.Path, workerName)
+}
+
+// handlePHPRequest converts HTTP request to FastCGI and sends to PHP worker
+func (p *Proxy) handlePHPRequest(w http.ResponseWriter, r *http.Request, worker *Worker) {
+	// Determine script filename
+	documentRoot := filepath.Join(p.projectRoot, p.config.Workers.Directory, worker.Name, "public")
+
+	// Remove route prefix from URL path
+	scriptPath := strings.TrimPrefix(r.URL.Path, worker.Route)
+	if scriptPath == "" || scriptPath == "/" {
+		scriptPath = "/index.php"
+	}
+
+	// If path doesn't end in .php, assume it's a directory request for index.php
+	if !strings.HasSuffix(scriptPath, ".php") {
+		scriptPath = filepath.Join(scriptPath, "index.php")
+	}
+
+	scriptFilename := filepath.Join(documentRoot, scriptPath)
+
+	// Read request body
+	var requestBody []byte
+	if r.Body != nil {
+		var err error
+		requestBody, err = io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Failed to read request body", http.StatusInternalServerError)
+			log.Printf("Failed to read request body: %v", err)
+			return
+		}
+		r.Body.Close()
+	}
+
+	// Build FastCGI parameters from HTTP request
+	params := make(map[string]string)
+	params["GATEWAY_INTERFACE"] = "CGI/1.1"
+	params["SERVER_SOFTWARE"] = "TQServer"
+	params["SERVER_PROTOCOL"] = r.Proto
+	params["SERVER_NAME"] = r.Host
+	params["SERVER_PORT"] = fmt.Sprintf("%d", p.config.Server.Port)
+	params["REQUEST_METHOD"] = r.Method
+	params["REQUEST_URI"] = r.URL.RequestURI()
+	params["SCRIPT_FILENAME"] = scriptFilename
+	params["SCRIPT_NAME"] = scriptPath
+	params["DOCUMENT_ROOT"] = documentRoot
+	params["DOCUMENT_URI"] = scriptPath
+	params["QUERY_STRING"] = r.URL.RawQuery
+	params["REMOTE_ADDR"] = r.RemoteAddr
+	params["REMOTE_PORT"] = "0"
+	params["CONTENT_TYPE"] = r.Header.Get("Content-Type")
+	params["CONTENT_LENGTH"] = fmt.Sprintf("%d", len(requestBody))
+
+	// Add HTTP headers as FastCGI params
+	for key, values := range r.Header {
+		headerName := "HTTP_" + strings.ToUpper(strings.ReplaceAll(key, "-", "_"))
+		params[headerName] = strings.Join(values, ", ")
+	}
+
+	// Connect to FastCGI server
+	conn, err := net.DialTimeout("tcp", worker.FastCGIAddr, 5*time.Second)
+	if err != nil {
+		http.Error(w, "Failed to connect to PHP worker", http.StatusBadGateway)
+		log.Printf("Failed to connect to FastCGI server at %s: %v", worker.FastCGIAddr, err)
+		return
+	}
+	defer conn.Close()
+
+	// Create FastCGI connection
+	fcgiConn := fastcgi.NewConn(conn, 60*time.Second, 60*time.Second)
+
+	// Send FastCGI request
+	requestID := uint16(1)
+
+	// Send BeginRequest
+	if err := fcgiConn.SendBeginRequest(requestID, fastcgi.RoleResponder, false); err != nil {
+		http.Error(w, "Failed to send FastCGI request", http.StatusInternalServerError)
+		log.Printf("Failed to send BeginRequest: %v", err)
+		return
+	}
+
+	// Send Params
+	if err := fcgiConn.SendParams(requestID, params); err != nil {
+		http.Error(w, "Failed to send FastCGI parameters", http.StatusInternalServerError)
+		log.Printf("Failed to send Params: %v", err)
+		return
+	}
+
+	// Send empty params to signal end
+	if err := fcgiConn.SendParams(requestID, nil); err != nil {
+		http.Error(w, "Failed to send FastCGI parameters", http.StatusInternalServerError)
+		log.Printf("Failed to send empty Params: %v", err)
+		return
+	}
+
+	// Send Stdin (request body)
+	if len(requestBody) > 0 {
+		if err := fcgiConn.SendStdin(requestID, requestBody); err != nil {
+			http.Error(w, "Failed to send request body", http.StatusInternalServerError)
+			log.Printf("Failed to send Stdin: %v", err)
+			return
+		}
+	}
+
+	// Send empty stdin to signal end
+	if err := fcgiConn.SendStdin(requestID, nil); err != nil {
+		http.Error(w, "Failed to send request body", http.StatusInternalServerError)
+		log.Printf("Failed to send empty Stdin: %v", err)
+		return
+	}
+
+	// Read response
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	for {
+		record, err := fcgiConn.ReadRecord()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			log.Printf("Failed to read FastCGI response: %v", err)
+			break
+		}
+
+		switch record.Header.Type {
+		case fastcgi.TypeStdout:
+			if len(record.Content) > 0 {
+				stdout.Write(record.Content)
+			}
+		case fastcgi.TypeStderr:
+			if len(record.Content) > 0 {
+				stderr.Write(record.Content)
+			}
+		case fastcgi.TypeEndRequest:
+			// Request complete
+			goto response_complete
+		}
+	}
+
+response_complete:
+	// Log any stderr output
+	if stderr.Len() > 0 {
+		log.Printf("[PHP stderr] %s", stderr.String())
+	}
+
+	// Parse response headers and body
+	responseData := stdout.Bytes()
+	headerEnd := bytes.Index(responseData, []byte("\r\n\r\n"))
+	if headerEnd == -1 {
+		// Try just \n\n
+		headerEnd = bytes.Index(responseData, []byte("\n\n"))
+		if headerEnd != -1 {
+			headerEnd += 2
+		}
+	} else {
+		headerEnd += 4
+	}
+
+	if headerEnd > 0 {
+		// Parse headers
+		headerLines := bytes.Split(responseData[:headerEnd], []byte("\n"))
+		for _, line := range headerLines {
+			line = bytes.TrimSpace(line)
+			if len(line) == 0 {
+				continue
+			}
+
+			parts := bytes.SplitN(line, []byte(":"), 2)
+			if len(parts) == 2 {
+				key := string(bytes.TrimSpace(parts[0]))
+				value := string(bytes.TrimSpace(parts[1]))
+
+				// Handle special headers
+				if strings.ToLower(key) == "status" {
+					// Parse status code
+					statusParts := strings.SplitN(value, " ", 2)
+					if len(statusParts) > 0 {
+						var statusCode int
+						fmt.Sscanf(statusParts[0], "%d", &statusCode)
+						if statusCode > 0 {
+							w.WriteHeader(statusCode)
+						}
+					}
+				} else {
+					w.Header().Set(key, value)
+				}
+			}
+		}
+
+		// Write body
+		w.Write(responseData[headerEnd:])
+	} else {
+		// No headers, just write all output
+		w.Write(responseData)
+	}
+
+	// Increment request count
+	worker.IncrementRequestCount()
+
+	log.Printf("%s %s -> PHP worker (FastCGI: %s)", r.Method, r.URL.Path, worker.FastCGIAddr)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 )
@@ -126,7 +127,22 @@ func (m *Manager) spawnWorker() error {
 	m.nextID++
 
 	// Generate unique socket path for this worker
-	socketPath := fmt.Sprintf("%s.%d", m.baseSocket, workerID)
+	var socketPath string
+	if strings.Contains(m.baseSocket, ":") {
+		// TCP socket - need to assign unique port
+		// Workers get basePort + workerID + 1 (to avoid conflict with FastCGI server on basePort)
+		parts := strings.Split(m.baseSocket, ":")
+		if len(parts) == 2 {
+			basePort := 0
+			fmt.Sscanf(parts[1], "%d", &basePort)
+			socketPath = fmt.Sprintf("%s:%d", parts[0], basePort+workerID+1)
+		} else {
+			socketPath = fmt.Sprintf("%s.%d", m.baseSocket, workerID)
+		}
+	} else {
+		// Unix socket - append worker ID
+		socketPath = fmt.Sprintf("%s.%d", m.baseSocket, workerID)
+	}
 
 	worker := NewWorker(workerID, m.binary, m.config, socketPath)
 

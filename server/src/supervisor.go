@@ -88,6 +88,10 @@ func (s *Supervisor) Start() error {
 
 		// Check if this is a PHP worker
 		if workerMeta.Config.Type == "php" {
+			worker.IsPHP = true
+			if workerMeta.Config.FastCGI != nil {
+				worker.FastCGIAddr = workerMeta.Config.FastCGI.Listen
+			}
 			if err := s.startPHPWorker(worker, workerMeta); err != nil {
 				log.Printf("Failed to start PHP worker %s: %v", workerMeta.Name, err)
 				continue

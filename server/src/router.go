@@ -12,11 +12,13 @@ import (
 type Worker struct {
 	Name          string // Worker name (directory name, e.g., "api", "index")
 	Route         string // URL route (e.g., "/api/users")
-	Port          int    // Port the worker listens on
+	Port          int    // Port the worker listens on (0 for PHP workers using FastCGI)
 	Binary        string // Path to compiled binary
 	Process       *os.Process
 	StartTime     time.Time
-	RequestCount  int // Number of requests handled
+	RequestCount  int    // Number of requests handled
+	IsPHP         bool   // True if this is a PHP worker (uses FastCGI)
+	FastCGIAddr   string // FastCGI address for PHP workers (e.g., "127.0.0.1:9001")
 	healthy       bool
 	HasBuildError bool   // True if the last build failed
 	BuildError    string // The compilation error message

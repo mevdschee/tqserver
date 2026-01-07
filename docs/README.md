@@ -46,6 +46,7 @@ Welcome to the TQServer documentation. TQServer is a high-performance function e
 - [Testing Workers](workers/testing.md)
 - [Health Checks](workers/health-checks.md)
 - [Kotlin Workers](workers/kotlin.md) - Create workers using Kotlin
+- [PHP Workers](workers/php.md) - Create PHP workers with FastCGI (NEW ✨)
 
 ### Advanced Topics
 - [Port Pool Management](advanced/port-pool.md) (TODO)
