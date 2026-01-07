@@ -321,39 +321,43 @@ func (r *Router) RoutePHP(path string) (*PoolConfig, error)
 
 **Tasks:**
 1. Create `pkg/fastcgi/` package
-   - FastCGI protocol parser/serializer
-   - Request/response packet handling
-   - Connection multiplexing support
-   - Error handling and protocol violations
+   - [x] FastCGI protocol parser/serializer
+   - [x] Request/response packet handling
+   - [x] Connection multiplexing support
+   - [x] Error handling and protocol violations
 
 2. Implement FastCGI server
-   - TCP listener on configurable port (default: 9000)
-   - Unix socket support
-   - Connection pooling
-   - Request parameter extraction (SCRIPT_FILENAME, QUERY_STRING, etc.)
+   - [x] TCP listener on configurable port (default: 9000)
+   - [ ] Unix socket support
+   - [x] Connection pooling
+   - [ ] Request parameter extraction (SCRIPT_FILENAME, QUERY_STRING, etc.)
 
 3. Basic request routing
-   - Map FastCGI requests to routes
-   - Convert to internal request format
-   - Handle both HTTP and FastCGI concurrently
+   - [ ] Map FastCGI requests to routes
+   - [ ] Convert to internal request format
+   - [ ] Handle both HTTP and FastCGI concurrently
 
 4. Testing
-   - Unit tests for protocol parsing
-   - Integration tests with Nginx
-   - Test with simple PHP hello world script
-   - Load testing with wrk/ab
+   - [x] Unit tests for protocol parsing
+   - [ ] Integration tests with Nginx
+   - [ ] Test with simple PHP hello world script
+   - [ ] Load testing with wrk/ab
 
 **Deliverables:**
 - [x] FastCGI protocol implementation (protocol.go, params.go)
 - [x] Protocol test suite (protocol_test.go)
+- [x] Connection handling (conn.go)
+- [x] FastCGI server skeleton (server.go)
 - [ ] FastCGI server running alongside HTTP
 - [ ] Nginx configuration examples
 
 **Progress Notes:**
 - ✅ Implemented core FastCGI protocol types (Header, Record, BeginRequest, EndRequest)
 - ✅ Implemented parameter encoding/decoding with length handling
-- ✅ Added comprehensive unit tests for protocol parsing
-- 🔄 Next: Implement FastCGI server with TCP/Unix socket support
+- ✅ Added comprehensive unit tests for protocol parsing (all passing)
+- ✅ Created connection wrapper (conn.go) for reading/writing FastCGI records
+- ✅ Created FastCGI server skeleton (server.go) with Handler interface
+- 🔄 Next: Integrate FastCGI server with TQServer routing and test with Nginx
 
 ### Phase 2: PHP-CGI Process Management (3-4 weeks)
 

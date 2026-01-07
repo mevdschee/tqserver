@@ -147,7 +147,7 @@ func (s *Server) handleConnection(netConn net.Conn) {
 		// Handle request
 		if err := s.Handler.ServeFastCGI(conn, req); err != nil {
 			log.Printf("Handler error: %v", err)
-			conn.SendEndRequest(req.RequestID, 1, RequestComplete)
+			conn.SendEndRequest(req.RequestID, 1, uint8(StatusRequestComplete))
 			return
 		}
 

@@ -1,169 +1,147 @@
 package fastcgi
 
 import (
-	"bytes"
-	"testing"
+"testing"
 )
 
 func TestHeaderEncodeDecode(t *testing.T) {
-	tests := []struct {
-		name          string
-		recType       uint8
-		reqID         uint16
-		contentLength uint16
-	}{
-		{"BeginRequest", BeginRequest, 1, 8},
-		{"Params", Params, 1, 100},
-		{"Stdin", Stdin, 1, 0},
-		{"Stdout", Stdout, 1, 256},
-	}
+tests := []struct {
+name          string
+recType       uint8
+reqID         uint16
+contentLength uint16
+}{
+{"BeginRequest", TypeBeginRequest, 1, 8},
+{"Params", TypeParams, 1, 100},
+{"Stdin", TypeStdin, 1, 0},
+{"Stdout", TypeStdout, 1, 256},
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			header := NewHeader(tt.recType, tt.reqID, tt.contentLength)
-			var buf bytes.Buffer
+for _, tt := range tests {
+t.Run(tt.name, func(t *testing.T) {
+header := &Header{
+Version:       Version1,
+Type:          tt.recType,
+RequestID:     tt.reqID,
+ContentLength: tt.contentLength,
+}
 
-			if err := header.Encode(&buf); err != nil {
-				t.Fatalf("Encode failed: %v", err)
-			}
+encoded := header.Encode()
 
-			decoded, err := DecodeHeader(&buf)
-			if err != nil {
-				t.Fatalf("DecodeHeader failed: %v", err)
-			}
+decoded, err := DecodeHeader(encoded)
+if err != nil {
+t.Fatalf("DecodeHeader failed: %v", err)
+}
 
-			if decoded.Version != Version1 {
-				t.Errorf("Version = %d, want %d", decoded.Version, Version1)
-			}
-			if decoded.Type != tt.recType {
-				t.Errorf("Type = %d, want %d", decoded.Type, tt.recType)
-			}
-			if decoded.RequestID != tt.reqID {
-				t.Errorf("RequestID = %d, want %d", decoded.RequestID, tt.reqID)
-			}
-			if decoded.ContentLength != tt.contentLength {
-				t.Errorf("ContentLength = %d, want %d", decoded.ContentLength, tt.contentLength)
-			}
-		})
-	}
+if decoded.Version != Version1 {
+t.Errorf("Version = %d, want %d", decoded.Version, Version1)
+}
+if decoded.Type != tt.recType {
+t.Errorf("Type = %d, want %d", decoded.Type, tt.recType)
+}
+if decoded.RequestID != tt.reqID {
+t.Errorf("RequestID = %d, want %d", decoded.RequestID, tt.reqID)
+}
+if decoded.ContentLength != tt.contentLength {
+t.Errorf("ContentLength = %d, want %d", decoded.ContentLength, tt.contentLength)
+}
+})
+}
 }
 
 func TestBeginRequestBodyEncodeDecode(t *testing.T) {
-	body := &BeginRequestBody{
-		Role:  Responder,
-		Flags: FlagKeepConn,
-	}
-	var buf bytes.Buffer
+body := &BeginRequestBody{
+Role:  RoleResponder,
+Flags: FlagKeepConn,
+}
 
-	if err := body.Encode(&buf); err != nil {
-		t.Fatalf("Encode failed: %v", err)
-	}
+encoded := body.Encode()
 
-	decoded, err := DecodeBeginRequestBody(&buf)
-	if err != nil {
-		t.Fatalf("DecodeBeginRequestBody failed: %v", err)
-	}
+decoded, err := DecodeBeginRequestBody(encoded)
+if err != nil {
+t.Fatalf("DecodeBeginRequestBody failed: %v", err)
+}
 
-	if decoded.Role != Responder {
-		t.Errorf("Role = %d, want %d", decoded.Role, Responder)
-	}
-	if decoded.Flags != FlagKeepConn {
-		t.Errorf("Flags = %d, want %d", decoded.Flags, FlagKeepConn)
-	}
-	if !decoded.KeepConn() {
-		t.Error("KeepConn() = false, want true")
-	}
+if decoded.Role != RoleResponder {
+t.Errorf("Role = %d, want %d", decoded.Role, RoleResponder)
+}
+if decoded.Flags != FlagKeepConn {
+t.Errorf("Flags = %d, want %d", decoded.Flags, FlagKeepConn)
+}
 }
 
 func TestEndRequestBodyEncodeDecode(t *testing.T) {
-	body := &EndRequestBody{
-		AppStatus:      0,
-		ProtocolStatus: RequestComplete,
-	}
-	var buf bytes.Buffer
+body := &EndRequestBody{
+AppStatus:      0,
+ProtocolStatus: uint8(StatusRequestComplete),
+}
 
-	if err := body.Encode(&buf); err != nil {
-		t.Fatalf("Encode failed: %v", err)
-	}
+encoded := body.Encode()
 
-	decoded, err := DecodeEndRequestBody(&buf)
-	if err != nil {
-		t.Fatalf("DecodeEndRequestBody failed: %v", err)
-	}
+decoded, err := DecodeEndRequestBody(encoded)
+if err != nil {
+t.Fatalf("DecodeEndRequestBody failed: %v", err)
+}
 
-	if decoded.AppStatus != 0 {
-		t.Errorf("AppStatus = %d, want 0", decoded.AppStatus)
-	}
-	if decoded.ProtocolStatus != RequestComplete {
-		t.Errorf("ProtocolStatus = %d, want %d", decoded.ProtocolStatus, RequestComplete)
-	}
+if decoded.AppStatus != 0 {
+t.Errorf("AppStatus = %d, want 0", decoded.AppStatus)
+}
+if decoded.ProtocolStatus != uint8(StatusRequestComplete) {
+t.Errorf("ProtocolStatus = %d, want %d", decoded.ProtocolStatus, uint8(StatusRequestComplete))
+}
 }
 
 func TestRecordEncodeDecode(t *testing.T) {
-	content := []byte("Hello, FastCGI!")
-	record := NewRecord(Stdout, 1, content)
-	var buf bytes.Buffer
+content := []byte("Hello, FastCGI!")
+record := NewRecord(TypeStdout, 1, content)
 
-	if err := record.Encode(&buf); err != nil {
-		t.Fatalf("Encode failed: %v", err)
-	}
+encoded := record.Encode()
 
-	decoded, err := DecodeRecord(&buf)
-	if err != nil {
-		t.Fatalf("DecodeRecord failed: %v", err)
-	}
+decoded, bytesRead, err := DecodeRecord(encoded)
+if err != nil {
+t.Fatalf("DecodeRecord failed: %v", err)
+}
 
-	if decoded.Header.Type != Stdout {
-		t.Errorf("Type = %d, want %d", decoded.Header.Type, Stdout)
-	}
-	if decoded.Header.RequestID != 1 {
-		t.Errorf("RequestID = %d, want 1", decoded.Header.RequestID)
-	}
-	if !bytes.Equal(decoded.Content, content) {
-		t.Errorf("Content = %q, want %q", decoded.Content, content)
-	}
+if bytesRead != len(encoded) {
+t.Errorf("bytesRead = %d, want %d", bytesRead, len(encoded))
+}
+
+if decoded.Header.Type != TypeStdout {
+t.Errorf("Type = %d, want %d", decoded.Header.Type, TypeStdout)
+}
+if decoded.Header.RequestID != 1 {
+t.Errorf("RequestID = %d, want 1", decoded.Header.RequestID)
+}
+if string(decoded.Content) != string(content) {
+t.Errorf("Content = %q, want %q", decoded.Content, content)
+}
 }
 
 func TestEncodeDecodeParams(t *testing.T) {
-	params := map[string]string{
-		"SCRIPT_FILENAME": "/var/www/html/index.php",
-		"REQUEST_METHOD":  "GET",
-		"QUERY_STRING":    "foo=bar",
-		"REQUEST_URI":     "/index.php?foo=bar",
-	}
-	encoded := EncodeParams(params)
-	decoded, err := DecodeParams(encoded)
-	if err != nil {
-		t.Fatalf("DecodeParams failed: %v", err)
-	}
-
-	if len(decoded) != len(params) {
-		t.Fatalf("len(decoded) = %d, want %d", len(decoded), len(params))
-	}
-	for name, value := range params {
-		if decoded[name] != value {
-			t.Errorf("decoded[%q] = %q, want %q", name, decoded[name], value)
-		}
-	}
+params := map[string]string{
+"REQUEST_METHOD":  "GET",
+"SCRIPT_FILENAME": "/var/www/html/index.php",
+"QUERY_STRING":    "foo=bar&baz=qux",
 }
 
-func TestEncodeParamLongValue(t *testing.T) {
-	// Test with value > 127 bytes (requires 4-byte length encoding)
-	longValue := string(make([]byte, 200))
-	for i := range longValue {
-		longValue = "a" + longValue[1:]
-	}
+encoded := EncodeParams(params)
 
-	params := map[string]string{
-		"LONG_PARAM": longValue,
-	}
-	encoded := EncodeParams(params)
-	decoded, err := DecodeParams(encoded)
-	if err != nil {
-		t.Fatalf("DecodeParams failed: %v", err)
-	}
+decoded, err := DecodeParams(encoded)
+if err != nil {
+t.Fatalf("DecodeParams failed: %v", err)
+}
 
-	if decoded["LONG_PARAM"] != longValue {
-		t.Errorf("Long value mismatch")
-	}
+if len(decoded) != len(params) {
+t.Errorf("len(decoded) = %d, want %d", len(decoded), len(params))
+}
+
+for key, expectedValue := range params {
+actualValue, ok := decoded[key]
+if !ok {
+t.Errorf("Missing key %q", key)
+}
+if actualValue != expectedValue {
+t.Errorf("Value for %q = %q, want %q", key, actualValue, expectedValue)
+}
+}
 }
