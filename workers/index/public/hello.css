@@ -1,0 +1,27 @@
+.hero {
+    text-align: center;
+    padding: 3rem 0;
+}
+.hero h1 {
+    font-size: 3rem;
+    color: #667eea;
+    margin-bottom: 1rem;
+    animation: fadeIn 0.8s ease-in;
+}
+.message {
+    font-size: 1.25rem;
+    color: #555;
+    margin: 1.5rem 0;
+    line-height: 1.8;
+}
+.timestamp {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 5px;
+    margin-top: 2rem;
+    color: #666;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
