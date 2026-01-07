@@ -13,6 +13,7 @@ import (
 type Runtime struct {
 	Port         string
 	Route        string
+	Mode         string
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
@@ -30,6 +31,11 @@ func NewRuntime() *Runtime {
 		route = "/"
 	}
 
+	mode := os.Getenv("WORKER_MODE")
+	if mode == "" {
+		mode = "dev"
+	}
+
 	// Get timeout settings from environment
 	readTimeout := parseTimeout("WORKER_READ_TIMEOUT_SECONDS", 30)
 	writeTimeout := parseTimeout("WORKER_WRITE_TIMEOUT_SECONDS", 30)
@@ -38,10 +44,16 @@ func NewRuntime() *Runtime {
 	return &Runtime{
 		Port:         port,
 		Route:        route,
+		Mode:         mode,
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
 		IdleTimeout:  idleTimeout,
 	}
+}
+
+// IsDevelopmentMode returns true if the worker is running in development mode
+func (r *Runtime) IsDevelopmentMode() bool {
+	return r.Mode == "dev" || r.Mode == "development"
 }
 
 // StartServer starts the HTTP server with the given handler

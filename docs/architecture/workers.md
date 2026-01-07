@@ -53,10 +53,6 @@ type WorkerInstance struct {
     // File tracking
     BinaryPath   string
     BinaryMtime  time.Time
-    PublicPath   string
-    PublicMtime  time.Time
-    ViewsPath    string
-    ViewsMtime   time.Time
     
     // Health
     Status          string

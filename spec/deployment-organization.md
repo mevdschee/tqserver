@@ -141,19 +141,18 @@ Each worker and the server follow this structure:
 
 ### How It Works
 
-The server continuously monitors worker binaries and assets by checking file modification timestamps (mtime):
+The server monitors worker binaries by checking file modification timestamps (mtime):
 
 1. **Track Running Workers**: Server maintains a registry of each running worker with:
    - Worker name and route
    - PID and port
    - Binary path and mtime at startup
-   - Asset directories (public/private) and latest mtime
 
 2. **SIGHUP Signal**: On receiving SIGHUP, server checks:
    - Server binary file mtime: `server/bin/tqserver`
    - Worker binary file mtime: `workers/{name}/bin/{name}`
 
-3. **Restart or Reload on Changes**: If any file has newer mtime than recorded:
+3. **Restart on Changes**: If any file has newer mtime than recorded:
    - If binary changed: Full worker restart (new port, health check, traffic switch)
    - If only config changed: Reload server using sighup
    - Update registry with new mtimes on startup/reload
@@ -173,10 +172,6 @@ type WorkerInstance struct {
     // File tracking
     BinaryPath    string
     BinaryMtime   time.Time
-    PublicPath    string
-    PublicMtime   time.Time
-    PrivatePath   string
-    PrivateMtime  time.Time
     
     // Health
     Status        string  // "starting", "healthy", "stopping"
@@ -194,12 +189,9 @@ var runningWorkers = map[string]*WorkerInstance{
         
         BinaryPath:  "workers/index/bin/index",
         BinaryMtime: time.Parse("2026-01-06T10:29:45Z"),
-        PublicPath:  "workers/index/public",
-        PublicMtime: time.Parse("2026-01-06T09:15:20Z"),
-        PrivatePath: "workers/index/private",
-        PrivateMtime: time.Parse("2026-01-06T09:15:20Z"),
-          "public": ["swagger/index.html"],
-        "private": ["config/validation.yaml"]
+        
+        Status: "healthy",
+        LastHealthCheck: time.Parse("2026-01-06T10:30:10Z"),
     }
 }
 ```
@@ -591,7 +583,7 @@ echo "  ssh $SERVER 'tail -f $DEPLOY_PATH/logs/server_*.log'"
 
 3. **Worker registry**
    - In-memory registry of running workers
-   - Track binary and asset mtimes
+   - Track binary mtimes
    - Implement comparison logic on SIGHUP
 
 ### Phase 3: Resource Loading (Week 2)
@@ -609,7 +601,7 @@ echo "  ssh $SERVER 'tail -f $DEPLOY_PATH/logs/server_*.log'"
 1. **File watcher updates**
    - Watch new directory structure
    - Trigger rebuilds on source changes
-   - Restart workers on binary/asset changes
+   - Restart workers on binary changes
 
 2. **Dev build process**
    - Build to `workers/{name}/bin/{name}`
@@ -625,12 +617,11 @@ echo "  ssh $SERVER 'tail -f $DEPLOY_PATH/logs/server_*.log'"
 ### Phase 5: Production Mode (Week 3)
 1. **SIGHUP-triggered checking**
    - Register SIGHUP signal handler
-   - Check mtimes of binaries and assets on signal
+   - Check mtimes of binaries on signal
    - Compare against recorded mtimes in registry
 
-2. **Smart restart logic**
+2. **Restart logic**
    - Binary change: Full restart (new port, health check, traffic switch)
-   - Asset-only change: Reload without restart
    - Update registry with new mtimes
 
 3. **Disable file watcher in prod**
@@ -639,7 +630,7 @@ echo "  ssh $SERVER 'tail -f $DEPLOY_PATH/logs/server_*.log'"
    - Use SIGHUP signal instead
 
 4. **Worker restart logic**
-   - Start new worker on new port (if binary changed)
+   - Start new worker on new port
    - Health check
    - Switch traffic
    - Stop old worker
@@ -671,7 +662,6 @@ echo "  ssh $SERVER 'tail -f $DEPLOY_PATH/logs/server_*.log'"
    - Dev mode workflow with file watcher
    - Prod mode workflow with SIGHUP-triggered checking
    - Rolling restart on binary changes
-   - Asset reload without restart
    - SIGHUP handling
    - Incremental deployment
 
@@ -761,7 +751,7 @@ echo "  ssh $SERVER 'tail -f $DEPLOY_PATH/logs/server_*.log'"
 ### Timestamp Checking
 - **Dev mode**: Immediate via file watcher
 - **Prod mode**: On SIGHUP signal only
-- Cost per check: `stat()` calls on binary and asset directories
+- Cost per check: `stat()` calls on binary files
 - Very low overhead (only when triggered)
 
 ### Resource Access

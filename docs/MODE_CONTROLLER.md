@@ -35,17 +35,12 @@ export TQ_MODE=dev
    - Worker is automatically restarted
    - New binary loaded
 
-2. **Worker Assets (`workers/*/public/*` or `workers/*/views/*`)**:
-   - File watcher detects change
-   - Worker is restarted to reload assets
-   - No rebuild needed
-
-3. **Server Source (`server/src/*.go`)**:
+2. **Server Source (`server/src/*.go`)**:
    - File watcher detects change
    - Server is rebuilt
    - Manual restart required (external process manager)
 
-4. **Config files (`config/*.yaml`)**:
+3. **Config files (`config/*.yaml`)**:
    - File watcher detects change
    - Server restart recommended
 
@@ -82,14 +77,12 @@ ssh server 'killall -HUP tqserver'
 
 3. **Server detects changes**:
    - Compares file mtimes against recorded values
-   - Determines change type: binary, assets, or both
+   - Detects binary changes
    - Restarts affected workers automatically
 
 ### Change Detection
 
 - **Binary changed**: Full worker restart (new port, health check, traffic switch)
-- **Assets changed**: Worker restart to reload resources
-- **Both changed**: Full worker restart
 
 ## Integration Example
 

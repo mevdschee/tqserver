@@ -24,6 +24,7 @@ type Supervisor struct {
 	stopChan      chan struct{}
 	wg            sync.WaitGroup
 	mu            sync.Mutex
+	proxy         *Proxy
 }
 
 // NewSupervisor creates a new supervisor
@@ -46,6 +47,11 @@ func (s *Supervisor) getWorkerConfig(workerName string) *WorkerConfigWithMeta {
 		}
 	}
 	return nil
+}
+
+// SetProxy sets the proxy reference for broadcasting reload events
+func (s *Supervisor) SetProxy(proxy *Proxy) {
+	s.proxy = proxy
 }
 
 // Start starts the supervisor
@@ -216,9 +222,14 @@ func (s *Supervisor) handleFileChange(filePath string) {
 				return
 			}
 
-			// If there was a build error (in dev mode), don't restart
+			// If there was a build error (in dev mode), broadcast reload to show error page
 			if hasBuildError, _ := worker.GetBuildError(); hasBuildError {
 				log.Printf("Worker %s has build error, not restarting", worker.Route)
+				
+				// Broadcast reload to show error page in dev mode
+				if s.config.IsDevelopmentMode() && s.proxy != nil {
+					s.proxy.BroadcastReload()
+				}
 				return
 			}
 
@@ -229,6 +240,11 @@ func (s *Supervisor) handleFileChange(filePath string) {
 			}
 
 			log.Printf("✅ Worker reloaded for %s", worker.Route)
+
+			// Broadcast reload to connected clients in dev mode
+			if s.config.IsDevelopmentMode() && s.proxy != nil {
+				s.proxy.BroadcastReload()
+			}
 			return
 		}
 	}
@@ -358,7 +374,7 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 		fmt.Sprintf("WORKER_PORT=%d", port),
 		fmt.Sprintf("WORKER_NAME=%s", worker.Name),
 		fmt.Sprintf("WORKER_ROUTE=%s", worker.Route),
-		fmt.Sprintf("WORKER_MODE=%s", "development"), // TODO: Make configurable
+		fmt.Sprintf("WORKER_MODE=%s", s.config.Mode),
 	}
 
 	// Add timeout settings from worker config if available

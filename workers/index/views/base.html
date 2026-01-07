@@ -29,5 +29,6 @@
     </footer>
 
     {% block scripts %}{% endblock %}
+    {% if DevMode %}<script src="/dev-reload.js"></script>{% endif %}
 </body>
 </html>

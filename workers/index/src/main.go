@@ -39,6 +39,7 @@ func main() {
 			"Path":      r.URL.Path,
 			"Time":      time.Now().Format("2006-01-02 15:04:05"),
 			"PageTitle": "Welcome to TQServer",
+			"DevMode":   runtime.IsDevelopmentMode(),
 		}
 
 		output, err := tmpl.RenderFile("views/index.html", data)
@@ -62,6 +63,7 @@ func main() {
 			"PageTitle": "Hello World",
 			"Message":   "Hello, World! This is a simple route.",
 			"Time":      time.Now().Format("2006-01-02 15:04:05"),
+			"DevMode":   runtime.IsDevelopmentMode(),
 		}
 
 		output, err := tmpl.RenderFile("views/hello.html", data)

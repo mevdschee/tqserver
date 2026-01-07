@@ -61,6 +61,9 @@ func main() {
 	// Initialize and start HTTP proxy/load balancer
 	proxy := NewProxy(config, router, projectRoot)
 
+	// Connect supervisor with proxy for reload broadcasting
+	supervisor.SetProxy(proxy)
+
 	// Start proxy in a goroutine
 	go func() {
 		if err := proxy.Start(); err != nil {
