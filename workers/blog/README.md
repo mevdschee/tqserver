@@ -26,7 +26,7 @@ php-cgi -v
 
 ```bash
 cd workers/blog/public
-php-cgi -b /tmp/tqserver-blog.sock
+php-cgi -b 127.0.0.1:9001
 ```
 
 ### 3. Configure Nginx (for testing)
@@ -47,7 +47,7 @@ server {
     
     location ~ \.php$ {
         include fastcgi_params;
-        fastcgi_pass unix:/tmp/tqserver-blog.sock;
+        fastcgi_pass 127.0.0.1:9001;
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
         fastcgi_param PATH_INFO $fastcgi_path_info;
     }
@@ -118,7 +118,7 @@ Once Phase 2 is complete, you'll be able to:
 # TQServer will:
 # 1. Read workers/blog/config/worker.yaml
 # 2. Spawn 2 php-cgi workers (static pool)
-# 3. Start FastCGI server on /tmp/tqserver-blog.sock
+# 3. Start FastCGI server on 127.0.0.1:9001
 # 4. Route requests from Nginx to PHP workers
 ```
 
