@@ -45,6 +45,12 @@ Welcome to the TQServer documentation. TQServer is a high-performance function e
 - [Building Workers](workers/building.md)
 - [Testing Workers](workers/testing.md)
 - [Health Checks](workers/health-checks.md)
+- [Kotlin Workers](workers/kotlin.md) - Create workers using Kotlin
+
+### Multi-Language Support
+- [Kotlin Worker Support Plan](KOTLIN_WORKER_SUPPORT.md) - Implementation plan
+- [Kotlin Quick Reference](KOTLIN_QUICK_REFERENCE.md) - Quick reference card
+- [Implementation Summary](IMPLEMENTATION_SUMMARY.md) - Current status
 
 ### Advanced Topics
 - [Port Pool Management](advanced/port-pool.md) (TODO)
