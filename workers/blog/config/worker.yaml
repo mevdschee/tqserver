@@ -1,0 +1,67 @@
+# Blog Worker Configuration
+name: blog
+type: php
+enabled: true
+
+# PHP Configuration
+php:
+  # Path to php-cgi binary (auto-detected if not specified)
+  # binary: /usr/bin/php-cgi
+  
+  # Optional base configuration from php.ini file
+  # config_file: /etc/php/8.2/php.ini
+  
+  # Individual PHP settings (override config_file settings)
+  settings:
+    max_execution_time: "30"
+    memory_limit: "128M"
+    display_errors: "1"
+    error_reporting: "E_ALL"
+    upload_max_filesize: "10M"
+    post_max_size: "10M"
+  
+  # Process pool configuration
+  pool:
+    # static: fixed number of workers
+    # dynamic: scale workers based on load
+    # ondemand: spawn workers only when needed
+    manager: static
+    
+    # Number of workers (static) or min/max (dynamic)
+    min_workers: 2
+    max_workers: 5
+    start_workers: 2
+    
+    # Maximum requests per worker before restart (0 = unlimited)
+    max_requests: 1000
+    
+    # Request timeout in seconds
+    request_timeout: 30
+    
+    # Process idle timeout (ondemand mode)
+    idle_timeout: 10
+
+# FastCGI Server Configuration
+fastcgi:
+  # Listen address for FastCGI protocol
+  # Can be TCP (127.0.0.1:9000) or Unix socket (/var/run/blog.sock)
+  listen: "127.0.0.1:9000"
+  
+  # Enable for Unix socket
+  # socket: /var/run/blog.sock
+  
+# HTTP Configuration (for direct access during development)
+http:
+  enabled: true
+  port: 8001
+
+# Document root
+document_root: ./public
+
+# Logging
+logging:
+  level: info
+  access_log: true
+  slow_log:
+    enabled: true
+    threshold: 1s  # Log requests taking longer than 1 second
