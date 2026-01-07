@@ -38,10 +38,10 @@ func (s WorkerState) String() string {
 
 // Worker represents a single php-cgi process
 type Worker struct {
-	ID        int
-	cmd       *exec.Cmd
-	binary    *Binary
-	config    *Config
+	ID         int
+	cmd        *exec.Cmd
+	binary     *Binary
+	config     *Config
 	socketPath string
 
 	state        atomic.Value // WorkerState
@@ -164,7 +164,7 @@ func (w *Worker) Stop() error {
 // monitor watches the process and handles crashes
 func (w *Worker) monitor() {
 	err := w.cmd.Wait()
-	
+
 	w.mu.Lock()
 	currentState := w.getState()
 	w.mu.Unlock()

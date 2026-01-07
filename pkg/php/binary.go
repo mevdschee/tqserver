@@ -99,11 +99,12 @@ func (b *Binary) BuildArgs(config *Config, socketPath string) []string {
 func (b *Binary) SupportsFeature(feature string) bool {
 	switch strings.ToLower(feature) {
 	case "opcache":
-		return b.Major >= 5 && b.Minor >= 5
+		// OPcache is available in PHP 5.5+
+		return b.Major > 5 || (b.Major == 5 && b.Minor >= 5)
 	case "jit":
 		return b.Major >= 8
 	case "fiber":
-		return b.Major >= 8 && b.Minor >= 1
+		return b.Major > 8 || (b.Major == 8 && b.Minor >= 1)
 	default:
 		return false
 	}

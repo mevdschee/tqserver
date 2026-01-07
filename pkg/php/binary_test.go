@@ -8,7 +8,7 @@ import (
 func TestDetectBinary(t *testing.T) {
 	// Try to detect php-cgi in PATH
 	binary, err := DetectBinary("")
-	
+
 	// Skip test if php-cgi is not installed
 	if err != nil {
 		t.Skipf("php-cgi not found in PATH: %v", err)
@@ -41,9 +41,9 @@ func TestBinaryBuildArgs(t *testing.T) {
 	config := &Config{
 		ConfigFile: "/etc/php/8.2/php.ini",
 		Settings: map[string]string{
-			"memory_limit":      "128M",
+			"memory_limit":       "128M",
 			"max_execution_time": "30",
-			"display_errors":    "1",
+			"display_errors":     "1",
 		},
 	}
 

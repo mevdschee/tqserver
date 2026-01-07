@@ -15,16 +15,16 @@ type Manager struct {
 	workers []*Worker
 	mu      sync.RWMutex
 
-	nextID      int
-	baseSocket  string // Base socket path (will add worker ID)
+	nextID     int
+	baseSocket string // Base socket path (will add worker ID)
 
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
 	// Monitoring
-	totalRequests  int64
-	totalRestarts  int64
+	totalRequests int64
+	totalRestarts int64
 }
 
 // NewManager creates a new PHP worker manager
@@ -86,7 +86,7 @@ func (m *Manager) Start() error {
 // Stop gracefully stops all workers
 func (m *Manager) Stop() error {
 	log.Printf("Stopping PHP worker manager...")
-	
+
 	// Cancel context to signal shutdown
 	m.cancel()
 
@@ -153,7 +153,7 @@ func (m *Manager) monitorWorker(worker *Worker) {
 			return
 		case err := <-worker.Errors():
 			log.Printf("[Worker %d] Error: %v", worker.ID, err)
-			
+
 			// Remove crashed worker from pool
 			m.mu.Lock()
 			for i, w := range m.workers {
@@ -162,7 +162,7 @@ func (m *Manager) monitorWorker(worker *Worker) {
 					break
 				}
 			}
-			
+
 			// Spawn replacement worker if needed
 			if m.shouldSpawnReplacement() {
 				log.Printf("[Worker %d] Spawning replacement worker", worker.ID)
@@ -173,7 +173,7 @@ func (m *Manager) monitorWorker(worker *Worker) {
 				}
 			}
 			m.mu.Unlock()
-			
+
 			return
 		case <-worker.done:
 			return
@@ -340,10 +340,10 @@ func (m *Manager) GetStats() map[string]interface{} {
 	defer m.mu.RUnlock()
 
 	stats := map[string]interface{}{
-		"total_workers": len(m.workers),
+		"total_workers":  len(m.workers),
 		"total_requests": m.totalRequests,
 		"total_restarts": m.totalRestarts,
-		"pool_manager": m.config.Pool.Manager,
+		"pool_manager":   m.config.Pool.Manager,
 	}
 
 	// Count workers by state
