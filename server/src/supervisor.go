@@ -238,6 +238,12 @@ func (s *Supervisor) runWorkerDispatcher(w *Worker) {
 				go s.scaleUp(w) // prevent blocking dispatcher
 			}
 
+			// Maintain MinWorkers (Healing)
+			if numWorkers < w.MinWorkers {
+				log.Printf("[Scaling] %s: Workers %d < Min %d. Scaling up (healing).", w.Name, numWorkers, w.MinWorkers)
+				go s.scaleUp(w)
+			}
+
 			// Scale DOWN
 			// If queue is empty and workers are idle
 			if queueDepth == 0 && numWorkers > w.MinWorkers {

@@ -77,6 +77,27 @@ func main() {
 }
 ```
 
+### Basic Health Endpoint (Bun/TypeScript)
+
+```typescript
+// workers/api/index.ts
+import express from 'express';
+
+const app = express();
+const port = process.env.PORT || 3000;
+
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'healthy',
+        checks: {}
+    });
+});
+
+app.listen(port, () => {
+    console.log(`Worker listening on port ${port}`);
+});
+```
+
 ### Response Format
 
 **Healthy Response** (200 OK):
@@ -402,9 +423,15 @@ func (hc *DeepHealthChecker) checkDatabase(ctx context.Context) Check {
 
 ## Configuration
 
-> **Note**: TQServer does not currently have built-in health check configuration in YAML files.
-> Health checks are performed internally by the supervisor. Workers should implement a `/health` 
-> endpoint for monitoring purposes, but the configuration examples below are for illustration only.
+### Health Check Mechanism
+
+TQServer continuously monitors worker health:
+
+-   **Go & Bun Workers**: The supervisor performs an **active HTTP GET** request to `http://localhost:<worker_port>/health` every 5 seconds. If the endpoint returns a non-200 status code or times out, the specific worker instance is terminated and a replacement is spawned.
+-   **PHP Workers**: The supervisor performs an active **TCP connection probe** to the PHP-FPM listening port. If the connection fails, the PHP worker pool is restarted.
+
+> **Note**: TQServer does not currently have built-in health check configuration in YAML files (e.g. changing the path from `/health`).
+> Workers **must** implement a `/health` endpoint for monitoring purposes.
 > See the actual worker implementation in `workers/index/src/main.go` for reference.
 
 ### Health Check Configuration (Conceptual)

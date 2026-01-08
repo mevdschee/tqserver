@@ -194,12 +194,21 @@ runtime := worker.NewRuntime() // Automatically processes Env Vars
 
 ## Health Checks
 
-Every worker **must** implement a `/health` endpoint returning `200 OK`.
+Every worker **must** implement a `/health` endpoint returning `200 OK`. TQServer actively polls this endpoint.
+
+**Go Example:**
 ```go
 http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(http.StatusOK)
     w.Write([]byte("OK"))
 })
+```
+
+**Bun Example:**
+```typescript
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok' });
+});
 ```
 
 ---
