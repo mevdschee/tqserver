@@ -5,7 +5,7 @@
 # All requests to /api/* will be routed to this worker
 path: "/api"
 type: "kotlin"
-enabled: false
+enabled: true
 
 # Timeout settings
 timeouts:
