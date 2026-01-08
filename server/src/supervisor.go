@@ -34,6 +34,9 @@ type Supervisor struct {
 	// php-fpm supervised instances + clients (single-port per worker)
 	phpLaunchers map[string]*phpfpm.Launcher
 	phpClients   map[string]*phpfpm.Client
+
+	// Hot reload support
+	reloadTimers map[string]*time.Timer
 }
 
 // getFreePort returns the next available port for a worker instance
@@ -59,6 +62,7 @@ func NewSupervisor(config *Config, projectRoot string, router *Router, workerCon
 		stopChan:      make(chan struct{}),
 		phpLaunchers:  make(map[string]*phpfpm.Launcher),
 		phpClients:    make(map[string]*phpfpm.Client),
+		reloadTimers:  make(map[string]*time.Timer),
 	}
 }
 
@@ -457,6 +461,48 @@ func (s *Supervisor) terminateInstance(inst *WorkerInstance) {
 	}
 }
 
+// scheduleReload debounces the reload trigger
+func (s *Supervisor) scheduleReload(w *Worker) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if t, ok := s.reloadTimers[w.Name]; ok {
+		t.Stop()
+	}
+
+	// Debounce: wait for no events for 500ms before reloading
+	s.reloadTimers[w.Name] = time.AfterFunc(500*time.Millisecond, func() {
+		s.reloadWorker(w)
+	})
+}
+
+// reloadWorker rebuilds and restarts the worker
+func (s *Supervisor) reloadWorker(w *Worker) {
+	log.Printf("Reloading worker %s (change detected)", w.Name)
+
+	// Rebuild
+	if err := s.buildWorker(w); err != nil {
+		w.SetBuildError(err)
+		log.Printf("Build failed for worker %s: %v", w.Name, err)
+		if s.proxy != nil {
+			s.proxy.BroadcastReload()
+		}
+		return
+	}
+	w.SetBuildError(nil)
+
+	// Rolling Restart:
+	// For each instance, kill it. Logic in dispatcher will respawn it if needed.
+	// Or we can just call stopWorker and let dispatcher respawn.
+	// But dispatcher is running.
+	// Let's just kill all instances. Dispatcher loop will see MinWorkers > len(Instances) and spawn new ones.
+	s.stopWorker(w)
+
+	if s.proxy != nil {
+		s.proxy.BroadcastReload()
+	}
+}
+
 // stopWorker stops all instances of a worker
 func (s *Supervisor) stopWorker(w *Worker) {
 	w.mu.Lock()
@@ -532,7 +578,9 @@ func (s *Supervisor) watchDirectory(dir string) error {
 			return err
 		}
 		if info.IsDir() {
-			if strings.HasPrefix(filepath.Base(path), ".") {
+			base := filepath.Base(path)
+			// Skip hidden dirs, bin, and node_modules
+			if strings.HasPrefix(base, ".") || base == "bin" || base == "node_modules" {
 				return filepath.SkipDir
 			}
 			s.watcher.Add(path)
@@ -552,6 +600,9 @@ func (s *Supervisor) watchForChanges() {
 			if !ok {
 				return
 			}
+			// Build artifacts might still trigger events if the parent dir is watched,
+			// or if the ignore logic above missed something.
+			// Double check in handleFileEvent.
 			if event.Op&(fsnotify.Write|fsnotify.Create) != 0 {
 				s.handleFileEvent(event.Name)
 			}
@@ -563,6 +614,11 @@ func (s *Supervisor) watchForChanges() {
 
 // handleFileEvent
 func (s *Supervisor) handleFileEvent(path string) {
+	// Ignore changes in bin or node_modules (extra safety)
+	if strings.Contains(path, "/bin/") || strings.Contains(path, "/node_modules/") {
+		return
+	}
+
 	// Identify worker
 	// If code changed -> rebuild and restart all instances (rolling restart?)
 	// For now: restart all.
@@ -572,12 +628,6 @@ func (s *Supervisor) handleFileEvent(path string) {
 	for _, w := range workers {
 		workerDir := filepath.Join(s.projectRoot, s.config.Workers.Directory, w.Name)
 		if strings.HasPrefix(path, workerDir) {
-			log.Printf("Change detected in %s, reloading worker %s", path, w.Name)
-
-			// Rebuild
-			if err := s.buildWorker(w); err != nil {
-				w.SetBuildError(err)
-				log.Printf("Build failed: %v", err)
 				if s.proxy != nil {
 					s.proxy.BroadcastReload()
 				}
