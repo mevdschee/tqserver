@@ -639,11 +639,24 @@ func (s *Supervisor) Start() error {
     }
     log.Printf("Discovered %d workers", len(workers))
     
-    // 2. Start workers
+// 2. Start workers (Sequential Startup)
+    // Workers are started one by one to avoid resource spikes.
+    // The supervisor waits for each instance to become healthy before proceeding.
     for _, config := range workers {
-        if err := s.StartWorker(config.Name); err != nil {
-            log.Printf("Failed to start %s: %v", config.Name, err)
-            continue
+        // ... build worker ...
+
+        // Start instances sequentially
+        for i := 0; i < config.MinWorkers; i++ {
+             if err := s.startInstance(config.Name); err != nil {
+                 log.Printf("Failed to start instance: %v", err)
+                 break
+             }
+             
+             // Wait for health check to pass
+             s.waitForHealth(config.Name)
+             
+             // Optional delay between starts to spread load
+             time.Sleep(s.config.StartupDelay)
         }
     }
     
