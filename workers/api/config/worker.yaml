@@ -5,7 +5,7 @@
 # All requests to /api/* will be routed to this worker
 path: "/api"
 type: "bun"
-enabled: true
+enabled: false
 
 # Scaling Configuration
 scaling:
