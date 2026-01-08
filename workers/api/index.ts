@@ -55,6 +55,11 @@ app.post('/items', (req, res) => {
     res.status(201).json(newItem);
 });
 
+app.get('/bench', (req, res) => {
+    res.set('Content-Type', 'text/plain');
+    res.send('hello world');
+});
+
 // Start server
 app.listen(port, () => {
     console.log(`API Worker listening on port ${port}`);

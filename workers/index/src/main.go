@@ -52,6 +52,13 @@ func main() {
 		io.WriteString(w, output)
 	})
 
+	// Benchmark route
+	http.HandleFunc("/bench", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("hello world"))
+	})
+
 	// Hello world route
 	http.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%s %s", r.Method, r.URL.Path)

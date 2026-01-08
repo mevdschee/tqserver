@@ -296,8 +296,12 @@ func (s *Supervisor) spawnWorkerInstance(w *Worker) (*WorkerInstance, error) {
 		if workerMeta != nil && workerMeta.Config.Bun != nil && workerMeta.Config.Bun.Entrypoint != "" {
 			entrypoint = workerMeta.Config.Bun.Entrypoint
 		}
-		// Assuming bun is in PATH
-		cmd = exec.Command("bun", "run", entrypoint)
+		// Find bun binary
+		bunPath, err := s.findBunBinary()
+		if err != nil {
+			return nil, err
+		}
+		cmd = exec.Command(bunPath, "run", entrypoint)
 	} else {
 		// "go" default
 		binaryPath := filepath.Join(workerRoot, "bin", w.Name)
@@ -423,8 +427,12 @@ func (s *Supervisor) buildWorker(worker *Worker) error {
 	if worker.Type == "bun" {
 		// Install dependencies
 		if _, err := os.Stat(filepath.Join(workerRoot, "package.json")); err == nil {
-			log.Printf("Installing dependencies for %s...", worker.Name)
-			cmd := exec.Command("bun", "install")
+			// Find bun binary
+			bunPath, err := s.findBunBinary()
+			if err != nil {
+				return err
+			}
+			cmd := exec.Command(bunPath, "install")
 			cmd.Dir = workerRoot
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
@@ -747,7 +755,21 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 	return nil
 }
 
-// handleConfigChange (removed for brevity, can be re-added if needed for dynamic config reload)
-func (s *Supervisor) handleConfigChange(filePath string) {
-	// Re-implement if necessary
+// findBunBinary attempts to locate the Bun binary
+func (s *Supervisor) findBunBinary() (string, error) {
+	// 1. Try PATH
+	if p, err := exec.LookPath("bun"); err == nil {
+		return p, nil
+	}
+
+	// 2. Try common locations
+	homeDir, err := os.UserHomeDir()
+	if err == nil {
+		bunPath := filepath.Join(homeDir, ".bun", "bin", "bun")
+		if _, err := os.Stat(bunPath); err == nil {
+			return bunPath, nil
+		}
+	}
+
+	return "", fmt.Errorf("bun executable not found in PATH or ~/.bun/bin/bun")
 }
