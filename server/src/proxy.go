@@ -129,7 +129,6 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	devHeadersSet := p.config.IsDevelopmentMode()
 
-	log.Printf(">>> Checking if PHP worker: %v", worker.IsPHP)
 	// Check if this is a PHP worker
 	if worker.IsPHP {
 		// In dev mode, set headers directly (before any write)
@@ -137,7 +136,6 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 			setDevHeaders(w.Header())
 		}
 		// Handle PHP worker via FastCGI protocol
-		log.Printf(">>> Calling handlePHPRequest")
 		p.handlePHPRequest(w, r, worker)
 		return
 	}
