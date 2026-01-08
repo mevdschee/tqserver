@@ -122,6 +122,19 @@ func (s *Supervisor) Start() error {
 				// Continue to start dispatcher anyway so we can serve error pages
 			}
 
+			// Initial startup: start workers sequentially to avoid load spikes
+			// We try to start up to MinWorkers here. If any fail, the dispatcher will handle retries.
+			for i := 0; i < worker.MinWorkers; i++ {
+				if _, err := s.scaleUp(worker); err != nil {
+					log.Printf("Failed to start initial worker instance for %s: %v", worker.Name, err)
+					break // Stop synchronous startup on error, let dispatcher retry
+				}
+				// Add a small delay between starts to spread the load
+				if i < worker.MinWorkers-1 {
+					time.Sleep(s.config.GetStartupDelay())
+				}
+			}
+
 			// Start the dispatcher loop for scaling and request handling
 			s.wg.Add(1)
 			go s.runWorkerDispatcher(worker)
