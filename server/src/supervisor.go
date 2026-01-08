@@ -628,6 +628,12 @@ func (s *Supervisor) handleFileEvent(path string) {
 	for _, w := range workers {
 		workerDir := filepath.Join(s.projectRoot, s.config.Workers.Directory, w.Name)
 		if strings.HasPrefix(path, workerDir) {
+			log.Printf("Change detected in %s, reloading worker %s", path, w.Name)
+
+			// Rebuild
+			if err := s.buildWorker(w); err != nil {
+				w.SetBuildError(err)
+				log.Printf("Build failed: %v", err)
 				if s.proxy != nil {
 					s.proxy.BroadcastReload()
 				}
