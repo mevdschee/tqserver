@@ -57,6 +57,9 @@ func (h *FastCGIHandler) ServeFastCGI(conn *fastcgi.Conn, req *fastcgi.Request) 
 	}
 	defer phpConn.Close()
 
+	// Set read/write deadlines to prevent hanging
+	phpConn.SetDeadline(time.Now().Add(30 * time.Second))
+
 	// Create a FastCGI connection to the PHP worker
 	phpFCGI := fastcgi.NewConn(phpConn, 60*time.Second, 60*time.Second)
 
@@ -98,16 +101,23 @@ func (h *FastCGIHandler) ServeFastCGI(conn *fastcgi.Conn, req *fastcgi.Request) 
 		return err
 	}
 
+	log.Printf("[Worker %d] Request sent, reading response...", worker.ID)
+
 	// Read response from PHP worker and forward to client
 	for {
 		record, err := phpFCGI.ReadRecord()
 		if err != nil {
 			if err == io.EOF || err == fastcgi.ErrConnClosed {
+				log.Printf("[Worker %d] Connection closed by worker", worker.ID)
 				break
 			}
 			log.Printf("[Worker %d] Failed to read response: %v", worker.ID, err)
+			conn.SendStderr(req.RequestID, []byte(fmt.Sprintf("Worker error: %v", err)))
+			conn.SendEndRequest(req.RequestID, 1, uint8(fastcgi.StatusRequestComplete))
 			return err
 		}
+
+		log.Printf("[Worker %d] Received record type: %v, length: %d", worker.ID, record.Header.Type, len(record.Content))
 
 		// Forward the record to the client
 		switch record.Header.Type {

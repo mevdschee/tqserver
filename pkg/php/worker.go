@@ -1,13 +1,14 @@
 package php
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -96,17 +97,16 @@ func (w *Worker) Start() error {
 	// Create command with context for cancellation
 	w.cmd = exec.CommandContext(w.ctx, w.binary.Path, args...)
 
-	// Set working directory to document root (convert to absolute path if needed)
-	docRoot := w.config.DocumentRoot
-	if !filepath.IsAbs(docRoot) {
-		absPath, err := filepath.Abs(docRoot)
-		if err != nil {
-			return fmt.Errorf("failed to resolve document root path: %w", err)
-		}
-		docRoot = absPath
-	}
-	w.cmd.Dir = docRoot
-	log.Printf("[Worker %d] Document root: %s", w.ID, docRoot)
+	// Set environment variables for php-cgi
+	w.cmd.Env = append(os.Environ(),
+		fmt.Sprintf("PHP_FCGI_MAX_REQUESTS=%d", w.config.Pool.MaxRequests),
+	)
+
+	// Set working directory to current directory
+	// php-cgi will use SCRIPT_FILENAME (absolute path) to find files
+	cwd, _ := os.Getwd()
+	w.cmd.Dir = cwd
+	log.Printf("[Worker %d] Working directory: %s", w.ID, cwd)
 
 	// Capture stdout/stderr for logging
 	stdout, err := w.cmd.StdoutPipe()
@@ -140,6 +140,16 @@ func (w *Worker) Start() error {
 	}
 
 	log.Printf("[Worker %d] php-cgi bound successfully to %s", w.ID, w.socketPath)
+
+	// Verify we can actually connect to the worker
+	testConn, err := net.DialTimeout("tcp", w.socketPath, 1*time.Second)
+	if err != nil {
+		log.Printf("[Worker %d] WARNING: Cannot connect to worker socket: %v", w.ID, err)
+	} else {
+		testConn.Close()
+		log.Printf("[Worker %d] Verified socket is accepting connections", w.ID)
+	}
+
 	return nil
 }
 
@@ -211,18 +221,18 @@ func (w *Worker) monitor() {
 
 // handleOutput reads and logs output from the process
 func (w *Worker) handleOutput(reader io.Reader, streamName string) {
-	buf := make([]byte, 4096)
-	for {
-		n, err := reader.Read(buf)
-		if n > 0 {
-			log.Printf("[Worker %d] [%s] %s", w.ID, streamName, string(buf[:n]))
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if streamName == "stderr" {
+			// Make stderr very visible
+			log.Printf("[Worker %d] ⚠️  STDERR: %s", w.ID, line)
+		} else {
+			log.Printf("[Worker %d] [%s] %s", w.ID, streamName, line)
 		}
-		if err != nil {
-			if err != io.EOF {
-				log.Printf("[Worker %d] Error reading %s: %v", w.ID, streamName, err)
-			}
-			return
-		}
+	}
+	if err := scanner.Err(); err != nil && err != io.EOF {
+		log.Printf("[Worker %d] Error reading %s: %v", w.ID, streamName, err)
 	}
 }
 

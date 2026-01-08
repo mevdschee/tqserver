@@ -120,9 +120,11 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	log.Printf(">>> Checking if PHP worker: %v", worker.IsPHP)
 	// Check if this is a PHP worker
 	if worker.IsPHP {
 		// Handle PHP worker via FastCGI protocol
+		log.Printf(">>> Calling handlePHPRequest")
 		p.handlePHPRequest(w, r, worker)
 		return
 	}
@@ -244,6 +246,7 @@ func (p *Proxy) handlePHPRequest(w http.ResponseWriter, r *http.Request, worker 
 	params["REMOTE_PORT"] = "0"
 	params["CONTENT_TYPE"] = r.Header.Get("Content-Type")
 	params["CONTENT_LENGTH"] = fmt.Sprintf("%d", len(requestBody))
+	params["REDIRECT_STATUS"] = "200" // Required by PHP-CGI
 
 	// Add HTTP headers as FastCGI params
 	for key, values := range r.Header {
