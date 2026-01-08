@@ -1,13 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
-	"time"
 
 	"github.com/mevdschee/tqserver/pkg/php"
 )
@@ -42,16 +40,16 @@ func main() {
 		},
 	}
 
-	log.Println("Detecting php-cgi binary...")
-	binary, err := php.DetectBinary(config.PHPFPMBinary)
-	if err != nil {
-		log.Fatalf("Failed to detect php-cgi: %v", err)
+	// Choose php-fpm binary path (config overrides, otherwise default to "php-fpm")
+	binaryPath := config.PHPFPMBinary
+	if binaryPath == "" {
+		binaryPath = "php-fpm"
 	}
 
-	log.Printf("Found PHP: %s", binary.String())
+	log.Printf("Using php-fpm binary: %s", binaryPath)
 
 	log.Println("Creating PHP worker manager...")
-	manager, err := php.NewManager(binary, config, func() int { return 9001 })
+	manager, err := php.NewManager(config)
 	if err != nil {
 		log.Fatalf("Failed to create manager: %v", err)
 	}
@@ -64,25 +62,6 @@ func main() {
 	log.Println("PHP workers started successfully!")
 	log.Printf("Workers listening on php-fpm listen: %s", config.PHPFPM.Listen)
 	log.Println("\nPress Ctrl+C to stop")
-
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-
-	go func() {
-		for range ticker.C {
-			stats := manager.GetStats()
-			fmt.Println("\n=== PHP Worker Stats ===")
-			for k, v := range stats {
-				fmt.Printf("%s: %v\n", k, v)
-			}
-			fmt.Println("\n=== Worker Details ===")
-			for _, info := range manager.GetWorkerInfo() {
-				fmt.Printf("Worker %d: state=%s, requests=%d, uptime=%s, pid=%d\n",
-					info["id"], info["state"], info["request_count"], info["uptime"], info["pid"])
-			}
-			fmt.Println()
-		}
-	}()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)

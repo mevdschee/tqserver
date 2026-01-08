@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -12,7 +11,6 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/mevdschee/tqserver/pkg/fastcgi"
 	"github.com/mevdschee/tqserver/pkg/php"
 	phpfpmpkg "github.com/mevdschee/tqserver/pkg/php/phpfpm"
 )
@@ -31,8 +29,6 @@ type Supervisor struct {
 	proxy         *Proxy
 
 	// PHP support
-	phpManagers    map[string]*php.Manager    // keyed by worker name
-	fastcgiServers map[string]*fastcgi.Server // keyed by worker name
 	// php-fpm supervised instances + clients (single-port per worker)
 	phpLaunchers map[string]*phpfpmpkg.Launcher
 	phpClients   map[string]*phpfpmpkg.Client
@@ -53,16 +49,14 @@ func (s *Supervisor) getFreePort() int {
 // NewSupervisor creates a new supervisor
 func NewSupervisor(config *Config, projectRoot string, router *Router, workerConfigs []*WorkerConfigWithMeta) *Supervisor {
 	return &Supervisor{
-		config:         config,
-		projectRoot:    projectRoot,
-		router:         router,
-		workerConfigs:  workerConfigs,
-		nextPort:       config.Workers.PortRangeStart,
-		stopChan:       make(chan struct{}),
-		phpManagers:    make(map[string]*php.Manager),
-		fastcgiServers: make(map[string]*fastcgi.Server),
-		phpLaunchers:   make(map[string]*phpfpmpkg.Launcher),
-		phpClients:     make(map[string]*phpfpmpkg.Client),
+		config:        config,
+		projectRoot:   projectRoot,
+		router:        router,
+		workerConfigs: workerConfigs,
+		nextPort:      config.Workers.PortRangeStart,
+		stopChan:      make(chan struct{}),
+		phpLaunchers:  make(map[string]*phpfpmpkg.Launcher),
+		phpClients:    make(map[string]*phpfpmpkg.Client),
 	}
 }
 
@@ -173,13 +167,8 @@ func (s *Supervisor) Stop() {
 		s.stopWorker(worker)
 	}
 
-	// Stop all PHP managers
-	s.mu.Lock()
-	for name, manager := range s.phpManagers {
-		log.Printf("Stopping PHP manager for %s", name)
-		manager.Stop()
-	}
 	// Stop php-fpm launchers and clients
+	s.mu.Lock()
 	shutdownTimeout := time.Duration(s.config.Workers.ShutdownGracePeriodMs) * time.Millisecond
 	for name, launcher := range s.phpLaunchers {
 		log.Printf("Stopping php-fpm launcher for %s", name)
@@ -196,10 +185,7 @@ func (s *Supervisor) Stop() {
 		}
 	}
 	// Stop all FastCGI servers
-	for name, server := range s.fastcgiServers {
-		log.Printf("Stopping FastCGI server for %s", name)
-		server.Shutdown(context.Background())
-	}
+	// fastcgi servers are handled by php-fpm; nothing to shutdown here
 	s.mu.Unlock()
 
 	s.wg.Wait()
@@ -713,21 +699,9 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 	s.phpClients[worker.Name] = client
 	s.mu.Unlock()
 
-	// Create FastCGI handler that forwards to php-fpm via client
-	handler := phpfpmpkg.NewHandler(client)
-
-	// Create and start FastCGI server
-	fcgiServer := fastcgi.NewServer(fcgiServerAddr, handler)
-	go func() {
-		if err := fcgiServer.ListenAndServe(); err != nil {
-			log.Printf("FastCGI server for %s stopped: %v", worker.Name, err)
-		}
-	}()
-
-	// Store server
-	s.mu.Lock()
-	s.fastcgiServers[worker.Name] = fcgiServer
-	s.mu.Unlock()
+	// php-fpm listens on the configured FastCGI address directly; we don't
+	// create an internal FastCGI server anymore. The launcher started php-fpm
+	// which binds to `cfg.PHPFPM.Listen`.
 
 	// Mark worker as healthy
 	worker.SetHealthy(true)
