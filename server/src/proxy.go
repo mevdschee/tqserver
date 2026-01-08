@@ -227,6 +227,33 @@ func (p *Proxy) serveBuildErrorPage(w http.ResponseWriter, r *http.Request, work
 	log.Printf("%s %s -> build error page (worker: %s)", r.Method, r.URL.Path, workerName)
 }
 
+// serveUpstreamErrorPage serves an HTML error page when upstream connection fails
+func (p *Proxy) serveUpstreamErrorPage(w http.ResponseWriter, r *http.Request, workerName string, address string, errStr string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusServiceUnavailable) // 503
+
+	data := map[string]interface{}{
+		"WorkerName": workerName,
+		"Address":    address,
+		"Error":      errStr,
+		"DevMode":    p.config.IsDevelopmentMode(),
+	}
+
+	templatePath := filepath.Join(p.projectRoot, "server", "views", "upstream-error.html")
+	output, err := p.tmpl.RenderFile(templatePath, data)
+	if err != nil {
+		log.Printf("Failed to render upstream error template: %v", err)
+		// Fallback to simple text if template fails
+		http.Error(w, "Could not connect to PHP worker", http.StatusServiceUnavailable)
+		return
+	}
+
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(output)))
+	w.Write([]byte(output))
+
+	log.Printf("%s %s -> upstream error page (worker: %s)", r.Method, r.URL.Path, workerName)
+}
+
 // handlePHPRequest converts HTTP request to FastCGI and sends to PHP worker
 func (p *Proxy) handlePHPRequest(w http.ResponseWriter, r *http.Request, worker *Worker) {
 	// Determine script filename
@@ -290,7 +317,7 @@ func (p *Proxy) handlePHPRequest(w http.ResponseWriter, r *http.Request, worker 
 	fcgiAddress := fmt.Sprintf("127.0.0.1:%d", worker.Port)
 	conn, err := net.DialTimeout("tcp", fcgiAddress, 5*time.Second)
 	if err != nil {
-		http.Error(w, "Failed to connect to PHP worker", http.StatusBadGateway)
+		p.serveUpstreamErrorPage(w, r, worker.Name, fcgiAddress, err.Error())
 		log.Printf("Failed to connect to FastCGI server at %s: %v", fcgiAddress, err)
 		return
 	}

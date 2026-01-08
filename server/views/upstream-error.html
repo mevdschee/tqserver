@@ -1,0 +1,103 @@
+{% extends "server/views/base.html" %}
+
+{% block title %}Service Unavailable{% endblock %}
+
+{% block head %}
+<style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        margin: 0;
+        padding: 0;
+        background: #1e1e1e;
+        color: #d4d4d4;
+    }
+
+    .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 40px 20px;
+    }
+
+    .error-card {
+        background: #252525;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #333;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .error-header {
+        background: #e65100;
+        /* Orange/Red for 503 */
+        color: white;
+        padding: 20px;
+    }
+
+    .error-header h1 {
+        margin: 0;
+        font-size: 24px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .error-body {
+        padding: 30px;
+    }
+
+    .error-message {
+        font-size: 18px;
+        margin-bottom: 20px;
+        color: #ececec;
+    }
+
+    .technical-details {
+        background: #1e1e1e;
+        padding: 15px;
+        border-radius: 4px;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 13px;
+        color: #9cdcfe;
+        border: 1px solid #333;
+    }
+
+    .help-text {
+        margin-top: 20px;
+        color: #888;
+        font-size: 14px;
+        border-top: 1px solid #333;
+        padding-top: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="error-card">
+        <div class="error-header">
+            <h1>⚠️ 503 Service Unavailable</h1>
+        </div>
+        <div class="error-body">
+            <div class="error-message">
+                Could not connect to PHP worker
+            </div>
+
+            {% if Error %}
+            <div class="technical-details">
+                Error: {{ Error }}<br>
+                Worker: {{ WorkerName }}<br>
+                Address: {{ Address }}
+            </div>
+            {% endif %}
+
+            <div class="help-text">
+                <p>The upstream worker is currently unavailable or refusing connections. Please try again later.</p>
+                {% if DevMode %}
+                <p><strong>Developer Note:</strong> Check if the PHP-FPM process is running and listening on the
+                    expected port.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
