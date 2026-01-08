@@ -18,16 +18,6 @@ type WorkerConfig struct {
 	Enabled bool   `yaml:"enabled"`
 	LogFile string `yaml:"log_file"`
 
-	// Kotline-specific configuration
-	Kotlin *struct {
-		JarPath     string   `yaml:"jar_path"`
-		JavaOptions []string `yaml:"java_options"`
-		MaxHeapSize string   `yaml:"max_heap_size"`
-		MinHeapSize string   `yaml:"min_heap_size"`
-		GCOptions   []string `yaml:"gc_options"`
-		ClassName   string   `yaml:"class_name"`
-		ListenPort  int      `yaml:"listen_port"`
-	} `yaml:"kotlin"`
 	// Go runtime configuration
 	Go *struct {
 		GOMAXPROCS          int    `yaml:"go_max_procs"`
