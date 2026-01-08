@@ -78,8 +78,8 @@ func (b *Binary) BuildArgs(config *Config, socketPath string) []string {
 	args := []string{}
 
 	// Add base config file if specified
-	if config.ConfigFile != "" {
-		args = append(args, "-c", config.ConfigFile)
+	if config.PHPIni != "" {
+		args = append(args, "-c", config.PHPIni)
 	}
 
 	// Add bind address for FastCGI mode (required for persistent workers)

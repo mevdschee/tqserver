@@ -39,7 +39,7 @@ func NewManager(binary *Binary, config *Config, getFreePort func() int) (*Manage
 		binary:      binary,
 		config:      config,
 		workers:     make([]*Worker, 0),
-		listen:      config.Pool.ListenAddress,
+		listen:      "",
 		getFreePort: getFreePort,
 		ctx:         ctx,
 		cancel:      cancel,
@@ -54,10 +54,10 @@ func (m *Manager) Start() error {
 	defer m.mu.Unlock()
 
 	// Get initial worker count based on pool manager type
-	initialCount := m.config.Pool.GetWorkerCount()
+	initialCount := m.config.PHPFPM.Pool.GetInitialWorkerCount()
 
-	log.Printf("Starting PHP worker manager with %d initial workers (%s mode)",
-		initialCount, m.config.Pool.Manager)
+	log.Printf("Starting PHP worker manager with %d initial workers (pm=%s)",
+		initialCount, m.config.PHPFPM.Pool.PM)
 
 	// Start initial workers
 	for i := 0; i < initialCount; i++ {
@@ -125,10 +125,10 @@ func (m *Manager) spawnWorker() error {
 	port := m.getFreePort()
 
 	// Use getNextFreePort for TCP sockets
-	var socketPath string
-	socketPath = fmt.Sprintf("%s:%d", m.listen, port)
+	// socketPath was used by per-worker php-cgi socket binding; no longer used
+	_ = fmt.Sprintf("%s:%d", m.listen, port)
 
-	worker := NewWorker(port, m.binary, m.config, socketPath)
+	worker := NewWorker(port)
 
 	if err := worker.Start(); err != nil {
 		return err
@@ -185,14 +185,14 @@ func (m *Manager) monitorWorker(worker *Worker) {
 func (m *Manager) shouldSpawnReplacement() bool {
 	currentCount := len(m.workers)
 
-	switch m.config.Pool.Manager {
+	switch m.config.PHPFPM.Pool.PM {
 	case "static":
 		// Always maintain the configured number of workers
-		return currentCount < m.config.Pool.MaxWorkers
+		return currentCount < m.config.PHPFPM.Pool.MaxChildren
 
 	case "dynamic":
-		// Ensure we have at least min_workers
-		return currentCount < m.config.Pool.MinWorkers
+		// Ensure we have at least the configured start/min spare servers
+		return currentCount < m.config.PHPFPM.Pool.MinSpareServers
 
 	case "ondemand":
 		// Don't automatically spawn replacements in ondemand mode
@@ -256,8 +256,7 @@ func (m *Manager) managePoolSize() {
 	defer m.mu.Unlock()
 
 	currentCount := len(m.workers)
-
-	switch m.config.Pool.Manager {
+	switch m.config.PHPFPM.Pool.PM {
 	case "dynamic":
 		// Count idle workers
 		idleCount := 0
@@ -268,18 +267,18 @@ func (m *Manager) managePoolSize() {
 		}
 
 		// Scale up if we have too few idle workers
-		if idleCount < 2 && currentCount < m.config.Pool.MaxWorkers {
+		if idleCount < 2 && currentCount < m.config.PHPFPM.Pool.MaxChildren {
 			log.Printf("Scaling up: idle=%d, total=%d", idleCount, currentCount)
 			if err := m.spawnWorker(); err != nil {
 				log.Printf("Failed to spawn worker: %v", err)
 			}
 		}
 
-		// Scale down if we have too many idle workers (but keep min_workers)
-		if idleCount > 4 && currentCount > m.config.Pool.MinWorkers {
+		// Scale down if we have too many idle workers (but keep min spare servers)
+		if idleCount > 4 && currentCount > m.config.PHPFPM.Pool.MinSpareServers {
 			// Find an idle worker to remove
 			for i, w := range m.workers {
-				if w.GetState() == WorkerStateIdle && w.GetIdleTime() > m.config.Pool.IdleTimeout {
+				if w.GetState() == WorkerStateIdle && w.GetIdleTime() > m.config.PHPFPM.Pool.ProcessIdleTimeout {
 					log.Printf("Scaling down: removing idle worker %d", w.ID)
 					m.workers = append(m.workers[:i], m.workers[i+1:]...)
 					go w.Stop()
@@ -292,7 +291,7 @@ func (m *Manager) managePoolSize() {
 		// Kill idle workers after timeout
 		for i := len(m.workers) - 1; i >= 0; i-- {
 			w := m.workers[i]
-			if w.GetState() == WorkerStateIdle && w.GetIdleTime() > m.config.Pool.IdleTimeout {
+			if w.GetState() == WorkerStateIdle && w.GetIdleTime() > m.config.PHPFPM.Pool.ProcessIdleTimeout {
 				log.Printf("[Worker %d] Killing idle worker (idle: %v)", w.ID, w.GetIdleTime())
 				m.workers = append(m.workers[:i], m.workers[i+1:]...)
 				go w.Stop()
@@ -315,7 +314,7 @@ func (m *Manager) GetIdleWorker() (*Worker, error) {
 	}
 
 	// No idle workers available
-	if m.config.Pool.Manager == "ondemand" && len(m.workers) < m.config.Pool.MaxWorkers {
+	if m.config.PHPFPM.Pool.PM == "ondemand" && len(m.workers) < m.config.PHPFPM.Pool.MaxChildren {
 		// Spawn a new worker
 		if err := m.spawnWorker(); err != nil {
 			return nil, fmt.Errorf("failed to spawn ondemand worker: %w", err)
@@ -343,7 +342,7 @@ func (m *Manager) GetStats() map[string]interface{} {
 		"total_workers":  len(m.workers),
 		"total_requests": m.totalRequests,
 		"total_restarts": m.totalRestarts,
-		"pool_manager":   m.config.Pool.Manager,
+		"pool_manager":   m.config.PHPFPM.Pool.PM,
 	}
 
 	// Count workers by state

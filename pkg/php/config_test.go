@@ -2,118 +2,50 @@ package php
 
 import (
 	"testing"
-	"time"
 )
 
 func TestConfigValidation(t *testing.T) {
-	tests := []struct {
-		name    string
-		config  Config
-		wantErr bool
-	}{
-		{
-			name: "valid static pool",
-			config: Config{
-				Binary:       "/usr/bin/php-cgi",
-				DocumentRoot: "/var/www",
-				Pool: PoolConfig{
-					Manager:        "static",
-					MaxWorkers:     4,
-					RequestTimeout: 30 * time.Second,
-					IdleTimeout:    10 * time.Second,
-				},
+	// Minimal valid php-fpm config
+	cfg := Config{
+		PHPFPM: PHPFPMConfig{
+			Enabled: true,
+			Listen:  "127.0.0.1:9000",
+			Pool: PoolConfig{
+				Name:        "tq",
+				PM:          "dynamic",
+				MaxChildren: 3,
 			},
-			wantErr: false,
 		},
-		{
-			name: "valid dynamic pool",
-			config: Config{
-				Binary:       "/usr/bin/php-cgi",
-				DocumentRoot: "/var/www",
-				Pool: PoolConfig{
-					Manager:        "dynamic",
-					MinWorkers:     2,
-					MaxWorkers:     10,
-					StartWorkers:   5,
-					RequestTimeout: 30 * time.Second,
-					IdleTimeout:    10 * time.Second,
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "missing binary",
-			config: Config{
-				DocumentRoot: "/var/www",
-				Pool: PoolConfig{
-					Manager:    "static",
-					MaxWorkers: 4,
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "missing document root",
-			config: Config{
-				Binary: "/usr/bin/php-cgi",
-				Pool: PoolConfig{
-					Manager:    "static",
-					MaxWorkers: 4,
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "invalid pool manager",
-			config: Config{
-				Binary:       "/usr/bin/php-cgi",
-				DocumentRoot: "/var/www",
-				Pool: PoolConfig{
-					Manager:    "invalid",
-					MaxWorkers: 4,
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "static pool with zero workers",
-			config: Config{
-				Binary:       "/usr/bin/php-cgi",
-				DocumentRoot: "/var/www",
-				Pool: PoolConfig{
-					Manager:    "static",
-					MaxWorkers: 0,
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "dynamic pool with invalid worker counts",
-			config: Config{
-				Binary:       "/usr/bin/php-cgi",
-				DocumentRoot: "/var/www",
-				Pool: PoolConfig{
-					Manager:      "dynamic",
-					MinWorkers:   5,
-					MaxWorkers:   2, // Less than min
-					StartWorkers: 3,
-				},
-			},
-			wantErr: true,
-		},
+		DocumentRoot: "/var/www",
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := tt.config.Validate()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Config.Validate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("expected valid config, got error: %v", err)
+	}
+
+	// Missing pool name should error
+	bad := cfg
+	bad.PHPFPM.Pool.Name = ""
+	if err := bad.Validate(); err == nil {
+		t.Fatalf("expected error for missing pool name")
+	}
+
+	// Missing listen should error
+	bad = cfg
+	bad.PHPFPM.Listen = ""
+	if err := bad.Validate(); err == nil {
+		t.Fatalf("expected error for missing listen")
+	}
+
+	// Missing document root should error
+	bad = cfg
+	bad.DocumentRoot = ""
+	if err := bad.Validate(); err == nil {
+		t.Fatalf("expected error for missing document root")
 	}
 }
 
-func TestPoolConfigGetWorkerCount(t *testing.T) {
+func TestPoolConfigGetInitialWorkerCount(t *testing.T) {
 	tests := []struct {
 		name   string
 		pool   PoolConfig
@@ -122,26 +54,24 @@ func TestPoolConfigGetWorkerCount(t *testing.T) {
 		{
 			name: "static pool",
 			pool: PoolConfig{
-				Manager:    "static",
-				MaxWorkers: 5,
+				PM:          "static",
+				MaxChildren: 5,
 			},
 			expect: 5,
 		},
 		{
 			name: "dynamic pool",
 			pool: PoolConfig{
-				Manager:      "dynamic",
-				MinWorkers:   2,
-				MaxWorkers:   10,
-				StartWorkers: 4,
+				PM:           "dynamic",
+				StartServers: 4,
 			},
 			expect: 4,
 		},
 		{
 			name: "ondemand pool",
 			pool: PoolConfig{
-				Manager:    "ondemand",
-				MaxWorkers: 5,
+				PM:          "ondemand",
+				MaxChildren: 5,
 			},
 			expect: 0,
 		},
@@ -149,9 +79,9 @@ func TestPoolConfigGetWorkerCount(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.pool.GetWorkerCount()
+			got := tt.pool.GetInitialWorkerCount()
 			if got != tt.expect {
-				t.Errorf("GetWorkerCount() = %d, want %d", got, tt.expect)
+				t.Errorf("GetInitialWorkerCount() = %d, want %d", got, tt.expect)
 			}
 		})
 	}

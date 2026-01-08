@@ -22,7 +22,7 @@ func main() {
 	docRoot := filepath.Join(projectRoot, "workers", "blog", "public")
 
 	config := &php.Config{
-		Binary:       "",
+		PHPFPMBinary: "",
 		DocumentRoot: docRoot,
 		Settings: map[string]string{
 			"memory_limit":       "128M",
@@ -30,17 +30,20 @@ func main() {
 			"display_errors":     "1",
 			"error_reporting":    "E_ALL",
 		},
-		Pool: php.PoolConfig{
-			Manager:        "static",
-			MaxWorkers:     2,
-			RequestTimeout: 30 * time.Second,
-			IdleTimeout:    10 * time.Second,
-			ListenAddress:  "127.0.0.1",
+		PHPFPM: php.PHPFPMConfig{
+			Enabled:   true,
+			Listen:    "127.0.0.1:9000",
+			Transport: "tcp",
+			Pool: php.PoolConfig{
+				Name:        "blog",
+				PM:          "static",
+				MaxChildren: 2,
+			},
 		},
 	}
 
 	log.Println("Detecting php-cgi binary...")
-	binary, err := php.DetectBinary(config.Binary)
+	binary, err := php.DetectBinary(config.PHPFPMBinary)
 	if err != nil {
 		log.Fatalf("Failed to detect php-cgi: %v", err)
 	}
@@ -59,7 +62,7 @@ func main() {
 	}
 
 	log.Println("PHP workers started successfully!")
-	log.Printf("Workers listening on: %s.<worker_id>", config.Pool.ListenAddress)
+	log.Printf("Workers listening on php-fpm listen: %s", config.PHPFPM.Listen)
 	log.Println("\nPress Ctrl+C to stop")
 
 	ticker := time.NewTicker(10 * time.Second)

@@ -39,7 +39,7 @@ func TestBinaryBuildArgs(t *testing.T) {
 	}
 
 	config := &Config{
-		ConfigFile: "/etc/php/8.2/php.ini",
+		PHPIni: "/etc/php/8.2/php.ini",
 		Settings: map[string]string{
 			"memory_limit":       "128M",
 			"max_execution_time": "30",

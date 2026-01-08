@@ -1,14 +1,7 @@
 package php
 
 import (
-	"bufio"
 	"context"
-	"fmt"
-	"io"
-	"log"
-	"net"
-	"os"
-	"os/exec"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -41,11 +34,7 @@ func (s WorkerState) String() string {
 
 // Worker represents a single php-cgi process
 type Worker struct {
-	ID         int
-	cmd        *exec.Cmd
-	binary     *Binary
-	config     *Config
-	socketPath string // Internal FastCGI socket for this worker
+	ID int
 
 	state        atomic.Value // WorkerState
 	requestCount atomic.Int64
@@ -62,20 +51,17 @@ type Worker struct {
 }
 
 // NewWorker creates a new PHP worker
-func NewWorker(id int, binary *Binary, config *Config, socketPath string) *Worker {
+func NewWorker(id int) *Worker {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	w := &Worker{
-		ID:         id,
-		binary:     binary,
-		config:     config,
-		socketPath: socketPath,
-		startTime:  time.Now(),
-		lastUsed:   time.Now(),
-		ctx:        ctx,
-		cancel:     cancel,
-		done:       make(chan struct{}),
-		errors:     make(chan error, 1),
+		ID:        id,
+		startTime: time.Now(),
+		lastUsed:  time.Now(),
+		ctx:       ctx,
+		cancel:    cancel,
+		done:      make(chan struct{}),
+		errors:    make(chan error, 1),
 	}
 
 	w.setState(WorkerStateIdle)
@@ -84,72 +70,14 @@ func NewWorker(id int, binary *Binary, config *Config, socketPath string) *Worke
 
 // Start spawns the php-cgi process
 func (w *Worker) Start() error {
+	// In php-fpm mode the worker is a logical slot backed by a central php-fpm instance.
+	// Start is a no-op for the adapter-backed worker but we record the start time/state.
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.cmd != nil {
-		return fmt.Errorf("worker already started")
-	}
-
-	// Build command arguments (with -b flag for FastCGI mode)
-	args := w.binary.BuildArgs(w.config, w.socketPath)
-
-	// Create command with context for cancellation
-	w.cmd = exec.CommandContext(w.ctx, w.binary.Path, args...)
-
-	// Set environment variables for php-cgi
-	w.cmd.Env = append(os.Environ(),
-		fmt.Sprintf("PHP_FCGI_MAX_REQUESTS=%d", w.config.Pool.MaxRequests),
-	)
-
-	// Set working directory to current directory
-	// php-cgi will use SCRIPT_FILENAME (absolute path) to find files
-	cwd, _ := os.Getwd()
-	w.cmd.Dir = cwd
-	log.Printf("[Worker %d] Working directory: %s", w.ID, cwd)
-
-	// Capture stdout/stderr for logging
-	stdout, err := w.cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("failed to create stdout pipe: %w", err)
-	}
-
-	stderr, err := w.cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("failed to create stderr pipe: %w", err)
-	}
-
-	// Start the process
-	if err := w.cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start php-cgi: %w", err)
-	}
-
-	log.Printf("[Worker %d] Starting php-cgi (PID: %d) on %s", w.ID, w.cmd.Process.Pid, w.socketPath)
-
-	// Start goroutines to handle output and process monitoring
-	go w.handleOutput(stdout, "stdout")
-	go w.handleOutput(stderr, "stderr")
-	go w.monitor()
-
-	// Give php-cgi time to bind to the socket and verify it didn't crash
-	time.Sleep(100 * time.Millisecond)
-
-	// Check if process is still running
-	if w.cmd.ProcessState != nil && w.cmd.ProcessState.Exited() {
-		return fmt.Errorf("php-cgi exited immediately after start - check port %s is available", w.socketPath)
-	}
-
-	log.Printf("[Worker %d] php-cgi bound successfully to %s", w.ID, w.socketPath)
-
-	// Verify we can actually connect to the worker
-	testConn, err := net.DialTimeout("tcp", w.socketPath, 1*time.Second)
-	if err != nil {
-		log.Printf("[Worker %d] WARNING: Cannot connect to worker socket: %v", w.ID, err)
-	} else {
-		testConn.Close()
-		log.Printf("[Worker %d] Verified socket is accepting connections", w.ID)
-	}
-
+	w.startTime = time.Now()
+	w.lastUsed = time.Now()
+	w.setState(WorkerStateIdle)
 	return nil
 }
 
@@ -158,84 +86,22 @@ func (w *Worker) Stop() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.cmd == nil || w.cmd.Process == nil {
-		return nil
-	}
-
+	// Mark terminating and signal done. No OS process to manage in php-fpm mode.
 	w.setState(WorkerStateTerminating)
-	log.Printf("[Worker %d] Stopping (PID: %d)", w.ID, w.cmd.Process.Pid)
-
-	// Send SIGTERM to php-cgi process
-	if err := w.cmd.Process.Signal(os.Interrupt); err != nil {
-		log.Printf("[Worker %d] Failed to send SIGTERM, will force kill: %v", w.ID, err)
-	}
-
-	// Cancel context to signal shutdown
-	w.cancel()
-
-	// Wait for process to exit (with timeout)
-	done := make(chan error, 1)
-	go func() {
-		done <- w.cmd.Wait()
-	}()
-
 	select {
-	case err := <-done:
-		if err != nil && err.Error() != "signal: killed" {
-			log.Printf("[Worker %d] Exited with error: %v", w.ID, err)
-		}
+	case <-w.done:
+		// already closed
+	default:
 		close(w.done)
-		return err
-	case <-time.After(5 * time.Second):
-		// Force kill if not stopped gracefully
-		if err := w.cmd.Process.Kill(); err != nil {
-			return fmt.Errorf("failed to kill process: %w", err)
-		}
-		close(w.done)
-		return fmt.Errorf("worker killed after timeout")
 	}
+	// Cancel context as a courtesy
+	w.cancel()
+	return nil
 }
 
 // monitor watches the process and handles crashes
-func (w *Worker) monitor() {
-	err := w.cmd.Wait()
-
-	w.mu.Lock()
-	currentState := w.getState()
-	w.mu.Unlock()
-
-	// Only mark as crashed if not intentionally terminating
-	if currentState != WorkerStateTerminating {
-		w.setState(WorkerStateCrashed)
-		if err != nil {
-			log.Printf("[Worker %d] Crashed: %v", w.ID, err)
-			w.errors <- fmt.Errorf("worker crashed: %w", err)
-		} else {
-			log.Printf("[Worker %d] Exited unexpectedly", w.ID)
-			w.errors <- fmt.Errorf("worker exited unexpectedly")
-		}
-	}
-
-	close(w.done)
-}
-
-// handleOutput reads and logs output from the process
-func (w *Worker) handleOutput(reader io.Reader, streamName string) {
-	scanner := bufio.NewScanner(reader)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if streamName == "stderr" {
-			// Make stderr very visible
-			log.Printf("[Worker %d] ⚠️  STDERR: %s", w.ID, line)
-		} else {
-			log.Printf("[Worker %d] [%s] %s", w.ID, streamName, line)
-		}
-	}
-	if err := scanner.Err(); err != nil && err != io.EOF {
-		log.Printf("[Worker %d] Error reading %s: %v", w.ID, streamName, err)
-	}
-}
-
+// Note: process monitoring and output handling are intentionally omitted for php-fpm
+// adapter-backed workers since php-fpm is managed centrally by the supervisor.
 // MarkActive marks the worker as actively processing a request
 func (w *Worker) MarkActive() {
 	w.setState(WorkerStateActive)
@@ -292,7 +158,7 @@ func (w *Worker) GetIdleTime() time.Duration {
 // ShouldRestart checks if the worker should be restarted
 func (w *Worker) ShouldRestart() bool {
 	// Check if max requests limit is reached
-	if w.config.Pool.MaxRequests > 0 && w.GetRequestCount() >= int64(w.config.Pool.MaxRequests) {
+	if w.config != nil && w.config.PHPFPM.Pool.MaxRequests > 0 && w.GetRequestCount() >= int64(w.config.PHPFPM.Pool.MaxRequests) {
 		return true
 	}
 
@@ -325,8 +191,6 @@ func (w *Worker) IsHealthy() bool {
 func (w *Worker) GetPID() int {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	if w.cmd != nil && w.cmd.Process != nil {
-		return w.cmd.Process.Pid
-	}
+	// Adapter-backed workers have no OS process; return 0 for php-fpm mode
 	return 0
 }
