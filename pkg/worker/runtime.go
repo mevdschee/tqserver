@@ -58,6 +58,13 @@ func (r *Runtime) IsDevelopmentMode() bool {
 
 // StartServer starts the HTTP server with the given handler
 func (r *Runtime) StartServer(handler http.Handler) error {
+	if handler == nil {
+		handler = http.DefaultServeMux
+	}
+
+	// Wrap with logging middleware
+	handler = r.loggingMiddleware(handler)
+
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%s", r.Port),
 		Handler:      handler,
@@ -68,6 +75,21 @@ func (r *Runtime) StartServer(handler http.Handler) error {
 
 	log.Printf("Worker starting on port %s for route %s", r.Port, r.Route)
 	return server.ListenAndServe()
+}
+
+// loggingMiddleware captures and logs request details
+func (r *Runtime) loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		start := time.Now()
+
+		// Create a wrapper to capture status code (simple version)
+		// sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+
+		next.ServeHTTP(w, req)
+
+		duration := time.Since(start)
+		log.Printf("[Worker %s] %s %s took %v", r.Port, req.Method, req.URL.Path, duration)
+	})
 }
 
 // parseTimeout parses a timeout from environment variable

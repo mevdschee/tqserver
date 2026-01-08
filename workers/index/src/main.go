@@ -27,7 +27,7 @@ func main() {
 
 	// Index route
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("%s %s", r.Method, r.URL.Path)
+		log.Printf("from app: %s %s", r.Method, r.URL.Path)
 
 		// Set content type first
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")

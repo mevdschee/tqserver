@@ -203,17 +203,27 @@ func (s *Supervisor) runWorkerDispatcher(w *Worker) {
 			// It ensures we don't pick a dead instance, but doesn't block heavily.
 
 			// If no instances, try to start one frantically
+			// Check for instances safely
+			w.mu.Lock()
 			if len(w.Instances) == 0 {
+				w.mu.Unlock()
 				log.Printf("No instances for %s! Attempting emergency scale up.", w.Name)
 				if _, err := s.scaleUp(w); err != nil {
 					log.Printf("Emergency scale up failed: %v", err)
 					req.ResponseChan <- nil // Return nil to signal failure
 					continue
 				}
+				w.mu.Lock()
+			}
+
+			// Re-check inside lock
+			if len(w.Instances) == 0 {
+				w.mu.Unlock()
+				req.ResponseChan <- nil
+				continue
 			}
 
 			// Round Robin
-			w.mu.Lock()
 			idx := w.NextInstance % len(w.Instances)
 			instance := w.Instances[idx]
 			w.NextInstance++
