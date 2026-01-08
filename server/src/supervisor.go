@@ -435,19 +435,27 @@ func (s *Supervisor) buildWorker(worker *Worker) error {
 
 // startWorker starts a worker process
 func (s *Supervisor) startWorker(worker *Worker) error {
+
+	// Only assign a port for Go/Kotlin workers (not PHP/FastCGI)
 	s.mu.Lock()
-	port := s.nextPort
-	s.nextPort++
-	// Check if we've exceeded the port range
-	if s.nextPort > s.config.Workers.PortRangeEnd {
-		log.Printf("Warning: Exceeded worker port range, wrapping back to start")
-		s.nextPort = s.config.Workers.PortRangeStart
+	if worker.IsPHP {
+		// PHP workers should already have FastCGIAddr set and do not consume from the port pool
+		s.mu.Unlock()
+		log.Printf("Starting PHP worker for %s (FastCGI: %s)", worker.Route, worker.FastCGIAddr)
+		// No port assignment needed
+		worker.Port = 0
+	} else {
+		port := s.nextPort
+		s.nextPort++
+		// Check if we've exceeded the port range
+		if s.nextPort > s.config.Workers.PortRangeEnd {
+			log.Printf("Warning: Exceeded worker port range, wrapping back to start")
+			s.nextPort = s.config.Workers.PortRangeStart
+		}
+		worker.Port = port
+		s.mu.Unlock()
+		log.Printf("Starting worker for %s on port %d", worker.Route, port)
 	}
-	s.mu.Unlock()
-
-	worker.Port = port
-
-	log.Printf("Starting worker for %s on port %d", worker.Route, port)
 
 	// Set working directory to worker root (parent of src/)
 	// This allows workers to access views/, config/, data/ folders using relative paths
@@ -458,7 +466,7 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 
 	// Build environment variables
 	envVars := []string{
-		fmt.Sprintf("WORKER_PORT=%d", port),
+		fmt.Sprintf("WORKER_PORT=%d", worker.Port),
 		fmt.Sprintf("WORKER_NAME=%s", worker.Name),
 		fmt.Sprintf("WORKER_ROUTE=%s", worker.Route),
 		fmt.Sprintf("WORKER_MODE=%s", s.config.Mode),
@@ -499,7 +507,7 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 	worker.SetHealthy(true)
 
 	log.Printf("✅ Worker started for %s on port %d (PID: %d)",
-		worker.Route, port, cmd.Process.Pid)
+		worker.Route, worker.Port, cmd.Process.Pid)
 
 	// Monitor the process
 	go func() {
