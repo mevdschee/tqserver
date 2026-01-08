@@ -14,6 +14,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/mevdschee/tqserver/pkg/fastcgi"
 	"github.com/mevdschee/tqserver/pkg/php"
+	phpfpmpkg "github.com/mevdschee/tqserver/pkg/php/phpfpm"
 )
 
 // Supervisor manages worker lifecycle: building, starting, stopping, and restarting
@@ -32,6 +33,9 @@ type Supervisor struct {
 	// PHP support
 	phpManagers    map[string]*php.Manager    // keyed by worker name
 	fastcgiServers map[string]*fastcgi.Server // keyed by worker name
+	// php-fpm supervised instances + clients (single-port per worker)
+	phpLaunchers map[string]*phpfpmpkg.Launcher
+	phpClients   map[string]*phpfpmpkg.Client
 }
 
 // getFreePort returns the next available port for a worker and advances the pool
