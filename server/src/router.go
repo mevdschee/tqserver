@@ -18,7 +18,7 @@ type Worker struct {
 	StartTime     time.Time
 	RequestCount  int    // Number of requests handled
 	IsPHP         bool   // True if this is a PHP worker (uses FastCGI)
-	FastCGIAddr   string // FastCGI address for PHP workers (e.g., "127.0.0.1:9001")
+	Type          string // Worker type: "go", "kotlin", "php", etc.
 	healthy       bool
 	HasBuildError bool   // True if the last build failed
 	BuildError    string // The compilation error message

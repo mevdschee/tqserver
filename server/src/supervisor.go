@@ -34,6 +34,18 @@ type Supervisor struct {
 	fastcgiServers map[string]*fastcgi.Server // keyed by worker name
 }
 
+// getFreePort returns the next available port for a worker and advances the pool
+func (s *Supervisor) getFreePort() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	port := s.nextPort
+	s.nextPort++
+	if s.nextPort > s.config.Workers.PortRangeEnd {
+		s.nextPort = s.config.Workers.PortRangeStart
+	}
+	return port
+}
+
 // NewSupervisor creates a new supervisor
 func NewSupervisor(config *Config, projectRoot string, router *Router, workerConfigs []*WorkerConfigWithMeta) *Supervisor {
 	return &Supervisor{
@@ -82,6 +94,7 @@ func (s *Supervisor) Start() error {
 		worker := &Worker{
 			Name:  workerMeta.Name,
 			Route: workerMeta.Config.Path,
+			Type:  workerMeta.Config.Type,
 		}
 
 		// Register worker with router
@@ -90,9 +103,7 @@ func (s *Supervisor) Start() error {
 		// Check if this is a PHP worker
 		if workerMeta.Config.Type == "php" {
 			worker.IsPHP = true
-			if workerMeta.Config.FastCGI != nil {
-				worker.FastCGIAddr = workerMeta.Config.FastCGI.Listen
-			}
+			// Assign a free port for FastCGI server
 			if err := s.startPHPWorker(worker, workerMeta); err != nil {
 				log.Printf("Failed to start PHP worker %s: %v", workerMeta.Name, err)
 				continue
@@ -437,25 +448,8 @@ func (s *Supervisor) buildWorker(worker *Worker) error {
 func (s *Supervisor) startWorker(worker *Worker) error {
 
 	// Only assign a port for Go/Kotlin workers (not PHP/FastCGI)
-	s.mu.Lock()
-	if worker.IsPHP {
-		// PHP workers should already have FastCGIAddr set and do not consume from the port pool
-		s.mu.Unlock()
-		log.Printf("Starting PHP worker for %s (FastCGI: %s)", worker.Route, worker.FastCGIAddr)
-		// No port assignment needed
-		worker.Port = 0
-	} else {
-		port := s.nextPort
-		s.nextPort++
-		// Check if we've exceeded the port range
-		if s.nextPort > s.config.Workers.PortRangeEnd {
-			log.Printf("Warning: Exceeded worker port range, wrapping back to start")
-			s.nextPort = s.config.Workers.PortRangeStart
-		}
-		worker.Port = port
-		s.mu.Unlock()
-		log.Printf("Starting worker for %s on port %d", worker.Route, port)
-	}
+	worker.Port = s.getFreePort()
+	log.Printf("Starting worker for %s on port %d", worker.Route, worker.Port)
 
 	// Set working directory to worker root (parent of src/)
 	// This allows workers to access views/, config/, data/ folders using relative paths
@@ -553,6 +547,8 @@ func (s *Supervisor) stopWorker(worker *Worker) error {
 
 // startPHPWorker starts a PHP worker pool with FastCGI server
 func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWithMeta) error {
+
+	worker.Port = s.getFreePort()
 	if workerMeta.Config.PHP == nil {
 		return fmt.Errorf("PHP configuration not found for worker %s", worker.Name)
 	}
@@ -585,7 +581,7 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 			MaxRequests:    workerMeta.Config.PHP.Pool.MaxRequests,
 			RequestTimeout: time.Duration(workerMeta.Config.PHP.Pool.RequestTimeout) * time.Second,
 			IdleTimeout:    time.Duration(workerMeta.Config.PHP.Pool.IdleTimeout) * time.Second,
-			ListenAddr:     workerMeta.Config.FastCGI.Listen,
+			ListenAddr:     fmt.Sprintf("127.0.0.1:%d", worker.Port),
 		},
 	}
 
@@ -609,7 +605,7 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 	handler := php.NewFastCGIHandler(manager)
 
 	// Create and start FastCGI server
-	fcgiServer := fastcgi.NewServer(workerMeta.Config.FastCGI.Listen, handler)
+	fcgiServer := fastcgi.NewServer(phpConfig.Pool.ListenAddr, handler)
 	go func() {
 		if err := fcgiServer.ListenAndServe(); err != nil {
 			log.Printf("FastCGI server for %s stopped: %v", worker.Name, err)
@@ -626,7 +622,7 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 
 	log.Printf("✅ PHP worker pool started for %s on %s (%s mode: %d-%d workers)",
 		worker.Name,
-		workerMeta.Config.FastCGI.Listen,
+		phpConfig.Pool.ListenAddr,
 		workerMeta.Config.PHP.Pool.Manager,
 		workerMeta.Config.PHP.Pool.MinWorkers,
 		workerMeta.Config.PHP.Pool.MaxWorkers,

@@ -1,6 +1,5 @@
 # Blog Worker Configuration
 path: "/blog"
-name: blog
 type: php
 enabled: true
 

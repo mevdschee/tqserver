@@ -14,7 +14,7 @@ import (
 type WorkerConfig struct {
 	Path    string `yaml:"path"`
 	Name    string `yaml:"name"`
-	Type    string `yaml:"type"` // "go" or "php"
+	Type    string `yaml:"type"` // "go", "kotlin" or "php"
 	Enabled bool   `yaml:"enabled"`
 
 	Runtime struct {
@@ -46,11 +46,6 @@ type WorkerConfig struct {
 			IdleTimeout    int    `yaml:"idle_timeout"`
 		} `yaml:"pool"`
 	} `yaml:"php"`
-
-	// FastCGI-specific configuration
-	FastCGI *struct {
-		Listen string `yaml:"listen"`
-	} `yaml:"fastcgi"`
 }
 
 // WorkerConfigWithMeta includes config and metadata

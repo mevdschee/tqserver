@@ -120,9 +120,22 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// In dev mode, set X-TQWorker-* headers for all worker types
+	setDevHeaders := func(header http.Header) {
+		header.Set("X-TQWorker-Name", worker.Name)
+		header.Set("X-TQWorker-Type", worker.Type)
+		header.Set("X-TQWorker-Route", worker.Route)
+		header.Set("X-TQWorker-Port", fmt.Sprintf("%d", worker.Port))
+	}
+	devHeadersSet := p.config.IsDevelopmentMode()
+
 	log.Printf(">>> Checking if PHP worker: %v", worker.IsPHP)
 	// Check if this is a PHP worker
 	if worker.IsPHP {
+		// In dev mode, set headers directly (before any write)
+		if devHeadersSet {
+			setDevHeaders(w.Header())
+		}
 		// Handle PHP worker via FastCGI protocol
 		log.Printf(">>> Calling handlePHPRequest")
 		p.handlePHPRequest(w, r, worker)
@@ -148,6 +161,13 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		log.Printf("Proxy error for %s: %v", r.URL.Path, err)
 		http.Error(w, "502 Bad Gateway", http.StatusBadGateway)
+	}
+
+	if devHeadersSet {
+		proxy.ModifyResponse = func(resp *http.Response) error {
+			setDevHeaders(resp.Header)
+			return nil
+		}
 	}
 
 	log.Printf("%s %s -> worker on port %d", r.Method, r.URL.Path, worker.Port)
@@ -255,10 +275,11 @@ func (p *Proxy) handlePHPRequest(w http.ResponseWriter, r *http.Request, worker 
 	}
 
 	// Connect to FastCGI server
-	conn, err := net.DialTimeout("tcp", worker.FastCGIAddr, 5*time.Second)
+	fcgiAddress := fmt.Sprintf("localhost:%d", worker.Port)
+	conn, err := net.DialTimeout("tcp", fcgiAddress, 5*time.Second)
 	if err != nil {
 		http.Error(w, "Failed to connect to PHP worker", http.StatusBadGateway)
-		log.Printf("Failed to connect to FastCGI server at %s: %v", worker.FastCGIAddr, err)
+		log.Printf("Failed to connect to FastCGI server at %s: %v", fcgiAddress, err)
 		return
 	}
 	defer conn.Close()
@@ -310,7 +331,8 @@ func (p *Proxy) handlePHPRequest(w http.ResponseWriter, r *http.Request, worker 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
-	for {
+	readDone := false
+	for !readDone {
 		record, err := fcgiConn.ReadRecord()
 		if err != nil {
 			if err == io.EOF {
@@ -331,11 +353,10 @@ func (p *Proxy) handlePHPRequest(w http.ResponseWriter, r *http.Request, worker 
 			}
 		case fastcgi.TypeEndRequest:
 			// Request complete
-			goto response_complete
+			readDone = true
 		}
 	}
 
-response_complete:
 	// Log any stderr output
 	if stderr.Len() > 0 {
 		log.Printf("[PHP stderr] %s", stderr.String())
@@ -395,5 +416,5 @@ response_complete:
 	// Increment request count
 	worker.IncrementRequestCount()
 
-	log.Printf("%s %s -> PHP worker (FastCGI: %s)", r.Method, r.URL.Path, worker.FastCGIAddr)
+	log.Printf("%s %s -> PHP worker (FastCGI: %s)", r.Method, r.URL.Path, fcgiAddress)
 }

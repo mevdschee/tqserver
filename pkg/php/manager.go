@@ -9,6 +9,20 @@ import (
 	"time"
 )
 
+// getNextFreePort returns the next available port for a worker and advances the base port
+func (m *Manager) getNextFreePort() int {
+	// Parse the base port from m.baseSocket
+	parts := strings.Split(m.baseSocket, ":")
+	if len(parts) != 2 {
+		// fallback: return 9000 if parsing fails
+		return 9000
+	}
+	basePort := 0
+	fmt.Sscanf(parts[1], "%d", &basePort)
+	// Find the next free port by incrementing nextID
+	return basePort + m.nextID + 1
+}
+
 // Manager manages a pool of PHP workers
 type Manager struct {
 	binary  *Binary
@@ -124,22 +138,16 @@ func (m *Manager) Stop() error {
 
 // spawnWorker creates and starts a new worker (must be called with lock held)
 func (m *Manager) spawnWorker() error {
+
 	workerID := m.nextID
 	m.nextID++
 
-	// Generate internal socket path for this worker
-	// Workers get unique ports: basePort+1, basePort+2, etc.
+	// Use getNextFreePort for TCP sockets
 	var socketPath string
 	if strings.Contains(m.baseSocket, ":") {
-		// TCP socket - assign unique port
+		port := m.getNextFreePort()
 		parts := strings.Split(m.baseSocket, ":")
-		if len(parts) == 2 {
-			basePort := 0
-			fmt.Sscanf(parts[1], "%d", &basePort)
-			socketPath = fmt.Sprintf("%s:%d", parts[0], basePort+workerID+1)
-		} else {
-			socketPath = fmt.Sprintf("%s.%d", m.baseSocket, workerID)
-		}
+		socketPath = fmt.Sprintf("%s:%d", parts[0], port)
 	} else {
 		socketPath = fmt.Sprintf("%s.%d", m.baseSocket, workerID)
 	}
