@@ -1,24 +1,25 @@
-# Worker Configuration for Kotlin API Service
+# Worker Configuration for TypeScript API Service
 # This worker provides an in-memory CRUD REST API
 
 # Path prefix for this worker
 # All requests to /api/* will be routed to this worker
 path: "/api"
-type: "kotlin"
-enabled: false
+type: "bun"
+enabled: true
+
+# Scaling Configuration
+scaling:
+  min_workers: 1
+  max_workers: 5
+  queue_threshold: 10
+  scale_down_delay: 60
+
+# Bun specific settings
+bun:
+  entrypoint: "index.ts"
 
 # Timeout settings
 timeouts:
-  # HTTP read timeout (seconds)
   read_timeout_seconds: 30
-
-  # HTTP write timeout (seconds)
   write_timeout_seconds: 30
-
-  # HTTP idle timeout (seconds)
   idle_timeout_seconds: 120
-
-# Logging
-logging:
-  # Log file path
-  log_file: "logs/worker_{name}_{date}.log"

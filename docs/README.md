@@ -41,8 +41,8 @@ Welcome to the TQServer documentation. TQServer is a high-performance function e
 - [Debugging](monitoring/debugging.md) (TODO)
 - [Profiling](monitoring/profiling.md) (TODO)
 
-### 2. Application Development (Go / PHP)
-*Building applications and workers using Go and PHP.*
+### 2. Application Development (Go / PHP / TypeScript)
+*Building applications and workers using Go, PHP, and TypeScript (Bun).*
 
 **Core Concepts**
 - [Routing](basics/routing.md)
@@ -58,7 +58,7 @@ Welcome to the TQServer documentation. TQServer is a high-performance function e
 **Worker Development**
 - [Creating Workers (Go)](workers/creating.md)
 - [PHP Workers](workers/php.md)
-- [Kotlin Workers](workers/kotlin.md)
+- [TypeScript Workers (Bun)](workers/typescript.md)
 - [Worker Lifecycle](workers/lifecycle.md)
 - [Worker Configuration](workers/configuration.md)
 - [Building Workers](workers/building.md)

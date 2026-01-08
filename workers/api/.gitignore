@@ -1,46 +1,4 @@
-# Gradle
-.gradle/
-build/
-gradle-app.setting
-!gradle-wrapper.jar
-
-# IntelliJ IDEA
-.idea/
-*.iml
-*.ipr
-*.iws
-out/
-
-# Eclipse
-.classpath
-.project
-.settings/
-bin/
-
-# NetBeans
-nbproject/
-nbbuild/
+node_modules/
+.bun/
 dist/
-nbdist/
-.nb-gradle/
-
-# VS Code
-.vscode/
-*.code-workspace
-
-# macOS
-.DS_Store
-
-# Logs
-logs/
 *.log
-
-# Compiled binaries (keep bin/api wrapper script)
-bin/*.jar
-!bin/api
-
-# Temporary files
-*.tmp
-*.swp
-*.swo
-*~

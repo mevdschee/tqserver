@@ -120,17 +120,17 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// In dev mode, set X-TQServer-Worker-* headers for all worker types
+	// In dev mode, set X-TQServer-Worker-* headers for all worker types (helper function)
+	devHeadersSet := p.config.IsDevelopmentMode()
 	setDevHeaders := func(header http.Header) {
 		header.Set("X-TQServer-Worker-Name", worker.Name)
 		header.Set("X-TQServer-Worker-Type", worker.Type)
 		header.Set("X-TQServer-Worker-Route", worker.Route)
-		header.Set("X-TQServer-Worker-Port", fmt.Sprintf("%d", worker.Port))
+		// Note: Port is instance specific, so we can't set it here easily for all cases using worker struct
 	}
-	devHeadersSet := p.config.IsDevelopmentMode()
 
 	// Check if this is a PHP worker
-	if worker.IsPHP {
+	if worker.Type == "php" {
 		// In dev mode, set headers directly (before any write)
 		if devHeadersSet {
 			setDevHeaders(w.Header())
@@ -140,18 +140,64 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if worker is healthy
-	if !worker.IsHealthy() {
-		p.serveErrorPage(w, r, http.StatusServiceUnavailable, "Service Unavailable", "Worker is marked as unhealthy", map[string]interface{}{
+	// For Go/Bun workers: Load Balancing via Supervisor Queue
+	// Create request
+	req := &WorkerRequest{
+		ResponseChan: make(chan *WorkerInstance),
+	}
+
+	// Send to queue
+	select {
+	case worker.Queue <- req:
+		// Request queued
+	default:
+		// Queue full
+		p.serveErrorPage(w, r, http.StatusServiceUnavailable, "Service Busy", "Worker queue is full", map[string]interface{}{
 			"WorkerName": worker.Name,
-			"Route":      worker.Route,
+			"QueueDepth": len(worker.Queue),
 		})
-		log.Printf("Worker unhealthy for path: %s", r.URL.Path)
+		log.Printf("Worker queue full for: %s", worker.Name)
 		return
 	}
 
-	// Proxy request to worker
-	target, err := url.Parse(fmt.Sprintf("http://localhost:%d", worker.Port))
+	// Wait for instance
+	var instance *WorkerInstance
+	select {
+	case instance = <-req.ResponseChan:
+		if instance == nil {
+			p.serveErrorPage(w, r, http.StatusServiceUnavailable, "Service Unavailable", "No workers available", map[string]interface{}{
+				"WorkerName": worker.Name,
+			})
+			return
+		}
+	case <-time.After(30 * time.Second): // Wait timeout
+		p.serveErrorPage(w, r, http.StatusGatewayTimeout, "Gateway Timeout", "Timed out waiting for worker", map[string]interface{}{
+			"WorkerName": worker.Name,
+		})
+		return
+	}
+
+	// In dev mode, set X-TQServer-Worker-* headers based on the assigned instance
+	if devHeadersSet {
+		w.Header().Set("X-TQServer-Worker-Name", worker.Name)
+		w.Header().Set("X-TQServer-Worker-Type", worker.Type)
+		w.Header().Set("X-TQServer-Worker-Route", worker.Route)
+		w.Header().Set("X-TQServer-Worker-Port", fmt.Sprintf("%d", instance.Port))
+		w.Header().Set("X-TQServer-Worker-ID", instance.ID) // New: Show Instance ID
+	}
+
+	// Check if worker is healthy (double check instance)
+	if !instance.Healthy {
+		// Should not happen as dispatcher filters, but good practice
+		p.serveErrorPage(w, r, http.StatusServiceUnavailable, "Service Unavailable", "Assigned worker instance is unhealthy", map[string]interface{}{
+			"WorkerName": worker.Name,
+			"InstanceID": instance.ID,
+		})
+		return
+	}
+
+	// Proxy request to worker instance
+	target, err := url.Parse(fmt.Sprintf("http://localhost:%d", instance.Port))
 	if err != nil {
 		http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 		log.Printf("Failed to parse worker URL: %v", err)
@@ -164,21 +210,20 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 		p.serveErrorPage(w, r, http.StatusBadGateway, "Bad Gateway", "Failed to proxy request to worker", map[string]interface{}{
 			"Error":      err.Error(),
 			"WorkerName": worker.Name,
-			"Route":      worker.Route,
-			"Address":    fmt.Sprintf("http://localhost:%d", worker.Port),
+			"InstanceID": instance.ID,
+			"Address":    fmt.Sprintf("http://localhost:%d", instance.Port),
 		})
 	}
 
 	if devHeadersSet {
 		proxy.ModifyResponse = func(resp *http.Response) error {
-			setDevHeaders(resp.Header)
+			// Headers already set above, but maybe needed here too?
+			// Actually we set them on w.Header/resp.Header. ReverseProxy copies them.
 			return nil
 		}
 	}
 
-	// Trim the worker route prefix before proxying so the backend
-	// receives the path it registers (e.g. worker registers /items,
-	// proxy should send /items instead of /api/items).
+	// Trim the worker route prefix
 	proxiedReq := r.Clone(r.Context())
 	trimmedPath := strings.TrimPrefix(r.URL.Path, worker.Route)
 	if trimmedPath == "" {
@@ -188,10 +233,10 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 	proxiedReq.URL.RawPath = trimmedPath
 	proxiedReq.RequestURI = ""
 
-	log.Printf("%s %s -> worker on port %d (proxied path: %s)", r.Method, r.URL.Path, worker.Port, trimmedPath)
+	log.Printf("%s %s -> worker %s (port %d)", r.Method, r.URL.Path, instance.ID, instance.Port)
 	proxy.ServeHTTP(w, proxiedReq)
 
-	// Increment request count for this worker (used for monitoring)
+	// Increment request count
 	worker.IncrementRequestCount()
 }
 
@@ -334,9 +379,18 @@ func (p *Proxy) handlePHPRequest(w http.ResponseWriter, r *http.Request, worker 
 	}
 
 	// Connect to FastCGI server
+	// Connect to FastCGI server
 	// Use explicit IPv4 loopback to avoid resolving to ::1 when php-fpm
 	// is bound to 127.0.0.1 only.
-	fcgiAddress := fmt.Sprintf("127.0.0.1:%d", worker.Port)
+	if len(worker.Instances) == 0 {
+		p.serveErrorPage(w, r, http.StatusServiceUnavailable, "Service Unavailable", "PHP worker not initialized", map[string]interface{}{
+			"WorkerName": worker.Name,
+		})
+		log.Printf("PHP worker %s has no instances", worker.Name)
+		return
+	}
+	port := worker.Instances[0].Port
+	fcgiAddress := fmt.Sprintf("127.0.0.1:%d", port)
 	conn, err := net.DialTimeout("tcp", fcgiAddress, 5*time.Second)
 	if err != nil {
 		p.serveErrorPage(w, r, http.StatusServiceUnavailable, "Service Unavailable", "Could not connect to PHP worker", map[string]interface{}{

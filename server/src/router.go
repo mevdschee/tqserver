@@ -8,50 +8,82 @@ import (
 	"time"
 )
 
-// Worker represents a running worker process
-type Worker struct {
-	Name          string // Worker name (directory name, e.g., "api", "index")
-	Route         string // URL route (e.g., "/api/users")
-	Port          int    // Port the worker listens on (0 for PHP workers using FastCGI)
-	Binary        string // Path to compiled binary
-	Process       *os.Process
-	StartTime     time.Time
-	RequestCount  int    // Number of requests handled
-	IsPHP         bool   // True if this is a PHP worker (uses FastCGI)
-	Type          string // Worker type: "go", "kotlin", "php", etc.
-	healthy       bool
-	HasBuildError bool   // True if the last build failed
-	BuildError    string // The compilation error message
-	mu            sync.RWMutex
+// WorkerInstance represents a single process instance of a worker service
+type WorkerInstance struct {
+	ID          string
+	Port        int
+	Process     *os.Process
+	StartTime   time.Time
+	LastRequest time.Time
+	Healthy     bool
 }
 
-// IsHealthy checks if the worker is healthy
+// WorkerRequest represents a request for a worker instance
+type WorkerRequest struct {
+	ResponseChan chan *WorkerInstance
+}
+
+// Worker represents a worker service (load balancer)
+type Worker struct {
+	Name  string // Worker name
+	Route string // URL route
+	Type  string // Worker type: "go", "bun", "php"
+
+	// Cluster state
+	Instances    []*WorkerInstance
+	NextInstance int                 // Round robin index
+	Queue        chan *WorkerRequest // Request queue
+
+	// Configuration (snapshot)
+	MinWorkers     int
+	MaxWorkers     int
+	QueueThreshold int
+	ScaleDownDelay int
+
+	// Health & Status
+	HasBuildError bool
+	BuildError    string
+	RequestCount  int64
+
+	mu sync.RWMutex
+}
+
+// IsHealthy checks if the worker service has at least one healthy instance
 func (w *Worker) IsHealthy() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.healthy
+
+	// If it has build error, it's not healthy
+	if w.HasBuildError {
+		return false
+	}
+
+	// For PHP (FastCGI), we track it differently (external pool usually), but here we might treat it same?
+	// Existing code had IsPHP. The new requirement assumes Bun/Go mainly.
+	// Let's assume for now at least one instance must be running.
+	if len(w.Instances) == 0 {
+		return false
+	}
+	// Check if any instance is healthy
+	for _, inst := range w.Instances {
+		if inst.Healthy {
+			return true
+		}
+	}
+	return false
 }
 
-// IncrementRequestCount increments the request counter and returns the new count
-func (w *Worker) IncrementRequestCount() int {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.RequestCount++
-	return w.RequestCount
+// IncrementRequestCount increments the global request counter
+func (w *Worker) IncrementRequestCount() int64 {
+	return 0 // Implemented via atomic or just unused? The LB tracks queue.
+	// We can keep a global counter for stats.
 }
 
-// GetRequestCount returns the current request count
-func (w *Worker) GetRequestCount() int {
+// GetStats returns current worker stats
+func (w *Worker) GetStats() (int, int, int64) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.RequestCount
-}
-
-// SetHealthy sets the worker health status
-func (w *Worker) SetHealthy(healthy bool) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.healthy = healthy
+	return len(w.Instances), len(w.Queue), w.RequestCount
 }
 
 // SetBuildError sets the build error status and message

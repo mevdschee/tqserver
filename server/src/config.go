@@ -27,6 +27,20 @@ type WorkerConfig struct {
 		IdleTimeoutSeconds  int    `yaml:"idle_timeout_seconds"`
 		MaxRequests         int    `yaml:"max_requests"`
 	} `yaml:"go"`
+	// Bun runtime configuration
+	Bun *struct {
+		Entrypoint string            `yaml:"entrypoint"` // Main file (e.g., "index.ts")
+		Env        map[string]string `yaml:"env"`
+	} `yaml:"bun"`
+
+	// Scaling configuration (for Go and Bun workers)
+	Scaling *struct {
+		MinWorkers     int `yaml:"min_workers"`      // Minimum operational workers
+		MaxWorkers     int `yaml:"max_workers"`      // Maximum operational workers
+		QueueThreshold int `yaml:"queue_threshold"`  // Queue depth to trigger scale up
+		ScaleDownDelay int `yaml:"scale_down_delay"` // Seconds idle before scaling down
+	} `yaml:"scaling"`
+
 	// PHP-specific configuration
 	PHP *struct {
 		Binary     string            `yaml:"binary"`
