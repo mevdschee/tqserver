@@ -22,7 +22,7 @@ php:
 
   # Process pool configuration
   pool:
-    # dynamic: scale workers based on load (MOST POPULAR - like PHP-FPM default)
+    # dynamic: scale workers based on load
     manager: dynamic
 
     # Minimum idle workers to keep running

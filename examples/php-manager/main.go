@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mevdschee/tqserver/pkg/php"
+	"github.com/mevdschee/tqserver/pkg/config/php"
 	"github.com/mevdschee/tqserver/pkg/phpfpm"
 )
 

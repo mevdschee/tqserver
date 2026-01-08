@@ -7,7 +7,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/mevdschee/tqserver/pkg/php"
+	"github.com/mevdschee/tqserver/pkg/config/php"
 )
 
 // GeneratePHPFPMConfig renders a minimal php-fpm main config and a pool config

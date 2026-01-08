@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mevdschee/tqserver/pkg/php"
+	"github.com/mevdschee/tqserver/pkg/config/php"
 )
 
 // Launcher controls a supervised php-fpm process started with generated config.

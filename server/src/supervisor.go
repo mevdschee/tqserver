@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/mevdschee/tqserver/pkg/php"
+	"github.com/mevdschee/tqserver/pkg/config/php"
 	"github.com/mevdschee/tqserver/pkg/phpfpm"
 )
 
@@ -629,11 +629,18 @@ func (s *Supervisor) stopWorker(worker *Worker) error {
 // startPHPWorker starts a PHP worker pool with FastCGI server
 func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWithMeta) error {
 
-	worker.Port = s.getFreePort()
+	// Reserve a free port for this worker's php-fpm FastCGI listener
+	port := s.getFreePort()
+	worker.Port = port
 	if workerMeta.Config.PHP == nil {
 		return fmt.Errorf("PHP configuration not found for worker %s", worker.Name)
 	}
-	fcgiServerAddr := fmt.Sprintf("%s:%d", workerMeta.Config.PHP.Pool.ListenAddress, worker.Port)
+	// Build listen address: prefer configured listen_address, fall back to localhost
+	host := workerMeta.Config.PHP.Pool.ListenAddress
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	fcgiServerAddr := fmt.Sprintf("%s:%d", host, port)
 
 	log.Printf("Starting PHP worker pool for %s (dynamic manager)", worker.Name)
 

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mevdschee/tqserver/pkg/php"
+	"github.com/mevdschee/tqserver/pkg/config/php"
 )
 
 // TestGenerateConfigAndLauncher verifies config generation and that the
