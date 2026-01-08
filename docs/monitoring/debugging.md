@@ -17,6 +17,7 @@ Enable development mode in `config/tqserver.yaml` by setting `mode: development`
 
 ### "Connection Refused" (PHP)
 -   **Cause**: The `php-fpm` process crashed or failed to bind to the assigned port. Check the console logs for `[PHP stderr]` output.
+-   **Effect**: You will see a "503 Service Unavailable" error page.
 
 ### Infinite Restarts
 -   **Cause**: A worker crashes immediately upon startup (e.g., config error or panic in `main()`).

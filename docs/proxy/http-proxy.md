@@ -31,5 +31,5 @@ For PHP workers, the proxy acts as a FastCGI client, translating HTTP requests i
 
 ### Error Pages
 -   **Build Errors**: Displays compilation errors for Go/Kotlin workers.
--   **502 Bad Gateway**: Displays a branded error page if the worker process is unreachable.
--   **503 Service Unavailable**: Displays if a worker is marked unhealthy.
+-   **502 Bad Gateway**: Generates a standard error if an HTTP proxy request fails mid-stream.
+-   **503 Service Unavailable**: Displays a branded error page if a worker is unreachable (e.g. PHP connection refused) or marked unhealthy.

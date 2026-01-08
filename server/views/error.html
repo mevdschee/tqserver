@@ -1,6 +1,6 @@
 {% extends "server/views/base.html" %}
 
-{% block title %}Service Unavailable{% endblock %}
+{% block title %}{{ Title }}{% endblock %}
 
 {% block head %}
 <style>
@@ -27,8 +27,13 @@
     }
 
     .error-header {
-        background: #e65100;
-        /* Orange/Red for 503 */
+        background: {
+                {
+                Color
+            }
+        }
+
+        ;
         color: white;
         padding: 20px;
     }
@@ -75,26 +80,27 @@
 <div class="container">
     <div class="error-card">
         <div class="error-header">
-            <h1>⚠️ 503 Service Unavailable</h1>
+            <h1>⚠️ {{ StatusCode }} {{ Title }}</h1>
         </div>
         <div class="error-body">
             <div class="error-message">
-                Could not connect to PHP worker
+                {{ Message }}
             </div>
 
             {% if Error %}
             <div class="technical-details">
-                Error: {{ Error }}<br>
-                Worker: {{ WorkerName }}<br>
-                Address: {{ Address }}
+                <div><strong>Error Details:</strong></div>
+                <div>{{ Error }}</div>
+                {% if WorkerName %}<div>Worker: {{ WorkerName }}</div>{% endif %}
+                {% if Address %}<div>Address: {{ Address }}</div>{% endif %}
+                {% if Route %}<div>Route: {{ Route }}</div>{% endif %}
             </div>
             {% endif %}
 
             <div class="help-text">
-                <p>The upstream worker is currently unavailable or refusing connections. Please try again later.</p>
+                <p>The server encountered an error while processing your request.</p>
                 {% if DevMode %}
-                <p><strong>Developer Note:</strong> Check if the PHP-FPM process is running and listening on the
-                    expected port.</p>
+                <p><strong>Developer Note:</strong> Check the server logs for more details.</p>
                 {% endif %}
             </div>
         </div>

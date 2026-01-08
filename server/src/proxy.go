@@ -142,7 +142,10 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 
 	// Check if worker is healthy
 	if !worker.IsHealthy() {
-		http.Error(w, "503 Service Unavailable", http.StatusServiceUnavailable)
+		p.serveErrorPage(w, r, http.StatusServiceUnavailable, "Service Unavailable", "Worker is marked as unhealthy", map[string]interface{}{
+			"WorkerName": worker.Name,
+			"Route":      worker.Route,
+		})
 		log.Printf("Worker unhealthy for path: %s", r.URL.Path)
 		return
 	}
@@ -158,7 +161,12 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		log.Printf("Proxy error for %s: %v", r.URL.Path, err)
-		http.Error(w, "502 Bad Gateway", http.StatusBadGateway)
+		p.serveErrorPage(w, r, http.StatusBadGateway, "Bad Gateway", "Failed to proxy request to worker", map[string]interface{}{
+			"Error":      err.Error(),
+			"WorkerName": worker.Name,
+			"Route":      worker.Route,
+			"Address":    fmt.Sprintf("http://localhost:%d", worker.Port),
+		})
 	}
 
 	if devHeadersSet {
@@ -227,31 +235,45 @@ func (p *Proxy) serveBuildErrorPage(w http.ResponseWriter, r *http.Request, work
 	log.Printf("%s %s -> build error page (worker: %s)", r.Method, r.URL.Path, workerName)
 }
 
-// serveUpstreamErrorPage serves an HTML error page when upstream connection fails
-func (p *Proxy) serveUpstreamErrorPage(w http.ResponseWriter, r *http.Request, workerName string, address string, errStr string) {
+// serveErrorPage serves a branded HTML error page
+func (p *Proxy) serveErrorPage(w http.ResponseWriter, r *http.Request, statusCode int, title string, message string, details map[string]interface{}) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusServiceUnavailable) // 503
+	w.WriteHeader(statusCode)
+
+	// Determine color based on status code
+	color := "#d32f2f" // Red for 500, 502
+	if statusCode == 503 {
+		color = "#e65100" // Orange for 503
+	}
 
 	data := map[string]interface{}{
-		"WorkerName": workerName,
-		"Address":    address,
-		"Error":      errStr,
+		"Title":      title,
+		"StatusCode": statusCode,
+		"Message":    message,
+		"Color":      color,
 		"DevMode":    p.config.IsDevelopmentMode(),
 	}
 
-	templatePath := filepath.Join(p.projectRoot, "server", "views", "upstream-error.html")
+	// Merge details into data
+	if details != nil {
+		for k, v := range details {
+			data[k] = v
+		}
+	}
+
+	templatePath := filepath.Join(p.projectRoot, "server", "views", "error.html")
 	output, err := p.tmpl.RenderFile(templatePath, data)
 	if err != nil {
-		log.Printf("Failed to render upstream error template: %v", err)
+		log.Printf("Failed to render error template: %v", err)
 		// Fallback to simple text if template fails
-		http.Error(w, "Could not connect to PHP worker", http.StatusServiceUnavailable)
+		http.Error(w, message, statusCode)
 		return
 	}
 
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(output)))
 	w.Write([]byte(output))
 
-	log.Printf("%s %s -> upstream error page (worker: %s)", r.Method, r.URL.Path, workerName)
+	log.Printf("%s %s -> error page %d (message: %s)", r.Method, r.URL.Path, statusCode, message)
 }
 
 // handlePHPRequest converts HTTP request to FastCGI and sends to PHP worker
@@ -317,7 +339,11 @@ func (p *Proxy) handlePHPRequest(w http.ResponseWriter, r *http.Request, worker 
 	fcgiAddress := fmt.Sprintf("127.0.0.1:%d", worker.Port)
 	conn, err := net.DialTimeout("tcp", fcgiAddress, 5*time.Second)
 	if err != nil {
-		p.serveUpstreamErrorPage(w, r, worker.Name, fcgiAddress, err.Error())
+		p.serveErrorPage(w, r, http.StatusServiceUnavailable, "Service Unavailable", "Could not connect to PHP worker", map[string]interface{}{
+			"Error":      err.Error(),
+			"WorkerName": worker.Name,
+			"Address":    fcgiAddress,
+		})
 		log.Printf("Failed to connect to FastCGI server at %s: %v", fcgiAddress, err)
 		return
 	}
