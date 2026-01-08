@@ -15,17 +15,17 @@ The Supervisor is the core orchestration component in TQServer. It discovers, st
 
 ```
 ┌──────────────────────────────────────────────────┐
-│                  TQServer                         │
-│                                                   │
-│  ┌────────────────────────────────────────────┐ │
-│  │           Supervisor                       │ │
-│  │                                            │ │
-│  │  • Discover workers                        │ │
-│  │  • Start/stop processes                    │ │
-│  │  • Monitor health                          │ │
-│  │  • Allocate ports                          │ │
-│  │  │  Recover from crashes                    │ │
-│  └────────────────────────────────────────────┘ │
+│                  TQServer                        │
+│                                                  │
+│  ┌────────────────────────────────────────────┐  │
+│  │           Supervisor                       │  │
+│  │                                            │  │
+│  │  • Discover workers                        │  │
+│  │  • Start/stop processes                    │  │
+│  │  • Monitor health                          │  │
+│  │  • Allocate ports                          │  │
+│  │  • Recover from crashes                    |  │
+│  └────────────────────────────────────────────┘  │
 │         │        │        │                      │
 │         ├────────┼────────┤                      │
 │         ↓        ↓        ↓                      │

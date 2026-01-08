@@ -52,15 +52,13 @@ import (
     "fmt"
     "log"
     "net/http"
-    "os"
+    
+    "github.com/mevdschee/tqserver/pkg/worker"
 )
 
 func main() {
-    // Get port from environment (set by TQServer)
-    port := os.Getenv("WORKER_PORT")
-    if port == "" {
-        port = "9000"
-    }
+    // Initialize worker runtime
+    runtime := worker.NewRuntime()
     
     // Define routes
     http.HandleFunc("/", homeHandler)
@@ -68,8 +66,7 @@ func main() {
     http.HandleFunc("/health", healthHandler)
     
     // Start server
-    log.Printf("Blog worker starting on port %s", port)
-    if err := http.ListenAndServe(":" + port, nil); err != nil {
+    if err := runtime.StartServer(http.DefaultServeMux); err != nil {
         log.Fatalf("Server failed: %v", err)
     }
 }
