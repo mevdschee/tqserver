@@ -49,6 +49,7 @@ func (l *Launcher) Start() error {
 	}
 
 	// generate configs
+	log.Printf("[phpfpm] generating configs in %s", l.outDir)
 	main, err := GeneratePHPFPMConfig(l.cfg, l.outDir)
 	if err != nil {
 		return fmt.Errorf("generate php-fpm config: %w", err)

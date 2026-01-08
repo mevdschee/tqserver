@@ -5,8 +5,8 @@ enabled: true
 
 # PHP Configuration
 php:
-  # Path to PHP binary (php-fpm/php-cgi/php) (auto-detected if not specified)
-  # binary: /usr/bin/php
+  # Path to PHP FPM binary
+  # binary: /usr/sbin/php-fpm
 
   # Optional base configuration from php.ini file
   # config_file: /etc/php/8.2/php.ini
@@ -14,7 +14,7 @@ php:
   # Individual PHP settings (override config_file settings)
   settings:
     max_execution_time: "30"
-    memory_limit: "64M"
+    memory_limit: "128M"
     display_errors: "on"
     error_reporting: "E_ALL"
     upload_max_filesize: "10M"

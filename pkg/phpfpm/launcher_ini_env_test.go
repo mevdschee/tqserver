@@ -85,9 +85,9 @@ func TestGenerateFromWorkerYAML(t *testing.T) {
 	}
 	poolStr := string(poolData)
 
-	// assert some settings from the YAML were rendered as php_admin_flag
-	if !strings.Contains(poolStr, "php_admin_flag[max_execution_time] = 30") {
-		t.Fatalf("pool config did not contain max_execution_time setting as php_admin_flag; got:\n%s", poolStr)
+	// assert some settings from the YAML were rendered as php_admin_value
+	if !strings.Contains(poolStr, "php_admin_value[max_execution_time] = 30") {
+		t.Fatalf("pool config did not contain max_execution_time setting as php_admin_value; got:\n%s", poolStr)
 	}
 	if !strings.Contains(poolStr, "pm = dynamic") {
 		t.Fatalf("expected pm=dynamic in pool conf, got:\n%s", poolStr)

@@ -2,6 +2,7 @@ package phpfpm
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"text/template"
@@ -48,8 +49,8 @@ process_idle_timeout = {{ .IdleTimeout }}
 {{ end }}pm.max_requests = {{ .MaxRequests }}
 request_terminate_timeout = {{ .RequestTimeout }}
 chdir = {{ .DocumentRoot }}
-{{/* Render PHP INI directives as php_admin_flag or php_admin_value. */}}
-{{ range $k, $v := .Settings }}php_admin_flag[{{ $k }}] = {{ $v }}
+{{/* Render PHP INI directives as php_admin_value. */}}
+{{ range $k, $v := .Settings }}php_admin_value[{{ $k }}] = {{ $v }}
 {{ end }}
 {{ range $k, $v := .Env }}env[{{ $k }}] = {{ $v }}
 {{ end }}`
@@ -78,7 +79,7 @@ chdir = {{ .DocumentRoot }}
 		"IdleTimeout":    fmt.Sprintf("%ds", int(pool.ProcessIdleTimeout.Round(time.Second).Seconds())),
 		"DocumentRoot":   cfg.DocumentRoot,
 		// Settings are PHP INI-style directives that should be applied as
-		// php_admin_flag[...] or php_admin_value[...] in the pool config.
+		// php_admin_value[...] in the pool config.
 		"Settings": cfg.Settings,
 		// Env contains explicit environment variables to export into the pool
 		// (rendered as env[...] entries).
@@ -86,6 +87,7 @@ chdir = {{ .DocumentRoot }}
 	}
 
 	configPath = filepath.Join(outDir, "php-fpm.conf")
+	log.Printf("[phpfpm] writing main config to %s", configPath)
 	f, err := os.Create(configPath)
 	if err != nil {
 		return "", fmt.Errorf("create main conf: %w", err)
