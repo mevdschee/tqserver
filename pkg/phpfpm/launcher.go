@@ -19,7 +19,6 @@ type Launcher struct {
 	cfg       *php.Config
 	outDir    string
 	mainConf  string
-	poolConf  string
 	cmd       *exec.Cmd
 	ctx       context.Context
 	cancel    context.CancelFunc
@@ -50,12 +49,11 @@ func (l *Launcher) Start() error {
 	}
 
 	// generate configs
-	main, pool, err := GeneratePHPFPMConfig(l.cfg, l.outDir)
+	main, err := GeneratePHPFPMConfig(l.cfg, l.outDir)
 	if err != nil {
 		return fmt.Errorf("generate php-fpm config: %w", err)
 	}
 	l.mainConf = main
-	l.poolConf = pool
 
 	bin := l.cfg.PHPFPMBinary
 	if bin == "" {

@@ -10,12 +10,12 @@ import (
 	"github.com/mevdschee/tqserver/pkg/config/php"
 )
 
-// GeneratePHPFPMConfig renders a minimal php-fpm main config and a pool config
-// from the provided `php.Config`. Files are written into `outDir` and the
-// paths of the main config and pool config are returned.
-func GeneratePHPFPMConfig(cfg *php.Config, outDir string) (mainConfPath, poolConfPath string, err error) {
+// GeneratePHPFPMConfig renders a minimal php-fpm main config which includes
+// the pool configuration. The produced file is written into `outDir` and the
+// path of the main config is returned.
+func GeneratePHPFPMConfig(cfg *php.Config, outDir string) (configPath string, err error) {
 	if cfg == nil {
-		return "", "", fmt.Errorf("nil config")
+		return "", fmt.Errorf("nil config")
 	}
 
 	// Ensure output directories exist
@@ -23,31 +23,37 @@ func GeneratePHPFPMConfig(cfg *php.Config, outDir string) (mainConfPath, poolCon
 		outDir = os.TempDir()
 	}
 	if err := os.MkdirAll(outDir, 0o750); err != nil {
-		return "", "", fmt.Errorf("create outDir: %w", err)
+		return "", fmt.Errorf("create outDir: %w", err)
 	}
 	poolDir := filepath.Join(outDir, "pool.d")
 	if err := os.MkdirAll(poolDir, 0o750); err != nil {
-		return "", "", fmt.Errorf("create poolDir: %w", err)
+		return "", fmt.Errorf("create poolDir: %w", err)
 	}
 
-	// Render main config
-	mainTpl := `[global]
+	// Render config
+	configTemplate := `[global]
 daemonize = no
 error_log = {{ .ErrorLog }}
-include = {{ .PoolDir }}/*.conf
-`
 
-	mainData := map[string]string{
-		"ErrorLog": filepath.Join(outDir, "php-fpm.error.log"),
-		"PoolDir":  poolDir,
-	}
+[{{ .PoolName }}]
+listen = {{ .Listen }}
+pm = {{ .PM }}
+{{ if .PMIsStatic }}pm.max_children = {{ .MaxChildren }}
+{{ end }}{{ if .PMIsDynamic }}pm.max_children = {{ .MaxChildren }}
+pm.start_servers = {{ .StartServers }}
+pm.min_spare_servers = {{ .MinSpare }}
+pm.max_spare_servers = {{ .MaxSpare }}
+{{ end }}{{ if .PMIsOndemand }}pm.max_children = {{ .MaxChildren }}
+process_idle_timeout = {{ .IdleTimeout }}
+{{ end }}pm.max_requests = {{ .MaxRequests }}
+request_terminate_timeout = {{ .RequestTimeout }}
+chdir = {{ .DocumentRoot }}
+{{/* Render PHP INI directives as php_admin_flag or php_admin_value. */}}
+{{ range $k, $v := .Settings }}php_admin_flag[{{ $k }}] = {{ $v }}
+{{ end }}
+{{ range $k, $v := .Env }}env[{{ $k }}] = {{ $v }}
+{{ end }}`
 
-	mainConfPath = filepath.Join(outDir, "php-fpm.conf")
-	if err := renderToFile(mainTpl, mainData, mainConfPath); err != nil {
-		return "", "", fmt.Errorf("render main conf: %w", err)
-	}
-
-	// Prepare pool config data using the new php.Config -> PHPFPM.Pool mapping
 	pool := cfg.PHPFPM.Pool
 	pm := pool.PM
 	if pm == "" {
@@ -55,6 +61,8 @@ include = {{ .PoolDir }}/*.conf
 	}
 
 	data := map[string]interface{}{
+		"ErrorLog":       filepath.Join(outDir, "php-fpm.error.log"),
+		"PoolDir":        poolDir,
 		"PoolName":       pool.Name,
 		"Listen":         cfg.PHPFPM.Listen,
 		"PM":             pm,
@@ -77,31 +85,22 @@ include = {{ .PoolDir }}/*.conf
 		"Env": cfg.PHPFPM.Env,
 	}
 
-	poolTpl := `[{{ .PoolName }}]
-listen = {{ .Listen }}
-pm = {{ .PM }}
-{{ if .PMIsStatic }}pm.max_children = {{ .MaxChildren }}
-{{ end }}{{ if .PMIsDynamic }}pm.max_children = {{ .MaxChildren }}
-pm.start_servers = {{ .StartServers }}
-pm.min_spare_servers = {{ .MinSpare }}
-pm.max_spare_servers = {{ .MaxSpare }}
-{{ end }}{{ if .PMIsOndemand }}pm.max_children = {{ .MaxChildren }}
-process_idle_timeout = {{ .IdleTimeout }}
-{{ end }}pm.max_requests = {{ .MaxRequests }}
-request_terminate_timeout = {{ .RequestTimeout }}
-chdir = {{ .DocumentRoot }}
-{{/* Render PHP INI directives as php_admin_flag or php_admin_value. */}}
-{{ range $k, $v := .Settings }}php_admin_flag[{{ $k }}] = {{ $v }}
-{{ end }}
-{{ range $k, $v := .Env }}env[{{ $k }}] = {{ $v }}
-{{ end }}`
+	configPath = filepath.Join(outDir, "php-fpm.conf")
+	f, err := os.Create(configPath)
+	if err != nil {
+		return "", fmt.Errorf("create main conf: %w", err)
+	}
+	defer f.Close()
 
-	poolConfPath = filepath.Join(poolDir, pool.Name+".conf")
-	if err := renderToFile(poolTpl, data, poolConfPath); err != nil {
-		return "", "", fmt.Errorf("render pool conf: %w", err)
+	tt, err := template.New("conf").Parse(configTemplate)
+	if err != nil {
+		return "", err
+	}
+	if err := tt.Execute(f, data); err != nil {
+		return "", err
 	}
 
-	return mainConfPath, poolConfPath, nil
+	return configPath, nil
 }
 
 func renderToFile(tpl string, data interface{}, path string) error {

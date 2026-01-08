@@ -44,15 +44,12 @@ func TestGenerateConfigAndLauncher(t *testing.T) {
 	}
 
 	// Generate configs
-	main, pool, err := GeneratePHPFPMConfig(cfg, tmp)
+	main, err := GeneratePHPFPMConfig(cfg, tmp)
 	if err != nil {
 		t.Fatalf("GeneratePHPFPMConfig failed: %v", err)
 	}
 	if _, err := os.Stat(main); err != nil {
 		t.Fatalf("main conf not written: %v", err)
-	}
-	if _, err := os.Stat(pool); err != nil {
-		t.Fatalf("pool conf not written: %v", err)
 	}
 
 	// Create a tiny shim script that acts like a foreground php-fpm: prints and waits

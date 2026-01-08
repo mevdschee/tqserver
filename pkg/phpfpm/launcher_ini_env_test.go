@@ -74,12 +74,12 @@ func TestGenerateFromWorkerYAML(t *testing.T) {
 		ProcessIdleTimeout:      time.Duration(raw.PHP.Pool.IdleTimeout) * time.Second,
 	}
 
-	_, poolPath, err := GeneratePHPFPMConfig(cfg, tmp)
+	main, err := GeneratePHPFPMConfig(cfg, tmp)
 	if err != nil {
 		t.Fatalf("GeneratePHPFPMConfig failed: %v", err)
 	}
 
-	poolData, err := os.ReadFile(poolPath)
+	poolData, err := os.ReadFile(main)
 	if err != nil {
 		t.Fatalf("read pool conf: %v", err)
 	}
