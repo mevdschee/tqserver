@@ -468,20 +468,23 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 
 	// Add timeout settings from worker config if available
 	if workerConfig != nil {
-		if workerConfig.Config.Timeouts.ReadTimeoutSeconds > 0 {
-			envVars = append(envVars, fmt.Sprintf("WORKER_READ_TIMEOUT_SECONDS=%d", workerConfig.Config.Timeouts.ReadTimeoutSeconds))
-		}
-		if workerConfig.Config.Timeouts.WriteTimeoutSeconds > 0 {
-			envVars = append(envVars, fmt.Sprintf("WORKER_WRITE_TIMEOUT_SECONDS=%d", workerConfig.Config.Timeouts.WriteTimeoutSeconds))
-		}
-		if workerConfig.Config.Timeouts.IdleTimeoutSeconds > 0 {
-			envVars = append(envVars, fmt.Sprintf("WORKER_IDLE_TIMEOUT_SECONDS=%d", workerConfig.Config.Timeouts.IdleTimeoutSeconds))
-		}
-		if workerConfig.Config.Runtime.GOMAXPROCS > 0 {
-			envVars = append(envVars, fmt.Sprintf("GOMAXPROCS=%d", workerConfig.Config.Runtime.GOMAXPROCS))
-		}
-		if workerConfig.Config.Runtime.GOMEMLIMIT != "" {
-			envVars = append(envVars, fmt.Sprintf("GOMEMLIMIT=%s", workerConfig.Config.Runtime.GOMEMLIMIT))
+		// if worker is Go, set Go-specific env vars
+		if worker.Type == "go" {
+			if workerConfig.Config.Timeouts.ReadTimeoutSeconds > 0 {
+				envVars = append(envVars, fmt.Sprintf("WORKER_READ_TIMEOUT_SECONDS=%d", workerConfig.Config.Timeouts.ReadTimeoutSeconds))
+			}
+			if workerConfig.Config.Timeouts.WriteTimeoutSeconds > 0 {
+				envVars = append(envVars, fmt.Sprintf("WORKER_WRITE_TIMEOUT_SECONDS=%d", workerConfig.Config.Timeouts.WriteTimeoutSeconds))
+			}
+			if workerConfig.Config.Timeouts.IdleTimeoutSeconds > 0 {
+				envVars = append(envVars, fmt.Sprintf("WORKER_IDLE_TIMEOUT_SECONDS=%d", workerConfig.Config.Timeouts.IdleTimeoutSeconds))
+			}
+			if workerConfig.Config.Go.GOMAXPROCS > 0 {
+				envVars = append(envVars, fmt.Sprintf("GOMAXPROCS=%d", workerConfig.Config.Go.GOMAXPROCS))
+			}
+			if workerConfig.Config.Go.GOMEMLIMIT != "" {
+				envVars = append(envVars, fmt.Sprintf("GOMEMLIMIT=%s", workerConfig.Config.Go.GOMEMLIMIT))
+			}
 		}
 	}
 
@@ -659,11 +662,11 @@ func (s *Supervisor) monitorWorkerLimits() {
 
 				// Check max_requests limit from worker config
 				workerConfig := s.getWorkerConfig(worker.Name)
-				if workerConfig != nil && workerConfig.Config.Runtime.MaxRequests > 0 {
+				if workerConfig != nil && workerConfig.Config.Go.MaxRequests > 0 {
 					requestCount := worker.GetRequestCount()
-					if requestCount >= workerConfig.Config.Runtime.MaxRequests {
+					if requestCount >= workerConfig.Config.Go.MaxRequests {
 						log.Printf("Worker %s reached max_requests limit (%d/%d), restarting...",
-							worker.Name, requestCount, workerConfig.Config.Runtime.MaxRequests)
+							worker.Name, requestCount, workerConfig.Config.Go.MaxRequests)
 						if err := s.restartWorker(worker); err != nil {
 							log.Printf("Failed to restart worker %s due to max_requests: %v", worker.Name, err)
 						} else {

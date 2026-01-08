@@ -17,11 +17,6 @@ type WorkerConfig struct {
 	Type    string `yaml:"type"` // "go", "kotlin" or "php"
 	Enabled bool   `yaml:"enabled"`
 
-	Runtime struct {
-		GOMAXPROCS  int    `yaml:"go_max_procs"`
-		GOMEMLIMIT  string `yaml:"go_mem_limit"`
-		MaxRequests int    `yaml:"max_requests"`
-	} `yaml:"runtime"`
 	Timeouts struct {
 		ReadTimeoutSeconds  int `yaml:"read_timeout_seconds"`
 		WriteTimeoutSeconds int `yaml:"write_timeout_seconds"`
@@ -31,6 +26,22 @@ type WorkerConfig struct {
 		LogFile string `yaml:"log_file"`
 	} `yaml:"logging"`
 
+	// Kotline-specific configuration
+	Kotlin *struct {
+		JarPath     string   `yaml:"jar_path"`
+		JavaOptions []string `yaml:"java_options"`
+		MaxHeapSize string   `yaml:"max_heap_size"`
+		MinHeapSize string   `yaml:"min_heap_size"`
+		GCOptions   []string `yaml:"gc_options"`
+		ClassName   string   `yaml:"class_name"`
+		ListenPort  int      `yaml:"listen_port"`
+	} `yaml:"kotlin"`
+	// Go runtime configuration
+	Go *struct {
+		GOMAXPROCS  int    `yaml:"go_max_procs"`
+		GOMEMLIMIT  string `yaml:"go_mem_limit"`
+		MaxRequests int    `yaml:"max_requests"`
+	} `yaml:"go"`
 	// PHP-specific configuration
 	PHP *struct {
 		Binary     string            `yaml:"binary"`
@@ -176,9 +187,9 @@ func LoadWorkerConfigs(workersDir string) ([]*WorkerConfigWithMeta, error) {
 func LoadWorkerConfig(configPath string) (*WorkerConfig, error) {
 	// Set defaults
 	config := &WorkerConfig{}
-	config.Runtime.GOMAXPROCS = 2
-	config.Runtime.GOMEMLIMIT = ""
-	config.Runtime.MaxRequests = 0
+	config.Go.GOMAXPROCS = 2
+	config.Go.GOMEMLIMIT = ""
+	config.Go.MaxRequests = 0
 	config.Timeouts.ReadTimeoutSeconds = 30
 	config.Timeouts.WriteTimeoutSeconds = 30
 	config.Timeouts.IdleTimeoutSeconds = 120
