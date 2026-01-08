@@ -47,12 +47,11 @@ func TestBinaryBuildArgs(t *testing.T) {
 		},
 	}
 
-	args := binary.BuildArgs(config, "127.0.0.1:9000")
+	args := binary.BuildArgs(config)
 
-	// Verify arguments
+	// Verify arguments - should NOT include -b flag anymore
 	expectedArgs := []string{
 		"-c", "/etc/php/8.2/php.ini",
-		"-b", "127.0.0.1:9000",
 	}
 
 	// Check required args

@@ -38,11 +38,15 @@ func (s WorkerState) String() string {
 
 // Worker represents a single php-cgi process
 type Worker struct {
-	ID         int
-	cmd        *exec.Cmd
-	binary     *Binary
-	config     *Config
-	socketPath string
+	ID     int
+	cmd    *exec.Cmd
+	binary *Binary
+	config *Config
+
+	// Process pipes for CGI communication
+	stdin  io.WriteCloser
+	stdout io.ReadCloser
+	stderr io.ReadCloser
 
 	state        atomic.Value // WorkerState
 	requestCount atomic.Int64
@@ -59,20 +63,19 @@ type Worker struct {
 }
 
 // NewWorker creates a new PHP worker
-func NewWorker(id int, binary *Binary, config *Config, socketPath string) *Worker {
+func NewWorker(id int, binary *Binary, config *Config) *Worker {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	w := &Worker{
-		ID:         id,
-		binary:     binary,
-		config:     config,
-		socketPath: socketPath,
-		startTime:  time.Now(),
-		lastUsed:   time.Now(),
-		ctx:        ctx,
-		cancel:     cancel,
-		done:       make(chan struct{}),
-		errors:     make(chan error, 1),
+		ID:        id,
+		binary:    binary,
+		config:    config,
+		startTime: time.Now(),
+		lastUsed:  time.Now(),
+		ctx:       ctx,
+		cancel:    cancel,
+		done:      make(chan struct{}),
+		errors:    make(chan error, 1),
 	}
 
 	w.setState(WorkerStateIdle)
@@ -88,8 +91,8 @@ func (w *Worker) Start() error {
 		return fmt.Errorf("worker already started")
 	}
 
-	// Build command arguments
-	args := w.binary.BuildArgs(w.config, w.socketPath)
+	// Build command arguments (without -b flag for standard CGI mode)
+	args := w.binary.BuildArgs(w.config)
 
 	// Create command with context for cancellation
 	w.cmd = exec.CommandContext(w.ctx, w.binary.Path, args...)
@@ -97,13 +100,19 @@ func (w *Worker) Start() error {
 	// Set working directory to document root
 	w.cmd.Dir = w.config.DocumentRoot
 
-	// Capture stdout/stderr for logging
-	stdout, err := w.cmd.StdoutPipe()
+	// Create pipes for CGI communication
+	var err error
+	w.stdin, err = w.cmd.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdin pipe: %w", err)
+	}
+
+	w.stdout, err = w.cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
 
-	stderr, err := w.cmd.StderrPipe()
+	w.stderr, err = w.cmd.StderrPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
@@ -113,11 +122,10 @@ func (w *Worker) Start() error {
 		return fmt.Errorf("failed to start php-cgi: %w", err)
 	}
 
-	log.Printf("[Worker %d] Started php-cgi (PID: %d) on %s", w.ID, w.cmd.Process.Pid, w.socketPath)
+	log.Printf("[Worker %d] Started php-cgi (PID: %d) in CGI mode", w.ID, w.cmd.Process.Pid)
 
-	// Start goroutines to handle output and process monitoring
-	go w.handleOutput(stdout, "stdout")
-	go w.handleOutput(stderr, "stderr")
+	// Start goroutines to handle stderr output and process monitoring
+	go w.handleStderr()
 	go w.monitor()
 
 	return nil
@@ -184,17 +192,17 @@ func (w *Worker) monitor() {
 	close(w.done)
 }
 
-// handleOutput reads and logs output from the process
-func (w *Worker) handleOutput(reader io.Reader, streamName string) {
+// handleStderr reads and logs stderr output from the process
+func (w *Worker) handleStderr() {
 	buf := make([]byte, 4096)
 	for {
-		n, err := reader.Read(buf)
+		n, err := w.stderr.Read(buf)
 		if n > 0 {
-			log.Printf("[Worker %d] [%s] %s", w.ID, streamName, string(buf[:n]))
+			log.Printf("[Worker %d] [stderr] %s", w.ID, string(buf[:n]))
 		}
 		if err != nil {
 			if err != io.EOF {
-				log.Printf("[Worker %d] Error reading %s: %v", w.ID, streamName, err)
+				log.Printf("[Worker %d] Error reading stderr: %v", w.ID, err)
 			}
 			return
 		}

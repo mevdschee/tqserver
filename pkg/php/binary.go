@@ -73,17 +73,14 @@ func (b *Binary) String() string {
 	return fmt.Sprintf("%s (PHP %d.%d.%d)", b.Path, b.Major, b.Minor, b.Patch)
 }
 
-// BuildArgs constructs the command-line arguments for php-cgi
-func (b *Binary) BuildArgs(config *Config, socketPath string) []string {
+// BuildArgs constructs the command-line arguments for php-cgi in standard CGI mode
+func (b *Binary) BuildArgs(config *Config) []string {
 	args := []string{}
 
 	// Add base config file if specified
 	if config.ConfigFile != "" {
 		args = append(args, "-c", config.ConfigFile)
 	}
-
-	// Add bind address (Unix socket or TCP)
-	args = append(args, "-b", socketPath)
 
 	// Add individual settings as -d flags
 	for key, value := range config.Settings {

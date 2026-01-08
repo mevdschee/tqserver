@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 	"time"
 )
@@ -16,8 +15,7 @@ type Manager struct {
 	workers []*Worker
 	mu      sync.RWMutex
 
-	nextID     int
-	baseSocket string // Base socket path (will add worker ID)
+	nextID int
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -36,16 +34,12 @@ func NewManager(binary *Binary, config *Config) (*Manager, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Use TCP listen address
-	baseSocket := config.Pool.ListenAddr
-
 	m := &Manager{
-		binary:     binary,
-		config:     config,
-		workers:    make([]*Worker, 0),
-		baseSocket: baseSocket,
-		ctx:        ctx,
-		cancel:     cancel,
+		binary:  binary,
+		config:  config,
+		workers: make([]*Worker, 0),
+		ctx:     ctx,
+		cancel:  cancel,
 	}
 
 	return m, nil
@@ -123,30 +117,7 @@ func (m *Manager) spawnWorker() error {
 	workerID := m.nextID
 	m.nextID++
 
-	// Generate unique socket path for this worker
-	var socketPath string
-	if strings.Contains(m.baseSocket, ":") {
-		// TCP socket - need to assign unique port
-		// Workers get basePort + workerID + 1 (to avoid conflict with FastCGI server on basePort)
-		parts := strings.Split(m.baseSocket, ":")
-		if len(parts) == 2 {
-			basePort := 0
-			fmt.Sscanf(parts[1], "%d", &basePort)
-			socketPath = fmt.Sprintf("%s:%d", parts[0], basePort+workerID+1)
-		} else {
-			socketPath = fmt.Sprintf("%s.%d", m.baseSocket, workerID)
-		}
-	} else {
-		// Unix socket - append worker ID
-		socketPath = fmt.Sprintf("%s.%d", m.baseSocket, workerID)
-	}
-
-	worker := NewWorker(workerID, m.binary, m.config, socketPath)
-
-	if err := worker.Start(); err != nil {
-		return err
-	}
-
+	worker := NewWorker(workerID, m.binary, m.config)
 	m.workers = append(m.workers, worker)
 
 	// Monitor worker for crashes

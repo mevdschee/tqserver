@@ -2,8 +2,17 @@
 
 Go-based PHP-CGI process management for TQServer. This package provides a complete alternative to PHP-FPM with superior process management, health monitoring, and developer experience.
 
+## Architecture
+
+- **One FastCGI server** listens on a single TCP port
+- **Multiple PHP-CGI workers** run as standard CGI processes (no network binding)
+- **Workers communicate via stdin/stdout** for maximum efficiency
+- **Pool manager** handles load balancing and worker lifecycle
+
 ## Features
 
+- ✅ **Single listen port** with internal worker pool
+- ✅ **CGI workers** communicating via stdin/stdout (not network sockets)
 - ✅ **Auto-detection** of php-cgi binary
 - ✅ **Version parsing** and feature detection
 - ✅ **Flexible configuration** via php.ini + CLI overrides
@@ -262,12 +271,11 @@ fmt.Printf("Idle time: %s\n", worker.GetIdleTime())
 ### Process Hierarchy
 
 ```
-Manager
-├─> Worker 1 (php-cgi process)
+Manager + FastCGI Server (listens on 127.0.0.1:9001)
+├─> Worker 1 (php-cgi CGI process, stdin/stdout)
 │   ├─> monitor goroutine
-│   ├─> stdout handler goroutine
 │   └─> stderr handler goroutine
-├─> Worker 2 (php-cgi process)
+├─> Worker 2 (php-cgi CGI process, stdin/stdout)
 │   └─> ...
 └─> Health monitor goroutine
 ```
@@ -278,17 +286,21 @@ Manager
 Manager.Start()
   └─> spawnWorker() × N
        └─> Worker.Start()
-            └─> exec.CommandContext(php-cgi -b socket -d settings...)
+            └─> exec.CommandContext(php-cgi -c ini -d settings...)
+                 ├─> Creates stdin/stdout/stderr pipes
                  ├─> monitor() goroutine → watch for crash
-                 ├─> handleOutput(stdout) → log output
-                 └─> handleOutput(stderr) → log errors
+                 └─> handleStderr() → log errors
 
 Health Monitor (5s interval)
   ├─> performHealthCheck() → restart unhealthy workers
   └─> managePoolSize() → scale up/down (dynamic/ondemand)
 
 Request Processing
+  ├─> FastCGI Server receives request
   ├─> manager.GetIdleWorker() → finds or spawns worker
+  ├─> Write CGI environment + body to worker's stdin
+  ├─> Read CGI response from worker's stdout
+  └─> Forward response back to FastCGI client
   ├─> worker.MarkActive()
   ├─> ... forward request to php-cgi ...
   ├─> worker.MarkIdle()
