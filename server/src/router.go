@@ -25,9 +25,9 @@ type WorkerRequest struct {
 
 // Worker represents a worker service (load balancer)
 type Worker struct {
-	Name  string // Worker name
-	Route string // URL route
-	Type  string // Worker type: "go", "bun", "php"
+	Name string // Worker name
+	Path string // URL route
+	Type string // Worker type: "go", "bun", "php"
 
 	// Cluster state
 	Instances    []*WorkerInstance
@@ -145,8 +145,8 @@ func (r *Router) RegisterWorker(worker *Worker) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.workers[worker.Route] = worker
-	log.Printf("Registered worker: %s -> %s", worker.Route, worker.Name)
+	r.workers[worker.Path] = worker
+	log.Printf("Registered worker: %s -> %s", worker.Path, worker.Name)
 }
 
 // GetWorker returns the worker for a given route

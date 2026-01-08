@@ -83,7 +83,7 @@ func (s *Supervisor) Start() error {
 
 		worker := &Worker{
 			Name:           workerMeta.Name,
-			Route:          workerMeta.Config.Path,
+			Path:           workerMeta.Config.Path,
 			Type:           workerMeta.Config.Type,
 			Instances:      make([]*WorkerInstance, 0),
 			Queue:          make(chan *WorkerRequest, 1000), // Default buffer
@@ -348,7 +348,7 @@ func (s *Supervisor) spawnWorkerInstance(w *Worker) (*WorkerInstance, error) {
 	env := os.Environ()
 	env = append(env, fmt.Sprintf("WORKER_PORT=%d", port))
 	env = append(env, fmt.Sprintf("WORKER_NAME=%s", w.Name))
-	env = append(env, fmt.Sprintf("WORKER_ROUTE=%s", w.Route))
+	env = append(env, fmt.Sprintf("WORKER_PATH=%s", w.Path))
 	env = append(env, fmt.Sprintf("WORKER_TYPE=%s", w.Type))
 	env = append(env, fmt.Sprintf("WORKER_MODE=%s", s.config.Mode))
 	env = append(env, fmt.Sprintf("PORT=%d", port)) // Standard for many libs
@@ -718,10 +718,9 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 	envVars := map[string]string{
 		"WORKER_SERVER_MODE": s.config.Mode,
 		"WORKER_NAME":        worker.Name,
-		"WORKER_ROUTE":       worker.Route,
+		"WORKER_PATH":        worker.Path,
 		"WORKER_PORT":        fmt.Sprintf("%d", port),
 		"WORKER_TYPE":        worker.Type,
-		"WORKER_PATH":        worker.Route,
 	}
 
 	cfg := &php.Config{
@@ -802,7 +801,7 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 	}
 	worker.Instances = append(worker.Instances, inst)
 
-	log.Printf("✅ PHP Worker pool started for %s on %s", worker.Route, fcgiServerAddr)
+	log.Printf("✅ PHP Worker pool started for %s on %s", worker.Path, fcgiServerAddr)
 	return nil
 }
 

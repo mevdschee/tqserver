@@ -125,7 +125,7 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 	setDevHeaders := func(header http.Header) {
 		header.Set("X-TQServer-Worker-Name", worker.Name)
 		header.Set("X-TQServer-Worker-Type", worker.Type)
-		header.Set("X-TQServer-Worker-Route", worker.Route)
+		header.Set("X-TQServer-Worker-Path", worker.Path)
 		// Note: Port is instance specific, so we can't set it here easily for all cases using worker struct
 	}
 
@@ -181,7 +181,7 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 	if devHeadersSet {
 		w.Header().Set("X-TQServer-Worker-Name", worker.Name)
 		w.Header().Set("X-TQServer-Worker-Type", worker.Type)
-		w.Header().Set("X-TQServer-Worker-Route", worker.Route)
+		w.Header().Set("X-TQServer-Worker-Path", worker.Path)
 		w.Header().Set("X-TQServer-Worker-Port", fmt.Sprintf("%d", instance.Port))
 		w.Header().Set("X-TQServer-Worker-ID", instance.ID) // New: Show Instance ID
 	}
@@ -225,7 +225,7 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 
 	// Trim the worker route prefix
 	proxiedReq := r.Clone(r.Context())
-	trimmedPath := strings.TrimPrefix(r.URL.Path, worker.Route)
+	trimmedPath := strings.TrimPrefix(r.URL.Path, worker.Path)
 	if trimmedPath == "" {
 		trimmedPath = "/"
 	}
@@ -327,7 +327,7 @@ func (p *Proxy) handlePHPRequest(w http.ResponseWriter, r *http.Request, worker 
 	documentRoot := filepath.Join(p.projectRoot, p.config.Workers.Directory, worker.Name, "public")
 
 	// Remove route prefix from URL path
-	scriptPath := strings.TrimPrefix(r.URL.Path, worker.Route)
+	scriptPath := strings.TrimPrefix(r.URL.Path, worker.Path)
 	if scriptPath == "" || scriptPath == "/" {
 		scriptPath = "/index.php"
 	}

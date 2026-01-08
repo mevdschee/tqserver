@@ -12,7 +12,7 @@ import (
 // Runtime provides common worker initialization and server management
 type Runtime struct {
 	Port         string
-	Route        string
+	Path         string
 	Mode         string
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
@@ -26,9 +26,9 @@ func NewRuntime() *Runtime {
 		port = "9000"
 	}
 
-	route := os.Getenv("WORKER_ROUTE")
-	if route == "" {
-		route = "/"
+	path := os.Getenv("WORKER_PATH")
+	if path == "" {
+		path = "/"
 	}
 
 	mode := os.Getenv("WORKER_MODE")
@@ -43,7 +43,7 @@ func NewRuntime() *Runtime {
 
 	return &Runtime{
 		Port:         port,
-		Route:        route,
+		Path:         path,
 		Mode:         mode,
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
@@ -73,7 +73,7 @@ func (r *Runtime) StartServer(handler http.Handler) error {
 		IdleTimeout:  r.IdleTimeout,
 	}
 
-	log.Printf("Worker starting on port %s for route %s", r.Port, r.Route)
+	log.Printf("Worker starting on port %s for path %s", r.Port, r.Path)
 	return server.ListenAndServe()
 }
 

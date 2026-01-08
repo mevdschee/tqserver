@@ -75,11 +75,12 @@ app.get('/', (req, res) => {
 
         // Replace placeholders
         html = html.replace(/{{\s*PageTitle\s*}}/g, 'API Worker');
-        html = html.replace(/{{\s*Route\s*}}/g, process.env.WORKER_NAME || '');
+        html = html.replace(/{{\s*Path\s*}}/g, process.env.WORKER_PATH || '');
+        html = html.replace(/{{\s*Name\s*}}/g, process.env.WORKER_NAME || '');
         html = html.replace(/{{\s*Type\s*}}/g, process.env.WORKER_TYPE || '');
         html = html.replace(/{{\s*Port\s*}}/g, process.env.WORKER_PORT || '');
         html = html.replace(/{{\s*Method\s*}}/g, req.method);
-        html = html.replace(/{{\s*Path\s*}}/g, req.url);
+        html = html.replace(/{{\s*URI\s*}}/g, req.url);
         html = html.replace(/{{\s*Time\s*}}/g, new Date().toLocaleString());
 
         // Always inject dev reload script for now as requested by user context (dev environment)
