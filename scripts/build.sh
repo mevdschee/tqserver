@@ -3,6 +3,7 @@ set -e
 
 WORKERS_DIR="workers"
 SERVER_DIR="server"
+PACKAGE_DIR="pkg"
 
 # Default to development mode
 MODE="${1:-dev}"
@@ -38,7 +39,7 @@ if [ "$CHECK_TIMESTAMPS" = true ]; then
         needs_server_rebuild=true
     else
         # Check if any source files in src or pkg are newer than binary use find recursively
-        for src_file in $(find "$SERVER_DIR/src" "$SERVER_DIR/../pkg" -name "*.go"); do
+        for src_file in $(find "$SERVER_DIR" "$PACKAGE_DIR" -name "*.go"); do
             if [ "$src_file" -nt "$server_output" ]; then
                 needs_server_rebuild=true
                 break
