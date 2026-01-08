@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -648,11 +649,76 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 	workerRoot := filepath.Join(s.projectRoot, s.config.Workers.Directory, worker.Name)
 	documentRoot := filepath.Join(workerRoot, "public")
 
-	// Build php-fpm-first configuration from worker YAML and start php-fpm
-	// Compose php.Config using the new php-fpm schema
-	binaryPath := workerMeta.Config.PHP.Binary
-	if binaryPath == "" {
-		binaryPath = "php-fpm"
+	// Determine php-fpm binary to execute. Prefer worker-specified binary,
+	// otherwise try common names (php-fpm, php-cgi, php) and scan PATH for
+	// php-fpm* executables.
+	findPHPBinary := func(preferred string) (string, error) {
+		if preferred != "" {
+			if p, err := exec.LookPath(preferred); err == nil {
+				return p, nil
+			}
+			// try as provided path
+			if _, err := os.Stat(preferred); err == nil {
+				return preferred, nil
+			}
+		}
+
+		candidates := []string{"php-fpm", "php-fpm8.3", "php-fpm8.2", "php-fpm8.1", "php-fpm8.0", "php-fpm7.4", "php-cgi", "php"}
+		for _, c := range candidates {
+			if p, err := exec.LookPath(c); err == nil {
+				return p, nil
+			}
+		}
+
+		// Scan PATH directories for files starting with php-fpm
+		pathEnv := os.Getenv("PATH")
+		for _, dir := range strings.Split(pathEnv, ":") {
+			if dir == "" {
+				continue
+			}
+			entries, err := os.ReadDir(dir)
+			if err != nil {
+				continue
+			}
+			for _, e := range entries {
+				name := e.Name()
+				if strings.HasPrefix(name, "php-fpm") {
+					full := filepath.Join(dir, name)
+					if st, err := os.Stat(full); err == nil {
+						if st.Mode().Perm()&0111 != 0 {
+							return full, nil
+						}
+					}
+				}
+			}
+		}
+
+		// Also check common sbin directories where system packages may install php-fpm
+		sbinDirs := []string{"/usr/sbin", "/sbin", "/usr/local/sbin"}
+		for _, dir := range sbinDirs {
+			entries, err := os.ReadDir(dir)
+			if err != nil {
+				continue
+			}
+			for _, e := range entries {
+				name := e.Name()
+				if strings.HasPrefix(name, "php-fpm") || strings.HasPrefix(name, "php") {
+					full := filepath.Join(dir, name)
+					if st, err := os.Stat(full); err == nil {
+						if st.Mode().Perm()&0111 != 0 {
+							return full, nil
+						}
+					}
+				}
+			}
+		}
+
+		return "", fmt.Errorf("php-fpm binary not found in PATH; install php-fpm or set php.binary in worker config")
+	}
+
+	binaryPath, err := findPHPBinary(workerMeta.Config.PHP.Binary)
+	if err != nil {
+		return err
 	}
 
 	cfg := &php.Config{
@@ -691,6 +757,26 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 	launcher := phpfpm.NewLauncher(cfg)
 	if err := launcher.Start(); err != nil {
 		return fmt.Errorf("failed to start php-fpm: %w", err)
+	}
+
+	// Wait for php-fpm to accept connections on the configured listen address.
+	// This avoids races where the proxy immediately tries to connect before
+	// php-fpm has bound the socket.
+	ready := false
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", cfg.PHPFPM.Listen, 250*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			ready = true
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !ready {
+		// stop the launcher to cleanup generated files/process
+		_ = launcher.Stop(1 * time.Second)
+		return fmt.Errorf("php-fpm did not become ready on %s", cfg.PHPFPM.Listen)
 	}
 
 	// Create client to talk to php-fpm
@@ -776,6 +862,37 @@ func (s *Supervisor) restartWorker(worker *Worker) error {
 	worker.mu.Lock()
 	worker.RequestCount = 0
 	worker.mu.Unlock()
+
+	// If this is a PHP worker, restart php-fpm via the adapter instead of
+	// attempting to build/start a Go binary.
+	if worker.IsPHP {
+		log.Printf("Restarting PHP worker %s", worker.Name)
+
+		// Retrieve worker config meta
+		workerMeta := s.getWorkerConfig(worker.Name)
+
+		// Capture existing launcher/client so we can stop them after bringing
+		// up the new instance.
+		s.mu.Lock()
+		oldLauncher := s.phpLaunchers[worker.Name]
+		oldClient := s.phpClients[worker.Name]
+		s.mu.Unlock()
+
+		// Start a fresh php-fpm instance for this worker
+		if err := s.startPHPWorker(worker, workerMeta); err != nil {
+			return fmt.Errorf("failed to restart php worker: %w", err)
+		}
+
+		// Stop old launcher/client
+		if oldLauncher != nil {
+			_ = oldLauncher.Stop(s.config.GetShutdownGracePeriod())
+		}
+		if oldClient != nil {
+			oldClient.Close()
+		}
+
+		return nil
+	}
 
 	// Check if binary exists; if not, rebuild
 	if worker.Binary == "" || !fileExists(worker.Binary) {

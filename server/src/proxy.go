@@ -285,7 +285,9 @@ func (p *Proxy) handlePHPRequest(w http.ResponseWriter, r *http.Request, worker 
 	}
 
 	// Connect to FastCGI server
-	fcgiAddress := fmt.Sprintf("localhost:%d", worker.Port)
+	// Use explicit IPv4 loopback to avoid resolving to ::1 when php-fpm
+	// is bound to 127.0.0.1 only.
+	fcgiAddress := fmt.Sprintf("127.0.0.1:%d", worker.Port)
 	conn, err := net.DialTimeout("tcp", fcgiAddress, 5*time.Second)
 	if err != nil {
 		http.Error(w, "Failed to connect to PHP worker", http.StatusBadGateway)

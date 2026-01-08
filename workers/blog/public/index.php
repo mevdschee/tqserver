@@ -146,10 +146,8 @@ http_response_code(200);
         </ul>
 
         <div class="info">
-            <li>✅ <strong>Flexible Runtime:</strong> Runs via php-fpm adapter (recommended); direct `php-cgi` usage is available only for testing.</li>
-            <p>This PHP script is running through TQServer's <code>dynamic</code> pool manager,
-                which automatically manages php-fpm pools and PHP worker lifecycles. In production the php-fpm-first adapter is recommended.</p>
-            <p>Configuration is managed by TQServer and applied to the PHP runtime (via generated php-fpm pool configs and launcher/env). CLI flags for `php-cgi` are only used in legacy test modes.</p>
+            <li>✅ <strong>Proven Runtime:</strong> Runs via industry standard php-fpm adapter.</li>
+            <p>Configuration is managed by TQServer and applied to the PHP runtime (via generated php-fpm pool configs and launcher).</p>
         </div>
 
         <h2>Current Request Environment</h2>

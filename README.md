@@ -413,11 +413,11 @@ TQServer passes configuration to workers via environment variables:
 | `WORKER_NAME`                    | Worker name (from directory)                     | `index`         | Supervisor (auto)         |
 | `WORKER_ROUTE`                   | URL path prefix for this worker                  | `/`             | Worker config             |
 | `WORKER_MODE`                    | Deployment mode (development/production)         | `development`   | Server mode               |
-| `WORKER_READ_TIMEOUT_SECONDS`    | HTTP read timeout                                | `30`            | Worker config (optional)  |
-| `WORKER_WRITE_TIMEOUT_SECONDS`   | HTTP write timeout                               | `30`            | Worker config (optional)  |
-| `WORKER_IDLE_TIMEOUT_SECONDS`    | HTTP idle/keep-alive timeout                     | `120`           | Worker config (optional)  |
-| `GOMAXPROCS`                     | Go runtime CPU limit (number of threads)         | `2`             | Worker config (optional)  |
-| `GOMEMLIMIT`                     | Go runtime soft memory limit                     | `512MiB`        | Worker config (optional)  |
+| `WORKER_READ_TIMEOUT_SECONDS`    | Go HTTP read timeout                             | `30`            | Worker config (Go only)   |
+| `WORKER_WRITE_TIMEOUT_SECONDS`   | Go HTTP write timeout                            | `30`            | Worker config (Go only)   |
+| `WORKER_IDLE_TIMEOUT_SECONDS`    | Go HTTP idle/keep-alive timeout                  | `120`           | Worker config (Go only)   |
+| `GOMAXPROCS`                     | Go runtime CPU limit (number of threads)         | `2`             | Worker config (Go only)   |
+| `GOMEMLIMIT`                     | Go runtime soft memory limit                     | `512MiB`        | Worker config (Go only)   |
 
 Workers access these variables using Go's standard library:
 
@@ -521,52 +521,38 @@ http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 
 ### Worker Environment Variables
 
-The supervisor automatically sets these environment variables for each worker:
-
-| Variable                      | Description                                |
-| ----------------------------- | ------------------------------------------ |
-| `TQ_PORT`                     | Worker listening port                      |
-| `TQ_MAX_REQUESTS`             | Max requests before restart (0 = disabled) |
-| `TQ_READ_TIMEOUT_SECONDS`     | HTTP read timeout                          |
-| `TQ_WRITE_TIMEOUT_SECONDS`    | HTTP write timeout                         |
-| `TQ_IDLE_TIMEOUT_SECONDS`     | HTTP idle timeout                          |
-| `TQ_SHUTDOWN_GRACE_PERIOD_MS` | Graceful shutdown timeout                  |
-| `TQ_LOG_FILE`                 | Log file path                              |
-| `GOMAXPROCS`                  | Go CPU thread limit                        |
-| `GOMEMLIMIT`                  | Go memory limit                            |
-
-Workers can access these via `worker.NewRuntime()` or directly from
-`os.Getenv()`.
+The supervisor automatically sets environment variables for each worker:
+Workers can access these via `worker.NewRuntime()` or directly from `os.Getenv()`.
 
 ## Project Structure
 
 ```
 tqserver/
-├── server/                 # Main server application
-│   ├── src/                # Server source code
-│   │   ├── main.go        # Entry point
-│   │   ├── config/        # Configuration
-│   │   ├── proxy/         # HTTP reverse proxy
-│   │   ├── router/        # Route discovery
-│   │   └── supervisor/    # Worker lifecycle
+├── server/               # Main server application
+│   ├── src/               # Server source code
+│   │   ├── main.go         # Entry point
+│   │   ├── config/         # Configuration
+│   │   ├── proxy/          # HTTP reverse proxy
+│   │   ├── router/         # Route discovery
+│   │   └── supervisor/     # Worker lifecycle
 │   ├── bin/               # Compiled server binary
 │   └── public/            # Public server assets
-├── workers/               # Worker applications
-│   └── {name}/           # Individual worker
-│       ├── src/          # Worker source code
-│       ├── bin/          # Compiled worker binary
-│       ├── public/       # Public web assets
-│       ├── views/        # HTML templates
-│       ├── config/       # Worker-specific config
-│       └── data/         # Worker data files
-├── pkg/                   # Shared packages
-│   ├── supervisor/       # Timestamp, registry, health
-│   ├── watcher/          # File watching
-│   ├── builder/          # Build automation
-│   ├── devmode/          # Dev mode controller
-│   ├── prodmode/         # Prod mode controller
-│   ├── modecontroller/   # Mode switching
-│   └── coordinator/      # Reload coordination
+├── workers/              # Worker applications
+│   └── {name}/            # Individual worker
+│       ├── src/            # Worker source code
+│       ├── bin/            # Compiled worker binary
+│       ├── public/         # Public web assets
+│       ├── views/          # HTML templates
+│       ├── config/         # Worker-specific config
+│       └── data/           # Worker data files
+├── pkg/                  # Shared packages
+│   ├── supervisor/        # Timestamp, registry, health
+│   ├── watcher/           # File watching
+│   ├── builder/           # Build automation
+│   ├── devmode/           # Dev mode controller
+│   ├── prodmode/          # Prod mode controller
+│   ├── modecontroller/    # Mode switching
+│   └── coordinator/       # Reload coordination
 ├── scripts/              # Build & deployment
 ├── config/               # Configuration files
 └── docs/                 # Documentation
