@@ -1,9 +1,9 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/mevdschee/tqserver/pkg/fastcgi"
-	"github.com/mevdschee/tqserver/pkg/php"
+	"github.com/mevdschee/tqserver/pkg/config/php"
+	"github.com/mevdschee/tqserver/pkg/phpfpm"
 )
 
 // Supervisor manages worker lifecycle: building, starting, stopping, and restarting
@@ -30,8 +30,9 @@ type Supervisor struct {
 	proxy         *Proxy
 
 	// PHP support
-	phpManagers    map[string]*php.Manager    // keyed by worker name
-	fastcgiServers map[string]*fastcgi.Server // keyed by worker name
+	// php-fpm supervised instances + clients (single-port per worker)
+	phpLaunchers map[string]*phpfpm.Launcher
+	phpClients   map[string]*phpfpm.Client
 }
 
 // getFreePort returns the next available port for a worker and advances the pool
@@ -49,14 +50,14 @@ func (s *Supervisor) getFreePort() int {
 // NewSupervisor creates a new supervisor
 func NewSupervisor(config *Config, projectRoot string, router *Router, workerConfigs []*WorkerConfigWithMeta) *Supervisor {
 	return &Supervisor{
-		config:         config,
-		projectRoot:    projectRoot,
-		router:         router,
-		workerConfigs:  workerConfigs,
-		nextPort:       config.Workers.PortRangeStart,
-		stopChan:       make(chan struct{}),
-		phpManagers:    make(map[string]*php.Manager),
-		fastcgiServers: make(map[string]*fastcgi.Server),
+		config:        config,
+		projectRoot:   projectRoot,
+		router:        router,
+		workerConfigs: workerConfigs,
+		nextPort:      config.Workers.PortRangeStart,
+		stopChan:      make(chan struct{}),
+		phpLaunchers:  make(map[string]*phpfpm.Launcher),
+		phpClients:    make(map[string]*phpfpm.Client),
 	}
 }
 
@@ -167,17 +168,25 @@ func (s *Supervisor) Stop() {
 		s.stopWorker(worker)
 	}
 
-	// Stop all PHP managers
+	// Stop php-fpm launchers and clients
 	s.mu.Lock()
-	for name, manager := range s.phpManagers {
-		log.Printf("Stopping PHP manager for %s", name)
-		manager.Stop()
+	shutdownTimeout := time.Duration(s.config.Workers.ShutdownGracePeriodMs) * time.Millisecond
+	for name, launcher := range s.phpLaunchers {
+		log.Printf("Stopping php-fpm launcher for %s", name)
+		if launcher != nil {
+			if err := launcher.Stop(shutdownTimeout); err != nil {
+				log.Printf("Error stopping php-fpm for %s: %v", name, err)
+			}
+		}
+	}
+	for name, client := range s.phpClients {
+		log.Printf("Closing php-fpm client for %s", name)
+		if client != nil {
+			client.Close()
+		}
 	}
 	// Stop all FastCGI servers
-	for name, server := range s.fastcgiServers {
-		log.Printf("Stopping FastCGI server for %s", name)
-		server.Shutdown(context.Background())
-	}
+	// fastcgi servers are handled by php-fpm; nothing to shutdown here
 	s.mu.Unlock()
 
 	s.wg.Wait()
@@ -621,11 +630,40 @@ func (s *Supervisor) stopWorker(worker *Worker) error {
 // startPHPWorker starts a PHP worker pool with FastCGI server
 func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWithMeta) error {
 
-	worker.Port = s.getFreePort()
+	// Reserve a free port for this worker's php-fpm FastCGI listener
+	port := s.getFreePort()
+	worker.Port = port
 	if workerMeta.Config.PHP == nil {
 		return fmt.Errorf("PHP configuration not found for worker %s", worker.Name)
 	}
-	fcgiServerAddr := fmt.Sprintf("%s:%d", workerMeta.Config.PHP.Pool.ListenAddress, worker.Port)
+	// Build listen address: prefer configured listen_address, fall back to localhost
+	host := workerMeta.Config.PHP.Pool.ListenAddress
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	fcgiServerAddr := fmt.Sprintf("%s:%d", host, port)
+
+	// If the chosen port is already bound by another process (e.g., system php-fpm),
+	// probe and pick the next free port. This avoids falsely succeeding when
+	// `net.Dial` connects to an unrelated service on the same port.
+	maxAttempts := s.config.Workers.PortRangeEnd - s.config.Workers.PortRangeStart + 1
+	tried := 0
+	for tried < maxAttempts {
+		// try to listen briefly to check availability
+		ln, err := net.Listen("tcp", fcgiServerAddr)
+		if err == nil {
+			_ = ln.Close()
+			break
+		}
+		// port in use, pick next
+		port = s.getFreePort()
+		worker.Port = port
+		fcgiServerAddr = fmt.Sprintf("%s:%d", host, port)
+		tried++
+	}
+	if tried >= maxAttempts {
+		return fmt.Errorf("no free port available in range %d-%d", s.config.Workers.PortRangeStart, s.config.Workers.PortRangeEnd)
+	}
 
 	log.Printf("Starting PHP worker pool for %s (dynamic manager)", worker.Name)
 
@@ -633,73 +671,161 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 	workerRoot := filepath.Join(s.projectRoot, s.config.Workers.Directory, worker.Name)
 	documentRoot := filepath.Join(workerRoot, "public")
 
-	// Detect PHP binary
-	binary, err := php.DetectBinary(workerMeta.Config.PHP.Binary)
-	if err != nil {
-		return fmt.Errorf("failed to detect PHP binary: %w", err)
+	// Determine php-fpm binary to execute. Prefer worker-specified binary,
+	// otherwise try common names (php-fpm, php-cgi, php) and scan PATH for
+	// php-fpm* executables.
+	findPHPBinary := func(preferred string) (string, error) {
+		if preferred != "" {
+			if p, err := exec.LookPath(preferred); err == nil {
+				return p, nil
+			}
+			// try as provided path
+			if _, err := os.Stat(preferred); err == nil {
+				return preferred, nil
+			}
+		}
+
+		candidates := []string{"php-fpm", "php-fpm8.3", "php-fpm8.2", "php-fpm8.1", "php-fpm8.0", "php-fpm7.4", "php-cgi", "php"}
+		for _, c := range candidates {
+			if p, err := exec.LookPath(c); err == nil {
+				return p, nil
+			}
+		}
+
+		// Scan PATH directories for files starting with php-fpm
+		pathEnv := os.Getenv("PATH")
+		for _, dir := range strings.Split(pathEnv, ":") {
+			if dir == "" {
+				continue
+			}
+			entries, err := os.ReadDir(dir)
+			if err != nil {
+				continue
+			}
+			for _, e := range entries {
+				name := e.Name()
+				if strings.HasPrefix(name, "php-fpm") {
+					full := filepath.Join(dir, name)
+					if st, err := os.Stat(full); err == nil {
+						if st.Mode().Perm()&0111 != 0 {
+							return full, nil
+						}
+					}
+				}
+			}
+		}
+
+		// Also check common sbin directories where system packages may install php-fpm
+		sbinDirs := []string{"/usr/sbin", "/sbin", "/usr/local/sbin"}
+		for _, dir := range sbinDirs {
+			entries, err := os.ReadDir(dir)
+			if err != nil {
+				continue
+			}
+			for _, e := range entries {
+				name := e.Name()
+				if strings.HasPrefix(name, "php-fpm") || strings.HasPrefix(name, "php") {
+					full := filepath.Join(dir, name)
+					if st, err := os.Stat(full); err == nil {
+						if st.Mode().Perm()&0111 != 0 {
+							return full, nil
+						}
+					}
+				}
+			}
+		}
+
+		return "", fmt.Errorf("php-fpm binary not found in PATH; install php-fpm or set php.binary in worker config")
 	}
 
-	log.Printf("Using PHP binary: %s (version %s)", binary.Path, binary.Version)
+	binaryPath, err := findPHPBinary(workerMeta.Config.PHP.Binary)
+	if err != nil {
+		return err
+	}
 
-	// Build PHP configuration
-	phpConfig := &php.Config{
-		Binary:       binary.Path,
-		ConfigFile:   workerMeta.Config.PHP.ConfigFile,
-		Settings:     workerMeta.Config.PHP.Settings,
+	cfg := &php.Config{
+		PHPFPMBinary: binaryPath,
+		PHPIni:       workerMeta.Config.PHP.ConfigFile,
 		DocumentRoot: documentRoot,
-		Pool: php.PoolConfig{
-			Manager:        workerMeta.Config.PHP.Pool.Manager,
-			MinWorkers:     workerMeta.Config.PHP.Pool.MinWorkers,
-			MaxWorkers:     workerMeta.Config.PHP.Pool.MaxWorkers,
-			StartWorkers:   workerMeta.Config.PHP.Pool.StartWorkers,
-			MaxRequests:    workerMeta.Config.PHP.Pool.MaxRequests,
-			RequestTimeout: time.Duration(workerMeta.Config.PHP.Pool.RequestTimeout) * time.Second,
-			IdleTimeout:    time.Duration(workerMeta.Config.PHP.Pool.IdleTimeout) * time.Second,
-			ListenAddress:  workerMeta.Config.PHP.Pool.ListenAddress,
+		Settings:     workerMeta.Config.PHP.Settings,
+		PHPFPM: php.PHPFPMConfig{
+			Enabled:            true,
+			Listen:             fcgiServerAddr,
+			Transport:          "tcp",
+			GeneratedConfigDir: filepath.Join(os.TempDir(), "tqserver-phpfpm", worker.Name),
+			NoDaemonize:        true,
+			Env:                map[string]string{},
 		},
 	}
 
-	// Create PHP manager
-	manager, err := php.NewManager(binary, phpConfig, s.getFreePort)
-	if err != nil {
-		return fmt.Errorf("failed to create PHP manager: %w", err)
+	// Map pool fields
+	cfg.PHPFPM.Pool = php.PoolConfig{
+		Name:                    worker.Name,
+		PM:                      workerMeta.Config.PHP.Pool.Manager,
+		MaxChildren:             workerMeta.Config.PHP.Pool.MaxWorkers,
+		StartServers:            workerMeta.Config.PHP.Pool.StartWorkers,
+		MinSpareServers:         workerMeta.Config.PHP.Pool.MinWorkers,
+		MaxSpareServers:         workerMeta.Config.PHP.Pool.MaxWorkers,
+		MaxRequests:             workerMeta.Config.PHP.Pool.MaxRequests,
+		RequestTerminateTimeout: time.Duration(workerMeta.Config.PHP.Pool.RequestTimeout) * time.Second,
+		ProcessIdleTimeout:      time.Duration(workerMeta.Config.PHP.Pool.IdleTimeout) * time.Second,
 	}
 
-	// Start the pool
-	if err := manager.Start(); err != nil {
-		return fmt.Errorf("failed to start PHP pool: %w", err)
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("invalid php-fpm config: %w", err)
 	}
 
-	// Store manager
-	s.mu.Lock()
-	s.phpManagers[worker.Name] = manager
-	s.mu.Unlock()
+	// Start php-fpm via launcher
+	launcher := phpfpm.NewLauncher(cfg)
+	if err := launcher.Start(); err != nil {
+		return fmt.Errorf("failed to start php-fpm: %w", err)
+	}
 
-	// Create FastCGI handler
-	handler := php.NewFastCGIHandler(manager)
-
-	// Create and start FastCGI server
-	fcgiServer := fastcgi.NewServer(fcgiServerAddr, handler)
-	go func() {
-		if err := fcgiServer.ListenAndServe(); err != nil {
-			log.Printf("FastCGI server for %s stopped: %v", worker.Name, err)
+	// Wait for php-fpm to accept connections on the configured listen address.
+	// This avoids races where the proxy immediately tries to connect before
+	// php-fpm has bound the socket.
+	ready := false
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", cfg.PHPFPM.Listen, 250*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			ready = true
+			break
 		}
-	}()
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !ready {
+		// stop the launcher to cleanup generated files/process
+		_ = launcher.Stop(1 * time.Second)
+		return fmt.Errorf("php-fpm did not become ready on %s", cfg.PHPFPM.Listen)
+	}
 
-	// Store server
+	// Create client to talk to php-fpm
+	poolSize := cfg.PHPFPM.Pool.MaxChildren
+	if poolSize <= 0 {
+		poolSize = 2
+	}
+	client := phpfpm.NewClient(cfg.PHPFPM.Listen, cfg.PHPFPM.Transport, poolSize, 5*time.Second, cfg.PHPFPM.Pool.RequestTerminateTimeout)
+
+	// Store launcher and client
 	s.mu.Lock()
-	s.fastcgiServers[worker.Name] = fcgiServer
+	s.phpLaunchers[worker.Name] = launcher
+	s.phpClients[worker.Name] = client
 	s.mu.Unlock()
 
-	// Mark worker as healthy (PHP workers don't have a Process)
+	// php-fpm listens on the configured FastCGI address directly; we don't
+	// create an internal FastCGI server anymore. The launcher started php-fpm
+	// which binds to `cfg.PHPFPM.Listen`.
+
+	// Mark worker as healthy
 	worker.SetHealthy(true)
 
-	log.Printf("✅ PHP worker pool started for %s on %s (%s mode: %d-%d workers)",
+	log.Printf("✅ php-fpm started for %s on %s (pm=%s children=%d)",
 		worker.Name,
 		fcgiServerAddr,
-		workerMeta.Config.PHP.Pool.Manager,
-		workerMeta.Config.PHP.Pool.MinWorkers,
-		workerMeta.Config.PHP.Pool.MaxWorkers,
+		cfg.PHPFPM.Pool.PM,
+		cfg.PHPFPM.Pool.MaxChildren,
 	)
 
 	return nil
@@ -758,6 +884,37 @@ func (s *Supervisor) restartWorker(worker *Worker) error {
 	worker.mu.Lock()
 	worker.RequestCount = 0
 	worker.mu.Unlock()
+
+	// If this is a PHP worker, restart php-fpm via the adapter instead of
+	// attempting to build/start a Go binary.
+	if worker.IsPHP {
+		log.Printf("Restarting PHP worker %s", worker.Name)
+
+		// Retrieve worker config meta
+		workerMeta := s.getWorkerConfig(worker.Name)
+
+		// Capture existing launcher/client so we can stop them after bringing
+		// up the new instance.
+		s.mu.Lock()
+		oldLauncher := s.phpLaunchers[worker.Name]
+		oldClient := s.phpClients[worker.Name]
+		s.mu.Unlock()
+
+		// Start a fresh php-fpm instance for this worker
+		if err := s.startPHPWorker(worker, workerMeta); err != nil {
+			return fmt.Errorf("failed to restart php worker: %w", err)
+		}
+
+		// Stop old launcher/client
+		if oldLauncher != nil {
+			_ = oldLauncher.Stop(s.config.GetShutdownGracePeriod())
+		}
+		if oldClient != nil {
+			oldClient.Close()
+		}
+
+		return nil
+	}
 
 	// Check if binary exists; if not, rebuild
 	if worker.Binary == "" || !fileExists(worker.Binary) {
