@@ -139,17 +139,12 @@ http_response_code(200);
 
         <h2>TQServer Features</h2>
         <ul>
+            <li>✅ <strong>Proven Runtime:</strong> Runs via industry standard php-fpm adapter.</li>
             <li>✅ <strong>Dynamic Worker Pool:</strong> Automatic scaling based on load</li>
-            <li>✅ <strong>FastCGI Protocol:</strong> Compatible with Nginx, Apache, Caddy</li>
-            <li>✅ <strong>Hot Reload:</strong> Configuration changes without downtime</li>
+            <li>✅ <strong>Graceful Restart:</strong> Configuration changes without downtime</li>
+            <li>✅ <strong>Hot Reload:</strong> Reload web pages on file changes</li>
             <li>✅ <strong>Health Monitoring:</strong> Automatic worker restart on failures</li>
         </ul>
-
-        <div class="info">
-            <li>✅ <strong>Proven Runtime:</strong> Runs via industry standard php-fpm adapter.</li>
-            <p>Configuration is managed by TQServer and applied to the PHP runtime (via generated php-fpm pool configs
-                and launcher).</p>
-        </div>
 
         <h2>Current Request Environment</h2>
         <div class="info">

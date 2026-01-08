@@ -424,11 +424,7 @@ func (s *Supervisor) buildWorker(worker *Worker) error {
 	workerRoot := filepath.Join(s.projectRoot, s.config.Workers.Directory, worker.Name)
 	workerBinDir := filepath.Join(workerRoot, "bin")
 
-	// Clean bin directory to remove old binaries
-	// On Linux, this is safe even if the binary is running (inode is preserved until exit)
-	if err := os.RemoveAll(workerBinDir); err != nil {
-		log.Printf("Warning: failed to clean bin directory %s: %v", workerBinDir, err)
-	}
+	// Create bin directory if it doesn't exist
 	if err := os.MkdirAll(workerBinDir, 0755); err != nil {
 		return fmt.Errorf("failed to create bin directory: %w", err)
 	}
@@ -763,6 +759,14 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 		return err
 	}
 
+	// Prepare environment variables for PHP worker
+	envVars := map[string]string{
+		"WORKER_SERVER_MODE": s.config.Mode,
+		"WORKER_NAME":        worker.Name,
+		"WORKER_ROUTE":       worker.Route,
+		"WORKER_PORT":        fmt.Sprintf("%d", worker.Port),
+	}
+
 	cfg := &php.Config{
 		PHPFPMBinary: binaryPath,
 		PHPIni:       workerMeta.Config.PHP.ConfigFile,
@@ -774,7 +778,7 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 			Transport:          "tcp",
 			GeneratedConfigDir: filepath.Join(os.TempDir(), "tqserver-phpfpm", worker.Name),
 			NoDaemonize:        true,
-			Env:                map[string]string{},
+			Env:                envVars,
 		},
 	}
 
@@ -876,6 +880,17 @@ func (s *Supervisor) monitorWorkerLimits() {
 					continue
 				}
 
+				// For PHP workers, perform active health check
+				if worker.IsPHP {
+					if !s.checkPHPHealth(worker) {
+						log.Printf("PHP worker active health check failed for %s, marking as unhealthy", worker.Route)
+						worker.SetHealthy(false)
+						// Will be picked up by the check at the start of next iteration (or continue below loop logical flow)
+						// Actually simpler to just continue to next iteration where it receives restart logic
+						continue
+					}
+				}
+
 				// Check max_requests limit from worker config
 				workerConfig := s.getWorkerConfig(worker.Name)
 				if workerConfig != nil && workerConfig.Config.Go.MaxRequests > 0 {
@@ -962,6 +977,32 @@ func (s *Supervisor) restartWorker(worker *Worker) error {
 	}
 
 	return nil
+}
+
+// checkPHPHealth performs an active TCP probe to check if the PHP worker is reachable
+func (s *Supervisor) checkPHPHealth(worker *Worker) bool {
+	if worker.Port == 0 {
+		return false // Should have a port
+	}
+
+	workerMeta := s.getWorkerConfig(worker.Name)
+	if workerMeta == nil || workerMeta.Config.PHP == nil {
+		return false
+	}
+
+	host := workerMeta.Config.PHP.Pool.ListenAddress
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	addr := fmt.Sprintf("%s:%d", host, worker.Port)
+
+	conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+	if err != nil {
+		log.Printf("Health check failed for PHP worker %s (%s): %v", worker.Name, addr, err)
+		return false
+	}
+	conn.Close()
+	return true
 }
 
 // fileExists checks if a file exists
