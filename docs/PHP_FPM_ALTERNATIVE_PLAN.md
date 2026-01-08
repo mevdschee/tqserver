@@ -85,7 +85,7 @@ To become a PHP-FPM alternative, TQServer needs:
 - ❌ **Slow Request Logging**: Identify performance bottlenecks
 - ❌ **Emergency Restart**: Automatic recovery from catastrophic failures
 
-**Key Difference**: We use `php-cgi` (not `php-fpm`), eliminating PHP-FPM pool config files. TQServer manages all pool/process configuration. You can optionally use existing php.ini files as a base, with TQServer overriding specific settings via CLI flags.
+**Key Difference (Updated)**: We now prefer a `php-fpm`-first architecture: TQServer generates php-fpm pool/config files and launches `php-fpm` in the foreground, communicating with it via a pooled FastCGI client. The older per-worker `php-cgi` approach is deprecated/removed in favor of a single php-fpm listener per pool.
 
 ---
 
@@ -320,19 +320,18 @@ func (r *Router) RoutePHP(path string) (*PoolConfig, error)
 ### ✅ Phase 1: FastCGI Protocol (COMPLETE)
 - ✅ FastCGI protocol encoder/decoder (`pkg/fastcgi/protocol.go`)
 - ✅ FastCGI connection handling (`pkg/fastcgi/conn.go`)
-- ✅ FastCGI server implementation (`pkg/fastcgi/server.go`)
+- ⚠️ In-process FastCGI server implementation (`pkg/fastcgi/server.go`) has been retired — TQServer now uses php-fpm as the FastCGI server and provides a pooled FastCGI client/adapter instead.
 - ✅ Comprehensive test suite with TCP/pipe tests
 - ✅ Fixed buffering issues for multiple records in single packet
 - ✅ Support for records larger than 8KB (tested up to 122KB)
 
-### ✅ Phase 2: PHP-CGI Integration (COMPLETE)
-- ✅ PHP process spawning with configurable settings
-- ✅ Worker pool management (dynamic/static modes)
-- ✅ Request proxying from FastCGI server to PHP workers
-- ✅ Internal worker ports (9002+) with external FastCGI server (9001)
+### ✅ Phase 2: PHP Integration (MIGRATED)
+- ✅ Legacy `php-cgi` per-process integration (previous approach) — implementation replaced
+- ✅ New php-fpm-first flow: TQServer generates php-fpm pool configs, launches `php-fpm -F -y <config>`, and communicates via a pooled FastCGI client (`pkg/php/phpfpm`)
+- ✅ Worker pool management retained as logical slots (adapter-backed) — OS-level worker spawning moved to php-fpm
 - ✅ Health monitoring and socket verification
-- ✅ Graceful worker shutdown with SIGTERM
-- ✅ Environment variable configuration (PHP_FCGI_MAX_REQUESTS)
+- ✅ Graceful worker handling via supervisor + php-fpm launcher
+- ✅ Environment configuration supported via generated php-fpm pool settings and PHP INI overrides
 
 ### 🚧 Phase 3: Advanced Pool Management (IN PROGRESS)
 - ✅ Dynamic pool with min/max workers
@@ -361,7 +360,7 @@ func (r *Router) RoutePHP(path string) (*PoolConfig, error)
    - [x] Error handling and protocol violations
 
 2. Implement FastCGI server
-   - [x] TCP listener on configurable port (default: 9000)
+   - [x] TCP listener on configurable port (default: 9000) — note: an in-process server was implemented originally, but the project migrated to php-fpm-first and the in-process server was retired.
    - [ ] Unix socket support
    - [x] Connection pooling
    - [ ] Request parameter extraction (SCRIPT_FILENAME, QUERY_STRING, etc.)

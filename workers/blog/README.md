@@ -45,11 +45,11 @@ curl http://localhost:8080/info.php
 - [x] Large response handling (tested with 122KB phpinfo)
 - [x] Buffered reading for TCP packet handling
 
-### Phase 2: PHP Integration (php-fpm adapter / php-cgi) ✅ COMPLETE
-- [x] Support php-fpm-first via launcher + adapter
-- [x] Spawn php-cgi workers on internal ports (legacy/dev)
-- [x] Configure via CLI flags (`-d` overrides) or launcher config
-- [x] Request proxying (FastCGI → PHP workers)
+### Phase 2: PHP Integration (php-fpm-first) ✅ COMPLETE
+- [x] Support php-fpm-first via launcher + adapter (`pkg/php/phpfpm`)
+- [x] Legacy php-cgi per-process spawning removed in favor of php-fpm-managed pools
+- [x] Configure via generated php-fpm pool config and CLI/INI overrides
+- [x] Request proxying (FastCGI client → php-fpm)
 - [x] Error handling and connection management
 - [x] SCRIPT_FILENAME and CGI parameter mapping
 - [x] REDIRECT_STATUS parameter support
@@ -75,7 +75,7 @@ curl http://localhost:8080/info.php
 
 The `worker.yaml` file demonstrates TQServer's approach:
 
-1. **No PHP-FPM config files**: All pool/process management is in TQServer's YAML
+1. **php-fpm-first**: TQServer can generate php-fpm pool/config files and launch `php-fpm` in the foreground; the legacy per-worker `php-cgi` spawning approach is deprecated.
 2. **Optional php.ini**: Can use existing ini files as base configuration
 3. **CLI overrides**: Individual settings via `-d` flags to the PHP process (CLI for `php-cgi` or launcher/env for `php-fpm`)
 4. **Flexible pools**: Different configs per route/worker
@@ -90,9 +90,9 @@ bash start.sh
 
 # TQServer automatically:
 # 1. Reads workers/blog/config/worker.yaml
-# 2. Starts public FastCGI server on 127.0.0.1:9001
-# 3. Spawns or connects to PHP workers on internal ports (e.g. 9002, 9003, 9004) or uses php-fpm listen socket
-# 4. Handles requests: Browser → TQServer:8080 → FastCGI:9001 → PHP workers
+# 2. Generates php-fpm pool config and launches `php-fpm` (or connects to configured php-fpm)
+# 3. Uses a pooled FastCGI client to forward requests to php-fpm
+# 4. Handles requests: Browser → TQServer:8080 → FastCGI (php-fpm) → PHP workers
 ```
 
 ### Test Endpoints
@@ -122,8 +122,9 @@ for i in {1..10}; do curl http://localhost:8080/blog/hello.php & done; wait
 ## Next Steps
 
 ### Completed ✅
-1. ✅ FastCGI server integration with TQServer
-2. ✅ PHP-CGI process spawning and management
+### Completed ✅
+1. ✅ FastCGI client + php-fpm integration with TQServer
+2. ✅ php-fpm-first process management (legacy php-cgi spawning removed)
 3. ✅ Direct HTTP handling (no Nginx needed for dev)
 4. ✅ Dynamic and static pool management
 5. ✅ Health checks and socket verification

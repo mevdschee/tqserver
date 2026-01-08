@@ -5,7 +5,7 @@
 
 ## Summary
 
-Successfully implemented the integration between Phase 1 (FastCGI Protocol) and Phase 2 (PHP Process Management), creating a working PHP-FPM alternative with the **dynamic pool manager** (PHP-FPM's most popular configuration).
+Successfully implemented the integration between Phase 1 (FastCGI Protocol) and Phase 2 (PHP Process Management). Note: the project migrated to a php-fpm-first architecture — TQServer now generates php-fpm pool configs and launches `php-fpm` in the foreground, communicating with it via a pooled FastCGI client/adapter rather than hosting an in-process FastCGI server.
 
 **Latest Updates (January 8, 2026):**
 - ✅ Fixed critical FastCGI protocol bug causing hangs with multiple records in single TCP packet
@@ -17,20 +17,19 @@ Successfully implemented the integration between Phase 1 (FastCGI Protocol) and 
 ## What Was Implemented
 
 ### 1. PHP-FastCGI Bridge Handler (`pkg/php/handler.go`)
-- Created `FastCGIHandler` that connects FastCGI requests to PHP workers
+- Created `FastCGIHandler` that proxies FastCGI requests to the php-fpm adapter
 - Implements `fastcgi.Handler` interface
 - Request flow:
-  1. Acquires idle PHP worker from pool
-  2. Connects to worker's socket (tcp or unix)
-  3. Forwards FastCGI request (begin, params, stdin)
-  4. Streams response back to client (stdout, stderr, end request)
-  5. Releases worker back to pool
+   1. Receives FastCGI request from router/proxy
+   2. Forwards request to the pooled php-fpm client (adapter) which connects to `php-fpm`'s listen address
+   3. Streams response back to the client (stdout, stderr, end request)
+   4. Tracks logical worker slot statistics (adapter-backed)
 
 **Key Features:**
-- Full FastCGI protocol forwarding
-- Worker state management (active/idle transitions)
+- Full FastCGI protocol forwarding via pooled client
+- Adapter-backed logical worker bookkeeping (no per-request OS process spawning)
 - Error handling and logging
-- Connection pooling via php-cgi sockets
+- Connection pooling to php-fpm
 
 ### 2. FastCGI Connection Methods (`pkg/fastcgi/conn.go`)
 Extended FastCGI connection with methods for sending requests:
@@ -57,15 +56,15 @@ Updated `WorkerConfig` to support:
 - `fastcgi.*` - FastCGI listen address
 
 #### Supervisor Updates (`supervisor.go`)
-- Added PHP manager and FastCGI server tracking
-- `startPHPWorker()` - Initialize PHP pool and FastCGI server
-- Graceful shutdown of PHP workers
+- Added PHP manager and php-fpm launcher tracking
+- `startPHPWorker()` - Generate php-fpm pool config, start `php-fpm -F -y <config>` (supervised), and create a pooled FastCGI client to communicate with php-fpm
+- Graceful shutdown of php-fpm launcher and cleanup
 - Type-based worker dispatch (Go vs PHP)
 
-**Worker Lifecycle:**
+**Worker Lifecycle (php-fpm-first):**
 ```
 Config Load → Type Check → PHP Worker?
-                              ├─ Yes: Start PHP Pool + FastCGI Server
+                              ├─ Yes: Generate php-fpm pool config + Start php-fpm (supervised)
                               └─ No:  Build & Start Go Worker
 ```
 
@@ -74,14 +73,14 @@ Production-ready configuration using **dynamic** pool manager:
 ```yaml
 type: php
 php:
-  pool:
-    manager: dynamic        # ← Most popular PHP-FPM mode
-    min_workers: 2          # Minimum idle workers
-    max_workers: 10         # Maximum under load
-    start_workers: 3        # Initial worker count
-    max_requests: 1000      # Worker recycling
+   pool:
+      manager: dynamic        # ← Most popular php-fpm mode
+      min_workers: 2          # Minimum idle workers
+      max_workers: 10         # Maximum under load
+      start_workers: 3        # Initial worker count
+      max_requests: 1000      # Worker recycling
 fastcgi:
-  listen: "127.0.0.1:9001"  # FastCGI endpoint
+   listen: "127.0.0.1:9001"  # php-fpm listen address (TQServer will generate/assign if empty)
 ```
 
 **Dynamic Manager Behavior:**
@@ -130,22 +129,22 @@ Beautiful test page demonstrating:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Request Flow
+## Request Flow (php-fpm-first)
 
 ```
 1. HTTP Request → Nginx
-2. Nginx → FastCGI → TQServer:9001
-3. TQServer FastCGI Handler → PHP Manager
-4. PHP Manager → Get Idle Worker
-5. Worker (php-cgi) → Execute index.php
-6. Response → FastCGI Protocol → TQServer
-7. TQServer → Nginx → Client
+2. Nginx → FastCGI → TQServer (acts as FastCGI proxy/client)
+3. TQServer forwards request via pooled FastCGI client to php-fpm listen address
+4. php-fpm routes request to a PHP worker process in its pool
+5. Response → php-fpm → FastCGI → TQServer adapter
+6. TQServer → Nginx → Client
 ```
 
 ## Files Created/Modified
 
-### New Files
-- ✅ `pkg/php/handler.go` (145 lines) - FastCGI bridge
+### New/Updated Files
+- ✅ `pkg/php/handler.go` (145 lines) - FastCGI bridge to php-fpm adapter
+- ✅ `pkg/php/phpfpm/` - launcher, adapter, config generator, handler (php-fpm-first)
 - ✅ `workers/blog/public/index.php` (166 lines) - Demo application
 - ✅ `docs/PHASE2_INTEGRATION.md` (this file)
 
@@ -169,31 +168,28 @@ $ go build -o server/bin/tqserver server/src/*.go
 
 To test the implementation, you need:
 
-1. **Install PHP-CGI:**
+1. **Install php-fpm (recommended):**
    ```bash
    # Ubuntu/Debian
-   sudo apt-get install php-cgi
-   
+   sudo apt-get install php-fpm
+
    # macOS (Homebrew)
    brew install php
-   
+
    # Verify installation
-   which php-cgi
-   php-cgi -v
+   which php-fpm
+   php-fpm -v
    ```
 
 2. **Start TQServer:**
    ```bash
    cd /home/maurits/projects/tqserver
-   ./server/bin/tqserver
+   bash start.sh
    ```
 
 3. **Test with curl:**
    ```bash
-   # Test PHP worker directly
-   curl http://localhost:9001/blog/
-   
-   # Or via main server (if router proxies FastCGI)
+   # Via main server
    curl http://localhost:8080/blog/
    ```
 

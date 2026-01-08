@@ -2,7 +2,7 @@
 
 ## Overview
 
-Successfully implemented **Phase 2: PHP-CGI Process Management** for TQServer. The implementation provides a complete, production-ready PHP-FPM alternative with superior process management capabilities.
+Successfully implemented **Phase 2: PHP Integration** for TQServer. The implementation originally supported direct `php-cgi` process management but has been migrated to a php-fpm-first architecture: TQServer generates php-fpm pool configs, launches `php-fpm -F -y <config>`, and communicates with php-fpm via a pooled FastCGI client.
 
 ## What Was Built
 
@@ -52,7 +52,7 @@ Successfully implemented **Phase 2: PHP-CGI Process Management** for TQServer. T
 
 ## Key Features
 
-✅ **No PHP-FPM Required** - Direct php-cgi management  
+✅ **php-fpm-first supported** - TQServer generates php-fpm pool configs and can launch `php-fpm` in the foreground. Legacy direct `php-cgi` management is deprecated.
 ✅ **Flexible Configuration** - php.ini base + individual overrides  
 ✅ **Three Pool Modes** - Static, dynamic, ondemand  
 ✅ **Automatic Recovery** - Crashed workers automatically replaced  
@@ -75,17 +75,17 @@ TQServer
        └─> Health Monitor (goroutine)
 ```
 
-### Configuration Flow
+### Configuration Flow (php-fpm-first)
 ```
 worker.yaml
   ↓
 Config struct
   ↓
-Binary.BuildArgs()
+Generate php-fpm pool config + php.ini/overrides
   ↓
-php-cgi -c php.ini -b socket -d setting=value
+Launch `php-fpm -F -y <generated-config>` (supervised by TQServer)
   ↓
-Worker process
+TQServer uses pooled FastCGI client to communicate with php-fpm
 ```
 
 ### Worker Lifecycle
@@ -252,10 +252,10 @@ docs/
 
 ## Known Limitations
 
-1. **Requires php-cgi** - Must have php-cgi binary installed
-2. **No Unix sockets yet** - TCP sockets only (Phase 3)
-3. **No OPcache management** - Manual configuration only
-4. **No slow request logging** - Coming in Phase 4
+1. **php-fpm or php-cgi** - TQServer prefers `php-fpm` (launched by the supervisor); legacy `php-cgi` support is available for testing but is no longer the recommended production flow.
+2. **Unix socket support** - Some code paths still favor TCP; unix socket support is an outstanding item.
+3. **OPcache management** - Manual configuration via php.ini or pool config; integration is planned.
+4. **Slow request logging** - Coming in Phase 4
 
 ## Conclusion
 
