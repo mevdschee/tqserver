@@ -73,3 +73,51 @@ func TestClientDoRequest(t *testing.T) {
 		t.Fatalf("unexpected stdout: %q", string(stdout))
 	}
 }
+
+func TestClientPoolingReuse(t *testing.T) {
+	// start a fake server that keeps the connection open and handles two requests
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		fc := fastcgi.NewConn(conn, 5*time.Second, 5*time.Second)
+		// handle two requests sequentially
+		for i := 0; i < 2; i++ {
+			req, err := fc.ReadRequest()
+			if err != nil {
+				return
+			}
+			_ = fc.SendStdout(req.RequestID, []byte("ok"))
+			_ = fc.SendStdout(req.RequestID, nil)
+			_ = fc.SendEndRequest(req.RequestID, 0, uint8(fastcgi.StatusRequestComplete))
+		}
+		conn.Close()
+	}()
+
+	addr := ln.Addr().String()
+	client := NewClient(addr, "tcp", 1, 2*time.Second, 2*time.Second)
+	defer client.Close()
+
+	for i := 0; i < 2; i++ {
+		stdout, stderr, appStatus, err := client.DoRequest(map[string]string{"SCRIPT_FILENAME": "index.php"}, nil)
+		if err != nil {
+			t.Fatalf("DoRequest(%d) error: %v", i, err)
+		}
+		if appStatus != 0 {
+			t.Fatalf("unexpected appStatus: %d", appStatus)
+		}
+		if len(stderr) != 0 {
+			t.Fatalf("unexpected stderr: %s", string(stderr))
+		}
+		if string(stdout) != "ok" {
+			t.Fatalf("unexpected stdout: %q", string(stdout))
+		}
+	}
+}
