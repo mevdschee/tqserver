@@ -18,6 +18,7 @@ var (
 // Conn represents a FastCGI connection
 type Conn struct {
 	netConn      net.Conn
+	reader       *bufio.Reader
 	readTimeout  time.Duration
 	writeTimeout time.Duration
 	mu           sync.Mutex
@@ -38,6 +39,7 @@ type Request struct {
 func NewConn(netConn net.Conn, readTimeout, writeTimeout time.Duration) *Conn {
 	return &Conn{
 		netConn:      netConn,
+		reader:       bufio.NewReader(netConn),
 		readTimeout:  readTimeout,
 		writeTimeout: writeTimeout,
 	}
@@ -49,16 +51,13 @@ func (c *Conn) ReadRequest() (*Request, error) {
 		Params: make(map[string]string),
 	}
 
-	// Use buffered reader to properly handle multiple records in a single TCP packet
-	reader := bufio.NewReader(c.netConn)
-
 	for {
 		if c.readTimeout > 0 {
 			c.netConn.SetReadDeadline(time.Now().Add(c.readTimeout))
 		}
 
 		// Peek at the header to determine record size
-		headerBytes, err := reader.Peek(HeaderSize)
+		headerBytes, err := c.reader.Peek(HeaderSize)
 		if err != nil {
 			if err == io.EOF {
 				return nil, ErrConnClosed
@@ -76,7 +75,7 @@ func (c *Conn) ReadRequest() (*Request, error) {
 
 		// Read the complete record
 		recordBytes := make([]byte, totalSize)
-		if _, err := io.ReadFull(reader, recordBytes); err != nil {
+		if _, err := io.ReadFull(c.reader, recordBytes); err != nil {
 			if err == io.EOF {
 				return nil, ErrConnClosed
 			}
@@ -306,16 +305,34 @@ func (c *Conn) ReadRecord() (*Record, error) {
 		c.netConn.SetReadDeadline(time.Now().Add(c.readTimeout))
 	}
 
-	buf := make([]byte, 8192)
-	n, err := c.netConn.Read(buf)
+	// Peek at the header to determine record size
+	headerBytes, err := c.reader.Peek(HeaderSize)
 	if err != nil {
 		if err == io.EOF {
 			return nil, ErrConnClosed
 		}
-		return nil, fmt.Errorf("read: %w", err)
+		return nil, fmt.Errorf("peek header: %w", err)
 	}
 
-	record, _, err := DecodeRecord(buf[:n])
+	header, err := DecodeHeader(headerBytes)
+	if err != nil {
+		return nil, fmt.Errorf("decode header: %w", err)
+	}
+
+	// Calculate total record size
+	totalSize := HeaderSize + int(header.ContentLength) + int(header.PaddingLength)
+
+	// Read the complete record
+	recordBytes := make([]byte, totalSize)
+	if _, err := io.ReadFull(c.reader, recordBytes); err != nil {
+		if err == io.EOF {
+			return nil, ErrConnClosed
+		}
+		return nil, fmt.Errorf("read record: %w", err)
+	}
+
+	// Decode the record
+	record, _, err := DecodeRecord(recordBytes)
 	if err != nil {
 		return nil, fmt.Errorf("decode record: %w", err)
 	}
