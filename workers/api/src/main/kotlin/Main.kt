@@ -119,7 +119,7 @@ fun main() {
     val runtime = WorkerRuntime()
     val service = ItemService()
     
-    service.create(CreateItemRequest("Sample Item 6", "This is a sample item"))
+    service.create(CreateItemRequest("Sample Item 1", "This is a sample item"))
 
     runtime.log("Starting Kotlin API worker on port ${runtime.port}")
     runtime.log("Worker route: ${runtime.route}")
