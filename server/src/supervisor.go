@@ -349,6 +349,8 @@ func (s *Supervisor) spawnWorkerInstance(w *Worker) (*WorkerInstance, error) {
 	env = append(env, fmt.Sprintf("WORKER_PORT=%d", port))
 	env = append(env, fmt.Sprintf("WORKER_NAME=%s", w.Name))
 	env = append(env, fmt.Sprintf("WORKER_ROUTE=%s", w.Route))
+	env = append(env, fmt.Sprintf("WORKER_TYPE=%s", w.Type))
+	env = append(env, fmt.Sprintf("WORKER_MODE=%s", s.config.Mode))
 	env = append(env, fmt.Sprintf("PORT=%d", port)) // Standard for many libs
 
 	if w.Type == "bun" && workerMeta != nil && workerMeta.Config.Bun != nil {

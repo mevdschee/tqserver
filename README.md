@@ -7,10 +7,12 @@ A high-performance function execution platform built with Go that provides sub-s
 TQServer bridges the gap between a high-performance web server and a flexible function-as-a-service development platform. 
 
 ### Key Features
+
 - **Sub-second hot reloads** - Changes to page code are automatically detected, rebuilt, and deployed in ~0.3-1.0 seconds
-- **Process isolation** - Each route runs in its own process
-- **Native Go performance** - Workers are compiled Go binaries, not interpreted scripts
-- **Graceful worker restarts** - Zero-downtime deployments with traffic switching
+- **Graceful restarts** - Zero-downtime deployments with traffic switching
+- **Go (binary)** - Go workers are compiled binaries, not interpreted scripts
+- **PHP (php-fpm)** - PHP workers are started as php-fpm processes
+- **Typescript (Bun)** - Typescript workers are started as Bun processes
 
 ## Quick Start
 

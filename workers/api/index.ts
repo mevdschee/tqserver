@@ -1,4 +1,10 @@
 import express from 'express';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = parseInt(process.env.PORT || '3000');
@@ -58,6 +64,37 @@ app.post('/items', (req, res) => {
 app.get('/bench', (req, res) => {
     res.set('Content-Type', 'text/plain');
     res.send('hello world');
+});
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/', (req, res) => {
+    const templatePath = path.join(__dirname, 'views', 'index.html');
+    try {
+        let html = fs.readFileSync(templatePath, 'utf8');
+
+        // Replace placeholders
+        html = html.replace(/{{\s*PageTitle\s*}}/g, 'API Worker');
+        html = html.replace(/{{\s*Route\s*}}/g, process.env.WORKER_NAME || '');
+        html = html.replace(/{{\s*Type\s*}}/g, process.env.WORKER_TYPE || '');
+        html = html.replace(/{{\s*Port\s*}}/g, process.env.WORKER_PORT || '');
+        html = html.replace(/{{\s*Method\s*}}/g, req.method);
+        html = html.replace(/{{\s*Path\s*}}/g, req.url);
+        html = html.replace(/{{\s*Time\s*}}/g, new Date().toLocaleString());
+
+        // Always inject dev reload script for now as requested by user context (dev environment)
+        if (process.env.WORKER_MODE === 'dev') {
+            html = html.replace(/{{\s*DevReload\s*}}/g, '<script src="/dev-reload.js"></script>');
+        } else {
+            html = html.replace(/{{\s*DevReload\s*}}/g, '');
+        }
+
+        res.set('Content-Type', 'text/html');
+        res.send(html);
+    } catch (err) {
+        console.error('Error serving template:', err);
+        res.status(500).send('Error serving template');
+    }
 });
 
 // Start server

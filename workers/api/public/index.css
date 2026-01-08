@@ -1,0 +1,54 @@
+.info-box {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 5px;
+    margin: 1.5rem 0;
+    border-left: 4px solid #667eea;
+}
+
+.info-box p {
+    margin: 0.5rem 0;
+}
+
+.info-box strong {
+    color: #555;
+    min-width: 140px;
+    display: inline-block;
+}
+
+.features {
+    margin-top: 2rem;
+}
+
+.features h3 {
+    color: #2c3e50;
+    margin: 1.5rem 0 1rem 0;
+}
+
+.features ul {
+    list-style: none;
+    padding: 0;
+}
+
+.features li {
+    padding: 0.5rem 0;
+    padding-left: 1.5rem;
+    position: relative;
+}
+
+.features li:before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: #27ae60;
+    font-weight: bold;
+}
+
+.success {
+    background: #d4edda;
+    color: #155724;
+    padding: 1rem;
+    border-radius: 5px;
+    margin-top: 1.5rem;
+    border-left: 4px solid #28a745;
+}
