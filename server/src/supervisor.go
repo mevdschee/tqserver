@@ -12,7 +12,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/mevdschee/tqserver/pkg/php"
-	phpfpmpkg "github.com/mevdschee/tqserver/pkg/php/phpfpm"
+	"github.com/mevdschee/tqserver/pkg/phpfpm"
 )
 
 // Supervisor manages worker lifecycle: building, starting, stopping, and restarting
@@ -30,8 +30,8 @@ type Supervisor struct {
 
 	// PHP support
 	// php-fpm supervised instances + clients (single-port per worker)
-	phpLaunchers map[string]*phpfpmpkg.Launcher
-	phpClients   map[string]*phpfpmpkg.Client
+	phpLaunchers map[string]*phpfpm.Launcher
+	phpClients   map[string]*phpfpm.Client
 }
 
 // getFreePort returns the next available port for a worker and advances the pool
@@ -55,8 +55,8 @@ func NewSupervisor(config *Config, projectRoot string, router *Router, workerCon
 		workerConfigs: workerConfigs,
 		nextPort:      config.Workers.PortRangeStart,
 		stopChan:      make(chan struct{}),
-		phpLaunchers:  make(map[string]*phpfpmpkg.Launcher),
-		phpClients:    make(map[string]*phpfpmpkg.Client),
+		phpLaunchers:  make(map[string]*phpfpm.Launcher),
+		phpClients:    make(map[string]*phpfpm.Client),
 	}
 }
 
@@ -681,7 +681,7 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 	}
 
 	// Start php-fpm via launcher
-	launcher := phpfpmpkg.NewLauncher(cfg)
+	launcher := phpfpm.NewLauncher(cfg)
 	if err := launcher.Start(); err != nil {
 		return fmt.Errorf("failed to start php-fpm: %w", err)
 	}
@@ -691,7 +691,7 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 	if poolSize <= 0 {
 		poolSize = 2
 	}
-	client := phpfpmpkg.NewClient(cfg.PHPFPM.Listen, cfg.PHPFPM.Transport, poolSize, 5*time.Second, cfg.PHPFPM.Pool.RequestTerminateTimeout)
+	client := phpfpm.NewClient(cfg.PHPFPM.Listen, cfg.PHPFPM.Transport, poolSize, 5*time.Second, cfg.PHPFPM.Pool.RequestTerminateTimeout)
 
 	// Store launcher and client
 	s.mu.Lock()

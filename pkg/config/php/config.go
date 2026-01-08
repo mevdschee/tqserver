@@ -6,7 +6,6 @@ import (
 )
 
 // Config represents PHP / php-fpm configuration used by the runtime.
-// This refactor uses a php-fpm-first configuration model (no backwards compatibility).
 type Config struct {
 	// Path to the php-fpm binary to execute in dev/supervised mode.
 	PHPFPMBinary string

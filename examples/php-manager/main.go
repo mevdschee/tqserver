@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/mevdschee/tqserver/pkg/php"
-	phpfpmpkg "github.com/mevdschee/tqserver/pkg/php/phpfpm"
+	"github.com/mevdschee/tqserver/pkg/phpfpm"
 )
 
 func main() {
@@ -51,7 +51,7 @@ func main() {
 	log.Printf("Using php-fpm binary: %s", binaryPath)
 
 	log.Println("Starting php-fpm via Launcher...")
-	launcher := phpfpmpkg.NewLauncher(config)
+	launcher := phpfpm.NewLauncher(config)
 	if err := launcher.Start(); err != nil {
 		log.Fatalf("Failed to start php-fpm: %v", err)
 	}

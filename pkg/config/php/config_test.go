@@ -86,25 +86,3 @@ func TestPoolConfigGetInitialWorkerCount(t *testing.T) {
 		})
 	}
 }
-
-func TestWorkerState(t *testing.T) {
-	states := []WorkerState{
-		WorkerStateIdle,
-		WorkerStateActive,
-		WorkerStateTerminating,
-		WorkerStateCrashed,
-	}
-
-	expectedStrings := []string{
-		"idle",
-		"active",
-		"terminating",
-		"crashed",
-	}
-
-	for i, state := range states {
-		if state.String() != expectedStrings[i] {
-			t.Errorf("WorkerState.String() = %s, want %s", state.String(), expectedStrings[i])
-		}
-	}
-}
