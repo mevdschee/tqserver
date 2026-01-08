@@ -168,8 +168,20 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	log.Printf("%s %s -> worker on port %d", r.Method, r.URL.Path, worker.Port)
-	proxy.ServeHTTP(w, r)
+	// Trim the worker route prefix before proxying so the backend
+	// receives the path it registers (e.g. worker registers /items,
+	// proxy should send /items instead of /api/items).
+	proxiedReq := r.Clone(r.Context())
+	trimmedPath := strings.TrimPrefix(r.URL.Path, worker.Route)
+	if trimmedPath == "" {
+		trimmedPath = "/"
+	}
+	proxiedReq.URL.Path = trimmedPath
+	proxiedReq.URL.RawPath = trimmedPath
+	proxiedReq.RequestURI = ""
+
+	log.Printf("%s %s -> worker on port %d (proxied path: %s)", r.Method, r.URL.Path, worker.Port, trimmedPath)
+	proxy.ServeHTTP(w, proxiedReq)
 
 	// Increment request count for this worker (used for monitoring)
 	worker.IncrementRequestCount()

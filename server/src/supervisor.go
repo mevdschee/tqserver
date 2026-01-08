@@ -32,6 +32,8 @@ type Supervisor struct {
 	// PHP support
 	phpManagers    map[string]*php.Manager    // keyed by worker name
 	fastcgiServers map[string]*fastcgi.Server // keyed by worker name
+	// Kotlin continuous builders (dev mode)
+	kotlinBuilders map[string]*exec.Cmd // keyed by worker name
 }
 
 // getFreePort returns the next available port for a worker and advances the pool
@@ -57,6 +59,7 @@ func NewSupervisor(config *Config, projectRoot string, router *Router, workerCon
 		stopChan:       make(chan struct{}),
 		phpManagers:    make(map[string]*php.Manager),
 		fastcgiServers: make(map[string]*fastcgi.Server),
+		kotlinBuilders: make(map[string]*exec.Cmd),
 	}
 }
 
@@ -111,6 +114,18 @@ func (s *Supervisor) Start() error {
 		} else {
 			// Standard Go worker
 			// Build and start the worker
+			if workerMeta.Config.Type == "kotlin" && s.config.IsDevelopmentMode() {
+				// For Kotlin workers in dev mode, start a long-running continuous
+				// Gradle builder so incremental builds are instantaneous. The
+				// wrapper script in bin/ will pick up the JAR produced in
+				// build/libs/*.jar.
+				if err := s.startKotlinContinuousBuilder(worker); err != nil {
+					log.Printf("Failed to start Kotlin continuous builder for %s: %v", workerMeta.Name, err)
+				}
+				// Ensure binary is set to wrapper script in bin/
+				worker.Binary = filepath.Join(s.projectRoot, s.config.Workers.Directory, worker.Name, "bin", worker.Name)
+			}
+
 			if err := s.buildWorker(worker); err != nil {
 				log.Printf("Failed to build worker %s: %v", workerMeta.Name, err)
 				continue
@@ -180,7 +195,61 @@ func (s *Supervisor) Stop() {
 	}
 	s.mu.Unlock()
 
+	// Stop Kotlin continuous builders
+	s.mu.Lock()
+	for name, cmd := range s.kotlinBuilders {
+		if cmd.Process != nil {
+			log.Printf("Stopping Kotlin builder for %s (PID: %d)", name, cmd.Process.Pid)
+			cmd.Process.Signal(os.Interrupt)
+			time.Sleep(100 * time.Millisecond)
+			cmd.Process.Kill()
+		}
+	}
+	s.mu.Unlock()
+
 	s.wg.Wait()
+}
+
+// startKotlinContinuousBuilder starts a background Gradle process in --continuous
+// mode for the given worker so changes trigger fast incremental builds.
+func (s *Supervisor) startKotlinContinuousBuilder(worker *Worker) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, ok := s.kotlinBuilders[worker.Name]; ok {
+		// already running
+		return nil
+	}
+
+	workerRoot := filepath.Join(s.projectRoot, s.config.Workers.Directory, worker.Name)
+	gradlewPath := filepath.Join(workerRoot, "gradlew")
+	if _, err := os.Stat(gradlewPath); os.IsNotExist(err) {
+		return fmt.Errorf("gradlew not found at %s", gradlewPath)
+	}
+
+	cmd := exec.Command("./gradlew", "build", "-x", "test", "--continuous", "--build-cache", "--parallel", "--configure-on-demand")
+	cmd.Dir = workerRoot
+	cmd.Env = os.Environ()
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start gradle continuous process: %w", err)
+	}
+
+	s.kotlinBuilders[worker.Name] = cmd
+
+	// Monitor the process and remove from map when it exits
+	go func(name string, c *exec.Cmd) {
+		_ = c.Wait()
+		s.mu.Lock()
+		delete(s.kotlinBuilders, name)
+		s.mu.Unlock()
+		log.Printf("Kotlin continuous builder stopped for %s", name)
+	}(worker.Name, cmd)
+
+	log.Printf("Started Kotlin continuous builder for %s (PID: %d)", worker.Name, cmd.Process.Pid)
+	return nil
 }
 
 // watchDirectory recursively watches a directory and its subdirectories
@@ -205,10 +274,30 @@ func (s *Supervisor) watchDirectory(dir string) error {
 			shouldWatch := dirName == "src" || dirName == "config" || parentName == filepath.Base(s.config.Workers.Directory) || path == dir
 
 			if shouldWatch {
-				if err := s.watcher.Add(path); err != nil {
-					log.Printf("Warning: failed to watch %s: %v", path, err)
+				// If this is a src or config directory, also watch all nested
+				// subdirectories so edits in nested packages (e.g. src/main/kotlin)
+				// emit events.
+				if dirName == "src" || dirName == "config" {
+					// Walk this subtree and add watchers for every directory.
+					_ = filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
+						if err != nil {
+							return err
+						}
+						if info.IsDir() {
+							if err := s.watcher.Add(p); err != nil {
+								log.Printf("Warning: failed to watch %s: %v", p, err)
+							} else {
+								log.Printf("Watching: %s", p)
+							}
+						}
+						return nil
+					})
 				} else {
-					log.Printf("Watching: %s", path)
+					if err := s.watcher.Add(path); err != nil {
+						log.Printf("Warning: failed to watch %s: %v", path, err)
+					} else {
+						log.Printf("Watching: %s", path)
+					}
 				}
 			}
 		}
@@ -234,10 +323,27 @@ func (s *Supervisor) watchForChanges() {
 				ext := filepath.Ext(event.Name)
 				dir := filepath.Base(filepath.Dir(event.Name))
 
-				// Handle .go files in src/ directories
-				if ext == ".go" && dir == "src" {
-					log.Printf("Go file changed: %s", event.Name)
-					s.handleFileChange(event.Name)
+				// Handle Go/Kotlin source file changes under worker src/ directories.
+				// For Go workers watch .go files; for Kotlin workers watch .kt/.kts files.
+				if ext == ".go" || ext == ".kt" || ext == ".kts" {
+					// Determine which worker (if any) this file belongs to by checking
+					// whether the file path is under the worker's src directory.
+					workers := s.router.GetAllWorkers()
+					for _, w := range workers {
+						workerSrc := filepath.Join(s.projectRoot, s.config.Workers.Directory, w.Name, "src")
+						if strings.HasPrefix(event.Name, workerSrc) {
+							// Match extension against worker type
+							if ext == ".go" && w.Type == "go" {
+								log.Printf("Go file changed: %s", event.Name)
+								s.handleFileChange(event.Name)
+							}
+							if (ext == ".kt" || ext == ".kts") && w.Type == "kotlin" {
+								log.Printf("Kotlin file changed: %s", event.Name)
+								s.handleFileChange(event.Name)
+							}
+							break
+						}
+					}
 				}
 
 				// Handle .yaml files in config/ directories
@@ -395,8 +501,41 @@ func (s *Supervisor) buildWorker(worker *Worker) error {
 		// Make gradlew executable
 		os.Chmod(gradlewPath, 0755)
 
-		// Run gradle build
-		cmd = exec.Command("./gradlew", "clean", "build", "-x", "test")
+		// If a built JAR exists and is newer than all source files, skip rebuilding
+		jarPath := filepath.Join(workerRoot, "build", "libs", worker.Name+".jar")
+		if statJar, err := os.Stat(jarPath); err == nil {
+			jarMod := statJar.ModTime()
+			newer := false
+			_ = filepath.Walk(filepath.Join(workerRoot, "src"), func(p string, info os.FileInfo, err error) error {
+				if err != nil {
+					return nil
+				}
+				if info.Mode().IsRegular() && info.ModTime().After(jarMod) {
+					newer = true
+					return nil
+				}
+				return nil
+			})
+
+			// also check build.gradle.kts and settings files
+			for _, cfg := range []string{"build.gradle.kts", "settings.gradle.kts", "gradle.properties"} {
+				p := filepath.Join(workerRoot, cfg)
+				if st, err := os.Stat(p); err == nil && st.ModTime().After(jarMod) {
+					newer = true
+				}
+			}
+
+			if !newer {
+				// Up-to-date: use wrapper in bin/ and skip building
+				binaryPath = filepath.Join(workerBinDir, worker.Name)
+				worker.Binary = binaryPath
+				log.Printf("Kotlin worker up-to-date, skipping build: %s", jarPath)
+				return nil
+			}
+		}
+
+		// Run incremental Gradle build (avoid 'clean' to keep incremental compilation/cache)
+		cmd = exec.Command("./gradlew", "build", "-x", "test", "--build-cache", "--parallel", "--configure-on-demand")
 		cmd.Dir = workerRoot
 		cmd.Env = os.Environ()
 
