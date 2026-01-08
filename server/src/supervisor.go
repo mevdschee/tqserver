@@ -346,7 +346,6 @@ func (s *Supervisor) buildWorker(worker *Worker) error {
 
 	// Construct worker paths from name
 	workerRoot := filepath.Join(s.projectRoot, s.config.Workers.Directory, worker.Name)
-	workerSrcDir := filepath.Join(workerRoot, "src")
 	workerBinDir := filepath.Join(workerRoot, "bin")
 
 	// Create bin directory if it doesn't exist
@@ -354,18 +353,60 @@ func (s *Supervisor) buildWorker(worker *Worker) error {
 		return fmt.Errorf("failed to create bin directory: %w", err)
 	}
 
-	// Generate binary name
-	binaryName := fmt.Sprintf("tqworker_%s_%d",
-		worker.Name,
-		time.Now().Unix())
-	binaryPath := filepath.Join(workerBinDir, binaryName)
+	// Get worker config to determine type
+	workerConfig := s.getWorkerConfig(worker.Name)
+	workerType := "go" // default
+	if workerConfig != nil && workerConfig.Config.Type != "" {
+		workerType = workerConfig.Config.Type
+	}
 
-	log.Printf("Building %s -> %s", worker.Name, binaryPath)
+	var cmd *exec.Cmd
+	var binaryPath string
 
-	// Build the worker
-	cmd := exec.Command("go", "build", "-o", binaryPath)
-	cmd.Dir = workerSrcDir
-	cmd.Env = os.Environ()
+	switch workerType {
+	case "kotlin":
+		// For Kotlin workers, use Gradle build
+		log.Printf("Building Kotlin worker: %s", worker.Name)
+		
+		// Check if gradlew exists
+		gradlewPath := filepath.Join(workerRoot, "gradlew")
+		if _, err := os.Stat(gradlewPath); os.IsNotExist(err) {
+			buildErr := fmt.Errorf("gradlew not found at %s", gradlewPath)
+			if s.config.IsDevelopmentMode() {
+				worker.SetBuildError(buildErr)
+				log.Printf("Build error for %s (dev mode): %v", worker.Name, buildErr)
+				return nil
+			}
+			return buildErr
+		}
+
+		// Make gradlew executable
+		os.Chmod(gradlewPath, 0755)
+
+		// Run gradle build
+		cmd = exec.Command("./gradlew", "clean", "build", "-x", "test")
+		cmd.Dir = workerRoot
+		cmd.Env = os.Environ()
+
+		// The binary path for Kotlin workers is the wrapper script in bin/
+		binaryPath = filepath.Join(workerBinDir, worker.Name)
+
+	default:
+		// For Go workers, use go build
+		workerSrcDir := filepath.Join(workerRoot, "src")
+		
+		// Generate binary name
+		binaryName := fmt.Sprintf("tqworker_%s_%d",
+			worker.Name,
+			time.Now().Unix())
+		binaryPath = filepath.Join(workerBinDir, binaryName)
+
+		log.Printf("Building Go worker: %s -> %s", worker.Name, binaryPath)
+
+		cmd = exec.Command("go", "build", "-o", binaryPath)
+		cmd.Dir = workerSrcDir
+		cmd.Env = os.Environ()
+	}
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {

@@ -3,6 +3,8 @@
 # Path prefix for this worker (required)
 # This is the URL path where this worker will be mounted
 path: "/"
+type: "go"
+enabled: true
 
 # Worker runtime settings
 runtime:
