@@ -35,7 +35,7 @@ func main() {
 			MaxWorkers:     2,
 			RequestTimeout: 30 * time.Second,
 			IdleTimeout:    10 * time.Second,
-			ListenAddr:     "127.0.0.1:9001",
+			ListenAddress:  "127.0.0.1",
 		},
 	}
 
@@ -48,7 +48,7 @@ func main() {
 	log.Printf("Found PHP: %s", binary.String())
 
 	log.Println("Creating PHP worker manager...")
-	manager, err := php.NewManager(binary, config)
+	manager, err := php.NewManager(binary, config, func() int { return 9001 })
 	if err != nil {
 		log.Fatalf("Failed to create manager: %v", err)
 	}
@@ -59,7 +59,7 @@ func main() {
 	}
 
 	log.Println("PHP workers started successfully!")
-	log.Printf("Workers listening on: %s.<worker_id>", config.Pool.ListenAddr)
+	log.Printf("Workers listening on: %s.<worker_id>", config.Pool.ListenAddress)
 	log.Println("\nPress Ctrl+C to stop")
 
 	ticker := time.NewTicker(10 * time.Second)

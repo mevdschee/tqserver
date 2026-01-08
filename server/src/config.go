@@ -44,6 +44,7 @@ type WorkerConfig struct {
 			MaxRequests    int    `yaml:"max_requests"`
 			RequestTimeout int    `yaml:"request_timeout"`
 			IdleTimeout    int    `yaml:"idle_timeout"`
+			ListenAddress  string `yaml:"listen_address"`
 		} `yaml:"pool"`
 	} `yaml:"php"`
 }

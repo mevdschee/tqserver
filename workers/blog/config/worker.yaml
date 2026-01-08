@@ -43,10 +43,8 @@ php:
     # Process idle timeout (not used in dynamic mode)
     idle_timeout: 10
 
-# FastCGI Server Configuration
-fastcgi:
-  # TCP listen address for FastCGI protocol
-  listen: "127.0.0.1:9001"
+    # TCP listen address for FastCGI server
+    listen_address: "127.0.0.1"
 
 # Document root
 document_root: ./public

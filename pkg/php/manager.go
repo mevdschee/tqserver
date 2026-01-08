@@ -4,24 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 	"time"
 )
-
-// getNextFreePort returns the next available port for a worker and advances the base port
-func (m *Manager) getNextFreePort() int {
-	// Parse the base port from m.baseSocket
-	parts := strings.Split(m.baseSocket, ":")
-	if len(parts) != 2 {
-		// fallback: return 9000 if parsing fails
-		return 9000
-	}
-	basePort := 0
-	fmt.Sscanf(parts[1], "%d", &basePort)
-	// Find the next free port by incrementing nextID
-	return basePort + m.nextID + 1
-}
 
 // Manager manages a pool of PHP workers
 type Manager struct {
@@ -30,8 +15,8 @@ type Manager struct {
 	workers []*Worker
 	mu      sync.RWMutex
 
-	nextID     int
-	baseSocket string // Base socket for internal worker ports
+	listen      string // address for FastCGI sockets (e.g., "127.0.0.1")
+	getFreePort func() int
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -43,23 +28,21 @@ type Manager struct {
 }
 
 // NewManager creates a new PHP worker manager
-func NewManager(binary *Binary, config *Config) (*Manager, error) {
+func NewManager(binary *Binary, config *Config, getFreePort func() int) (*Manager, error) {
 	if err := config.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Base socket for internal worker ports
-	baseSocket := config.Pool.ListenAddr
-
 	m := &Manager{
-		binary:     binary,
-		config:     config,
-		workers:    make([]*Worker, 0),
-		baseSocket: baseSocket,
-		ctx:        ctx,
-		cancel:     cancel,
+		binary:      binary,
+		config:      config,
+		workers:     make([]*Worker, 0),
+		listen:      config.Pool.ListenAddress,
+		getFreePort: getFreePort,
+		ctx:         ctx,
+		cancel:      cancel,
 	}
 
 	return m, nil
@@ -139,20 +122,13 @@ func (m *Manager) Stop() error {
 // spawnWorker creates and starts a new worker (must be called with lock held)
 func (m *Manager) spawnWorker() error {
 
-	workerID := m.nextID
-	m.nextID++
+	port := m.getFreePort()
 
 	// Use getNextFreePort for TCP sockets
 	var socketPath string
-	if strings.Contains(m.baseSocket, ":") {
-		port := m.getNextFreePort()
-		parts := strings.Split(m.baseSocket, ":")
-		socketPath = fmt.Sprintf("%s:%d", parts[0], port)
-	} else {
-		socketPath = fmt.Sprintf("%s.%d", m.baseSocket, workerID)
-	}
+	socketPath = fmt.Sprintf("%s:%d", m.listen, port)
 
-	worker := NewWorker(workerID, m.binary, m.config, socketPath)
+	worker := NewWorker(port, m.binary, m.config, socketPath)
 
 	if err := worker.Start(); err != nil {
 		return err

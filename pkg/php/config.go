@@ -47,8 +47,8 @@ type PoolConfig struct {
 	// IdleTimeout is the time before an idle worker is killed (ondemand)
 	IdleTimeout time.Duration
 
-	// ListenAddr is the FastCGI TCP listen address (e.g., "127.0.0.1:9000")
-	ListenAddr string
+	// ListenAddress is the FastCGI TCP listen address without port (e.g., "127.0.0.1")
+	ListenAddress string
 }
 
 // Validate checks if the configuration is valid
@@ -71,7 +71,7 @@ func (c *Config) Validate() error {
 
 // Validate checks if the pool configuration is valid
 func (p *PoolConfig) Validate() error {
-	if p.ListenAddr == "" {
+	if p.ListenAddress == "" {
 		return fmt.Errorf("listen_addr must be configured")
 	}
 

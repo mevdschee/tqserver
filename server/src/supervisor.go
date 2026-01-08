@@ -552,6 +552,7 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 	if workerMeta.Config.PHP == nil {
 		return fmt.Errorf("PHP configuration not found for worker %s", worker.Name)
 	}
+	fcgiServerAddr := fmt.Sprintf("%s:%d", workerMeta.Config.PHP.Pool.ListenAddress, worker.Port)
 
 	log.Printf("Starting PHP worker pool for %s (dynamic manager)", worker.Name)
 
@@ -581,12 +582,12 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 			MaxRequests:    workerMeta.Config.PHP.Pool.MaxRequests,
 			RequestTimeout: time.Duration(workerMeta.Config.PHP.Pool.RequestTimeout) * time.Second,
 			IdleTimeout:    time.Duration(workerMeta.Config.PHP.Pool.IdleTimeout) * time.Second,
-			ListenAddr:     fmt.Sprintf("127.0.0.1:%d", worker.Port),
+			ListenAddress:  workerMeta.Config.PHP.Pool.ListenAddress,
 		},
 	}
 
 	// Create PHP manager
-	manager, err := php.NewManager(binary, phpConfig)
+	manager, err := php.NewManager(binary, phpConfig, s.getFreePort)
 	if err != nil {
 		return fmt.Errorf("failed to create PHP manager: %w", err)
 	}
@@ -605,7 +606,7 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 	handler := php.NewFastCGIHandler(manager)
 
 	// Create and start FastCGI server
-	fcgiServer := fastcgi.NewServer(phpConfig.Pool.ListenAddr, handler)
+	fcgiServer := fastcgi.NewServer(fcgiServerAddr, handler)
 	go func() {
 		if err := fcgiServer.ListenAndServe(); err != nil {
 			log.Printf("FastCGI server for %s stopped: %v", worker.Name, err)
@@ -622,7 +623,7 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 
 	log.Printf("✅ PHP worker pool started for %s on %s (%s mode: %d-%d workers)",
 		worker.Name,
-		phpConfig.Pool.ListenAddr,
+		fcgiServerAddr,
 		workerMeta.Config.PHP.Pool.Manager,
 		workerMeta.Config.PHP.Pool.MinWorkers,
 		workerMeta.Config.PHP.Pool.MaxWorkers,
