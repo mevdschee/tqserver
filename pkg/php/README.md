@@ -4,15 +4,17 @@ Go-based PHP-CGI process management for TQServer. This package provides a comple
 
 ## Architecture
 
-- **One FastCGI server** listens on a single TCP port
-- **Multiple PHP-CGI workers** run as standard CGI processes (no network binding)
-- **Workers communicate via stdin/stdout** for maximum efficiency
+- **One public FastCGI server** listens on configured port (e.g., 127.0.0.1:9001 for nginx)
+- **Multiple PHP-CGI workers** run as FastCGI servers on internal ports (9002, 9003, etc.)
+- **FastCGI server proxies** requests to internal worker pool
 - **Pool manager** handles load balancing and worker lifecycle
+
+This architecture allows a single public endpoint while maintaining efficient persistent workers.
 
 ## Features
 
-- ✅ **Single listen port** with internal worker pool
-- ✅ **CGI workers** communicating via stdin/stdout (not network sockets)
+- ✅ **Public FastCGI endpoint** with internal worker pool  
+- ✅ **FastCGI workers** on internal ports (persistent, efficient)
 - ✅ **Auto-detection** of php-cgi binary
 - ✅ **Version parsing** and feature detection
 - ✅ **Flexible configuration** via php.ini + CLI overrides
@@ -271,13 +273,15 @@ fmt.Printf("Idle time: %s\n", worker.GetIdleTime())
 ### Process Hierarchy
 
 ```
-Manager + FastCGI Server (listens on 127.0.0.1:9001)
-├─> Worker 1 (php-cgi CGI process, stdin/stdout)
-│   ├─> monitor goroutine
-│   └─> stderr handler goroutine
-├─> Worker 2 (php-cgi CGI process, stdin/stdout)
-│   └─> ...
-└─> Health monitor goroutine
+Public FastCGI Server (127.0.0.1:9001)
+  └─> Manager
+      ├─> Worker 1 (php-cgi on internal port 9002)
+      │   ├─> monitor goroutine
+      │   ├─> stdout handler goroutine
+      │   └─> stderr handler goroutine
+      ├─> Worker 2 (php-cgi on internal port 9003)
+      │   └─> ...
+      └─> Health monitor goroutine
 ```
 
 ### Lifecycle
@@ -286,21 +290,21 @@ Manager + FastCGI Server (listens on 127.0.0.1:9001)
 Manager.Start()
   └─> spawnWorker() × N
        └─> Worker.Start()
-            └─> exec.CommandContext(php-cgi -c ini -d settings...)
-                 ├─> Creates stdin/stdout/stderr pipes
+            └─> exec.CommandContext(php-cgi -b 127.0.0.1:900X -c ini -d settings...)
                  ├─> monitor() goroutine → watch for crash
-                 └─> handleStderr() → log errors
+                 ├─> handleOutput(stdout) → log output
+                 └─> handleOutput(stderr) → log errors
 
 Health Monitor (5s interval)
   ├─> performHealthCheck() → restart unhealthy workers
   └─> managePoolSize() → scale up/down (dynamic/ondemand)
 
 Request Processing
-  ├─> FastCGI Server receives request
+  ├─> Public FastCGI Server receives request (127.0.0.1:9001)
   ├─> manager.GetIdleWorker() → finds or spawns worker
-  ├─> Write CGI environment + body to worker's stdin
-  ├─> Read CGI response from worker's stdout
-  └─> Forward response back to FastCGI client
+  ├─> Connect to internal worker port (127.0.0.1:900X)
+  ├─> Forward FastCGI request to worker
+  └─> Stream response back to client
   ├─> worker.MarkActive()
   ├─> ... forward request to php-cgi ...
   ├─> worker.MarkIdle()

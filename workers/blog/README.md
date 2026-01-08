@@ -26,9 +26,8 @@ php-cgi -v
 
 ```bash
 cd workers/blog/public
-# Run php-cgi as standard CGI (stdin/stdout mode)
-# Note: No -b flag needed, TQServer manages the FastCGI server
-php-cgi
+# Start php-cgi FastCGI server on a test port
+php-cgi -b 127.0.0.1:9999
 ```
 
 ### 3. Configure Nginx (for testing)
@@ -119,9 +118,9 @@ Once Phase 2 is complete, you'll be able to:
 
 # TQServer will:
 # 1. Read workers/blog/config/worker.yaml
-# 2. Start FastCGI server on 127.0.0.1:9001
-# 3. Spawn 2 php-cgi workers in CGI mode (stdin/stdout)
-# 4. Route requests from Nginx through FastCGI to PHP workers
+# 2. Start public FastCGI server on 127.0.0.1:9001
+# 3. Spawn 3 php-cgi workers on internal ports (9002, 9003, 9004)
+# 4. Proxy requests from Nginx → FastCGI server → internal PHP workers
 ```
 
 Then visit:

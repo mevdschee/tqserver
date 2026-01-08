@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -38,15 +40,11 @@ func (s WorkerState) String() string {
 
 // Worker represents a single php-cgi process
 type Worker struct {
-	ID     int
-	cmd    *exec.Cmd
-	binary *Binary
-	config *Config
-
-	// Process pipes for CGI communication
-	stdin  io.WriteCloser
-	stdout io.ReadCloser
-	stderr io.ReadCloser
+	ID         int
+	cmd        *exec.Cmd
+	binary     *Binary
+	config     *Config
+	socketPath string // Internal FastCGI socket for this worker
 
 	state        atomic.Value // WorkerState
 	requestCount atomic.Int64
@@ -63,19 +61,20 @@ type Worker struct {
 }
 
 // NewWorker creates a new PHP worker
-func NewWorker(id int, binary *Binary, config *Config) *Worker {
+func NewWorker(id int, binary *Binary, config *Config, socketPath string) *Worker {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	w := &Worker{
-		ID:        id,
-		binary:    binary,
-		config:    config,
-		startTime: time.Now(),
-		lastUsed:  time.Now(),
-		ctx:       ctx,
-		cancel:    cancel,
-		done:      make(chan struct{}),
-		errors:    make(chan error, 1),
+		ID:         id,
+		binary:     binary,
+		config:     config,
+		socketPath: socketPath,
+		startTime:  time.Now(),
+		lastUsed:   time.Now(),
+		ctx:        ctx,
+		cancel:     cancel,
+		done:       make(chan struct{}),
+		errors:     make(chan error, 1),
 	}
 
 	w.setState(WorkerStateIdle)
@@ -91,28 +90,31 @@ func (w *Worker) Start() error {
 		return fmt.Errorf("worker already started")
 	}
 
-	// Build command arguments (without -b flag for standard CGI mode)
-	args := w.binary.BuildArgs(w.config)
+	// Build command arguments (with -b flag for FastCGI mode)
+	args := w.binary.BuildArgs(w.config, w.socketPath)
 
 	// Create command with context for cancellation
 	w.cmd = exec.CommandContext(w.ctx, w.binary.Path, args...)
 
-	// Set working directory to document root
-	w.cmd.Dir = w.config.DocumentRoot
-
-	// Create pipes for CGI communication
-	var err error
-	w.stdin, err = w.cmd.StdinPipe()
-	if err != nil {
-		return fmt.Errorf("failed to create stdin pipe: %w", err)
+	// Set working directory to document root (convert to absolute path if needed)
+	docRoot := w.config.DocumentRoot
+	if !filepath.IsAbs(docRoot) {
+		absPath, err := filepath.Abs(docRoot)
+		if err != nil {
+			return fmt.Errorf("failed to resolve document root path: %w", err)
+		}
+		docRoot = absPath
 	}
+	w.cmd.Dir = docRoot
+	log.Printf("[Worker %d] Document root: %s", w.ID, docRoot)
 
-	w.stdout, err = w.cmd.StdoutPipe()
+	// Capture stdout/stderr for logging
+	stdout, err := w.cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
 
-	w.stderr, err = w.cmd.StderrPipe()
+	stderr, err := w.cmd.StderrPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
@@ -122,12 +124,22 @@ func (w *Worker) Start() error {
 		return fmt.Errorf("failed to start php-cgi: %w", err)
 	}
 
-	log.Printf("[Worker %d] Started php-cgi (PID: %d) in CGI mode", w.ID, w.cmd.Process.Pid)
+	log.Printf("[Worker %d] Starting php-cgi (PID: %d) on %s", w.ID, w.cmd.Process.Pid, w.socketPath)
 
-	// Start goroutines to handle stderr output and process monitoring
-	go w.handleStderr()
+	// Start goroutines to handle output and process monitoring
+	go w.handleOutput(stdout, "stdout")
+	go w.handleOutput(stderr, "stderr")
 	go w.monitor()
 
+	// Give php-cgi time to bind to the socket and verify it didn't crash
+	time.Sleep(100 * time.Millisecond)
+
+	// Check if process is still running
+	if w.cmd.ProcessState != nil && w.cmd.ProcessState.Exited() {
+		return fmt.Errorf("php-cgi exited immediately after start - check port %s is available", w.socketPath)
+	}
+
+	log.Printf("[Worker %d] php-cgi bound successfully to %s", w.ID, w.socketPath)
 	return nil
 }
 
@@ -142,6 +154,11 @@ func (w *Worker) Stop() error {
 
 	w.setState(WorkerStateTerminating)
 	log.Printf("[Worker %d] Stopping (PID: %d)", w.ID, w.cmd.Process.Pid)
+
+	// Send SIGTERM to php-cgi process
+	if err := w.cmd.Process.Signal(os.Interrupt); err != nil {
+		log.Printf("[Worker %d] Failed to send SIGTERM, will force kill: %v", w.ID, err)
+	}
 
 	// Cancel context to signal shutdown
 	w.cancel()
@@ -192,17 +209,17 @@ func (w *Worker) monitor() {
 	close(w.done)
 }
 
-// handleStderr reads and logs stderr output from the process
-func (w *Worker) handleStderr() {
+// handleOutput reads and logs output from the process
+func (w *Worker) handleOutput(reader io.Reader, streamName string) {
 	buf := make([]byte, 4096)
 	for {
-		n, err := w.stderr.Read(buf)
+		n, err := reader.Read(buf)
 		if n > 0 {
-			log.Printf("[Worker %d] [stderr] %s", w.ID, string(buf[:n]))
+			log.Printf("[Worker %d] [%s] %s", w.ID, streamName, string(buf[:n]))
 		}
 		if err != nil {
 			if err != io.EOF {
-				log.Printf("[Worker %d] Error reading stderr: %v", w.ID, err)
+				log.Printf("[Worker %d] Error reading %s: %v", w.ID, streamName, err)
 			}
 			return
 		}

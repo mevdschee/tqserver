@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 )
@@ -15,7 +16,8 @@ type Manager struct {
 	workers []*Worker
 	mu      sync.RWMutex
 
-	nextID int
+	nextID     int
+	baseSocket string // Base socket for internal worker ports
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -34,12 +36,16 @@ func NewManager(binary *Binary, config *Config) (*Manager, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// Base socket for internal worker ports
+	baseSocket := config.Pool.ListenAddr
+
 	m := &Manager{
-		binary:  binary,
-		config:  config,
-		workers: make([]*Worker, 0),
-		ctx:     ctx,
-		cancel:  cancel,
+		binary:     binary,
+		config:     config,
+		workers:    make([]*Worker, 0),
+		baseSocket: baseSocket,
+		ctx:        ctx,
+		cancel:     cancel,
 	}
 
 	return m, nil
@@ -64,6 +70,10 @@ func (m *Manager) Start() error {
 				w.Stop()
 			}
 			return fmt.Errorf("failed to start worker %d: %w", i, err)
+		}
+		// Small delay to allow each worker to bind before starting the next
+		if i < initialCount-1 {
+			time.Sleep(150 * time.Millisecond)
 		}
 	}
 
@@ -117,7 +127,29 @@ func (m *Manager) spawnWorker() error {
 	workerID := m.nextID
 	m.nextID++
 
-	worker := NewWorker(workerID, m.binary, m.config)
+	// Generate internal socket path for this worker
+	// Workers get unique ports: basePort+1, basePort+2, etc.
+	var socketPath string
+	if strings.Contains(m.baseSocket, ":") {
+		// TCP socket - assign unique port
+		parts := strings.Split(m.baseSocket, ":")
+		if len(parts) == 2 {
+			basePort := 0
+			fmt.Sscanf(parts[1], "%d", &basePort)
+			socketPath = fmt.Sprintf("%s:%d", parts[0], basePort+workerID+1)
+		} else {
+			socketPath = fmt.Sprintf("%s.%d", m.baseSocket, workerID)
+		}
+	} else {
+		socketPath = fmt.Sprintf("%s.%d", m.baseSocket, workerID)
+	}
+
+	worker := NewWorker(workerID, m.binary, m.config, socketPath)
+
+	if err := worker.Start(); err != nil {
+		return err
+	}
+
 	m.workers = append(m.workers, worker)
 
 	// Monitor worker for crashes
