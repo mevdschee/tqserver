@@ -75,7 +75,7 @@ curl http://localhost:8080/info.php
 
 The `worker.yaml` file demonstrates TQServer's approach:
 
-1. **php-fpm-first**: TQServer can generate php-fpm pool/config files and launch `php-fpm` in the foreground; the legacy per-worker `php-cgi` spawning approach is deprecated.
+1. **php-fpm**: TQServer can generate php-fpm pool/config files and launch `php-fpm`, the industry standard.
 2. **Optional php.ini**: Can use existing ini files as base configuration
 3. **CLI overrides**: Individual settings via `-d` flags to the PHP process (CLI for `php-cgi` or launcher/env for `php-fpm`)
 4. **Flexible pools**: Different configs per route/worker
