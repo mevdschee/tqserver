@@ -8,7 +8,6 @@ TQServer bridges the gap between a high-performance web server and a flexible fu
 
 ### Key Features
 - **Sub-second hot reloads** - Changes to page code are automatically detected, rebuilt, and deployed in ~0.3-1.0 seconds
-- **Filesystem-based routing** - URL structure mirrors your filesystem layout
 - **Process isolation** - Each route runs in its own process
 - **Native Go performance** - Workers are compiled Go binaries, not interpreted scripts
 - **Graceful worker restarts** - Zero-downtime deployments with traffic switching

@@ -40,7 +40,6 @@ TQServer is currently in active development and has not reached a stable 1.0 rel
 
 #### Current Features
 - ✅ Sub-second hot reloads (~0.3-1.0s)
-- ✅ Filesystem-based routing
 - ✅ Graceful worker restarts
 - ✅ Native Go performance
 - ✅ Process isolation
