@@ -1,17 +1,18 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
-	"sync"
-	"time"
+    "fmt"
+    "log"
+    "os"
+    "os/exec"
+    "path/filepath"
+    "strings"
+    "sync"
+    "time"
+    "context"
 
-	"github.com/fsnotify/fsnotify"
-	"github.com/mevdschee/tqserver/pkg/fastcgi"
+    "github.com/fsnotify/fsnotify"
+    "github.com/mevdschee/tqserver/pkg/fastcgi"
 	"github.com/mevdschee/tqserver/pkg/php"
 )
 
@@ -164,7 +165,7 @@ func (s *Supervisor) Stop() {
 	// Stop all FastCGI servers
 	for name, server := range s.fastcgiServers {
 		log.Printf("Stopping FastCGI server for %s", name)
-		server.Shutdown(nil)
+		server.Shutdown(context.Background())
 	}
 	s.mu.Unlock()
 
@@ -367,7 +368,7 @@ func (s *Supervisor) buildWorker(worker *Worker) error {
 	case "kotlin":
 		// For Kotlin workers, use Gradle build
 		log.Printf("Building Kotlin worker: %s", worker.Name)
-		
+
 		// Check if gradlew exists
 		gradlewPath := filepath.Join(workerRoot, "gradlew")
 		if _, err := os.Stat(gradlewPath); os.IsNotExist(err) {
@@ -394,7 +395,7 @@ func (s *Supervisor) buildWorker(worker *Worker) error {
 	default:
 		// For Go workers, use go build
 		workerSrcDir := filepath.Join(workerRoot, "src")
-		
+
 		// Generate binary name
 		binaryName := fmt.Sprintf("tqworker_%s_%d",
 			worker.Name,

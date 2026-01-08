@@ -38,6 +38,9 @@ kotlin {
 }
 
 tasks.jar {
+    // Set the JAR name to match what the wrapper script expects
+    archiveFileName.set("api.jar")
+    
     manifest {
         attributes["Main-Class"] = "MainKt"
     }

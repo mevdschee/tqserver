@@ -6,8 +6,8 @@ path: "/"
 type: "go"
 enabled: true
 
-# Worker runtime settings
-runtime:
+# Worker Go runtime settings
+go:
   # Maximum number of CPU cores to use (0 = use all available)
   go_max_procs: 2
 

@@ -4,21 +4,8 @@
 # Path prefix for this worker
 # All requests to /api/* will be routed to this worker
 path: "/api"
-
-# Worker type (FUTURE: currently only "go" is supported in TQServer)
-# This field is for future multi-language support
 type: "kotlin"
-
-# Worker runtime settings
-runtime:
-  # Maximum number of CPU cores to use (0 = use all available)
-  go_max_procs: 2
-
-  # Maximum memory limit (adjust for JVM workers)
-  go_mem_limit: "1GiB"
-
-  # Restart worker after N requests (0 = unlimited)
-  max_requests: 0
+enabled: true
 
 # Timeout settings
 timeouts:
