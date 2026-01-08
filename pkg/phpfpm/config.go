@@ -69,7 +69,12 @@ include = {{ .PoolDir }}/*.conf
 		"RequestTimeout": fmt.Sprintf("%ds", int(pool.RequestTerminateTimeout.Round(time.Second).Seconds())),
 		"IdleTimeout":    fmt.Sprintf("%ds", int(pool.ProcessIdleTimeout.Round(time.Second).Seconds())),
 		"DocumentRoot":   cfg.DocumentRoot,
-		"Env":            cfg.Settings,
+		// Settings are PHP INI-style directives that should be applied as
+		// php_admin_flag[...] or php_admin_value[...] in the pool config.
+		"Settings": cfg.Settings,
+		// Env contains explicit environment variables to export into the pool
+		// (rendered as env[...] entries).
+		"Env": cfg.PHPFPM.Env,
 	}
 
 	poolTpl := `[{{ .PoolName }}]
@@ -85,6 +90,9 @@ process_idle_timeout = {{ .IdleTimeout }}
 {{ end }}pm.max_requests = {{ .MaxRequests }}
 request_terminate_timeout = {{ .RequestTimeout }}
 chdir = {{ .DocumentRoot }}
+{{/* Render PHP INI directives as php_admin_flag or php_admin_value. */}}
+{{ range $k, $v := .Settings }}php_admin_flag[{{ $k }}] = {{ $v }}
+{{ end }}
 {{ range $k, $v := .Env }}env[{{ $k }}] = {{ $v }}
 {{ end }}`
 

@@ -14,7 +14,7 @@ import (
 
 // TestGenerateFromWorkerYAML verifies that generating php-fpm config using
 // values taken directly from a worker's YAML (`workers/blog/config/worker.yaml`)
-// produces pool config with the expected `env[...]` entries and pool directives.
+// produces pool config with the expected `php_admin_flag[...]` entries and pool directives.
 func TestGenerateFromWorkerYAML(t *testing.T) {
 	// read worker.yaml
 	yamlPath := filepath.Join("..", "..", "workers", "blog", "config", "worker.yaml")
@@ -85,9 +85,9 @@ func TestGenerateFromWorkerYAML(t *testing.T) {
 	}
 	poolStr := string(poolData)
 
-	// assert some settings from the YAML were rendered
-	if !strings.Contains(poolStr, "env[max_execution_time] = 30") {
-		t.Fatalf("pool config did not contain max_execution_time setting; got:\n%s", poolStr)
+	// assert some settings from the YAML were rendered as php_admin_flag
+	if !strings.Contains(poolStr, "php_admin_flag[max_execution_time] = 30") {
+		t.Fatalf("pool config did not contain max_execution_time setting as php_admin_flag; got:\n%s", poolStr)
 	}
 	if !strings.Contains(poolStr, "pm = dynamic") {
 		t.Fatalf("expected pm=dynamic in pool conf, got:\n%s", poolStr)
