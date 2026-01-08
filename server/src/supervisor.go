@@ -281,9 +281,9 @@ func (s *Supervisor) scaleDown(w *Worker) {
 
 // spawnWorkerInstance starts a single process for the worker
 func (s *Supervisor) spawnWorkerInstance(w *Worker) (*WorkerInstance, error) {
-	s.mu.Lock()
-	port := s.getFreePort() // Lock safe (internal lock)
-	s.mu.Unlock()
+	// s.mu.Lock() - Removed to avoid deadlock as getFreePort locks internally
+	port := s.getFreePort()
+	// s.mu.Unlock()
 
 	workerRoot := filepath.Join(s.projectRoot, s.config.Workers.Directory, w.Name)
 	workerMeta := s.getWorkerConfig(w.Name)
