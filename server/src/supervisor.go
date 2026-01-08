@@ -900,6 +900,11 @@ func (s *Supervisor) rollingRestart(w *Worker) {
 				go s.terminateInstance(inst)
 			}
 		}
+
+		// Broadcast reload in dev mode so browser updates
+		if s.config.Mode == "dev" && s.proxy != nil {
+			s.proxy.BroadcastReload()
+		}
 	}
 }
 
