@@ -1,18 +1,18 @@
 package main
 
 import (
-    "fmt"
-    "log"
-    "os"
-    "os/exec"
-    "path/filepath"
-    "strings"
-    "sync"
-    "time"
-    "context"
+	"context"
+	"fmt"
+	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
 
-    "github.com/fsnotify/fsnotify"
-    "github.com/mevdschee/tqserver/pkg/fastcgi"
+	"github.com/fsnotify/fsnotify"
+	"github.com/mevdschee/tqserver/pkg/fastcgi"
 	"github.com/mevdschee/tqserver/pkg/php"
 )
 
