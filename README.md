@@ -399,6 +399,22 @@ PHP workers use the FastCGI protocol to communicate with TQServer. The superviso
 - Support for existing PHP applications
 - Configurable process pools and resource limits
 
+### PHP Workers — Runtime Notes
+
+- **php-fpm executable detection:** The supervisor will try the worker-configured binary first (`php.binary` / `php.binary` in `worker.yaml`), then common executable names (`php-fpm`, `php-fpm8.3`) via `exec.LookPath`, and finally scans `/usr/sbin`, `/sbin`, and `/usr/local/sbin` for `php-fpm*` executables. If no usable binary is found the supervisor will return a clear error — install `php-fpm` or set the worker's `php.binary` to the full path (e.g. `/usr/sbin/php-fpm8.3`).
+
+- **Listen address & ports:** For PHP workers the supervisor reserves a free port from the worker port pool and instructs `php-fpm` to listen on `127.0.0.1:<port>` (or the `listen_address` configured in the worker YAML). This avoids port collisions and keeps FastCGI sockets bound to loopback.
+
+- **Launch & readiness:** The supervisor launches `php-fpm` via the `phpfpm` launcher/adapter and waits briefly for the process to bind the configured TCP listen address before marking the worker healthy. This avoids immediate `connection refused` errors from the proxy.
+
+- **Restart behavior:** When a PHP worker is restarted, the supervisor restarts the `php-fpm` instance via the adapter and cleans up the old launcher/client — it does not attempt to rebuild a Go binary for PHP workers.
+
+- **Troubleshooting connection refused:** If you see `Failed to connect to FastCGI server` or `connection refused` in the logs:
+  - Ensure `php-fpm` is installed and reachable (check `/usr/sbin/php-fpm*` or run `which php-fpm`).
+  - Confirm your worker's `listen_address` is compatible with loopback (use `127.0.0.1` if unsure).
+  - Look at `server` logs for which php binary was selected and any php-fpm stderr output.
+
+
 **Example:** `workers/blog/` - Blog worker demonstrating PHP integration
 
 **Documentation:** See [workers/blog/README.md](workers/blog/README.md) and [pkg/php/README.md](pkg/php/README.md)
