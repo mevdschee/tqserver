@@ -32,8 +32,6 @@ type Supervisor struct {
 	// PHP support
 	phpManagers    map[string]*php.Manager    // keyed by worker name
 	fastcgiServers map[string]*fastcgi.Server // keyed by worker name
-	// Kotlin continuous builders (dev mode)
-	kotlinBuilders map[string]*exec.Cmd // keyed by worker name
 }
 
 // getFreePort returns the next available port for a worker and advances the pool
@@ -59,7 +57,6 @@ func NewSupervisor(config *Config, projectRoot string, router *Router, workerCon
 		stopChan:       make(chan struct{}),
 		phpManagers:    make(map[string]*php.Manager),
 		fastcgiServers: make(map[string]*fastcgi.Server),
-		kotlinBuilders: make(map[string]*exec.Cmd),
 	}
 }
 
@@ -114,18 +111,6 @@ func (s *Supervisor) Start() error {
 		} else {
 			// Standard Go worker
 			// Build and start the worker
-			if workerMeta.Config.Type == "kotlin" && s.config.IsDevelopmentMode() {
-				// For Kotlin workers in dev mode, start a long-running continuous
-				// Gradle builder so incremental builds are instantaneous. The
-				// wrapper script in bin/ will pick up the JAR produced in
-				// build/libs/*.jar.
-				if err := s.startKotlinContinuousBuilder(worker); err != nil {
-					log.Printf("Failed to start Kotlin continuous builder for %s: %v", workerMeta.Name, err)
-				}
-				// Ensure binary is set to wrapper script in bin/
-				worker.Binary = filepath.Join(s.projectRoot, s.config.Workers.Directory, worker.Name, "bin", worker.Name)
-			}
-
 			if err := s.buildWorker(worker); err != nil {
 				log.Printf("Failed to build worker %s: %v", workerMeta.Name, err)
 				continue
@@ -195,61 +180,7 @@ func (s *Supervisor) Stop() {
 	}
 	s.mu.Unlock()
 
-	// Stop Kotlin continuous builders
-	s.mu.Lock()
-	for name, cmd := range s.kotlinBuilders {
-		if cmd.Process != nil {
-			log.Printf("Stopping Kotlin builder for %s (PID: %d)", name, cmd.Process.Pid)
-			cmd.Process.Signal(os.Interrupt)
-			time.Sleep(100 * time.Millisecond)
-			cmd.Process.Kill()
-		}
-	}
-	s.mu.Unlock()
-
 	s.wg.Wait()
-}
-
-// startKotlinContinuousBuilder starts a background Gradle process in --continuous
-// mode for the given worker so changes trigger fast incremental builds.
-func (s *Supervisor) startKotlinContinuousBuilder(worker *Worker) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if _, ok := s.kotlinBuilders[worker.Name]; ok {
-		// already running
-		return nil
-	}
-
-	workerRoot := filepath.Join(s.projectRoot, s.config.Workers.Directory, worker.Name)
-	gradlewPath := filepath.Join(workerRoot, "gradlew")
-	if _, err := os.Stat(gradlewPath); os.IsNotExist(err) {
-		return fmt.Errorf("gradlew not found at %s", gradlewPath)
-	}
-
-	cmd := exec.Command("./gradlew", "build", "-x", "test", "--continuous", "--build-cache", "--parallel", "--configure-on-demand")
-	cmd.Dir = workerRoot
-	cmd.Env = os.Environ()
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start gradle continuous process: %w", err)
-	}
-
-	s.kotlinBuilders[worker.Name] = cmd
-
-	// Monitor the process and remove from map when it exits
-	go func(name string, c *exec.Cmd) {
-		_ = c.Wait()
-		s.mu.Lock()
-		delete(s.kotlinBuilders, name)
-		s.mu.Unlock()
-		log.Printf("Kotlin continuous builder stopped for %s", name)
-	}(worker.Name, cmd)
-
-	log.Printf("Started Kotlin continuous builder for %s (PID: %d)", worker.Name, cmd.Process.Pid)
-	return nil
 }
 
 // watchDirectory recursively watches a directory and its subdirectories
