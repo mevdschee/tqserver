@@ -470,14 +470,14 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 	if workerConfig != nil {
 		// if worker is Go, set Go-specific env vars
 		if worker.Type == "go" {
-			if workerConfig.Config.Timeouts.ReadTimeoutSeconds > 0 {
-				envVars = append(envVars, fmt.Sprintf("WORKER_READ_TIMEOUT_SECONDS=%d", workerConfig.Config.Timeouts.ReadTimeoutSeconds))
+			if workerConfig.Config.Go.ReadTimeoutSeconds > 0 {
+				envVars = append(envVars, fmt.Sprintf("WORKER_READ_TIMEOUT_SECONDS=%d", workerConfig.Config.Go.ReadTimeoutSeconds))
 			}
-			if workerConfig.Config.Timeouts.WriteTimeoutSeconds > 0 {
-				envVars = append(envVars, fmt.Sprintf("WORKER_WRITE_TIMEOUT_SECONDS=%d", workerConfig.Config.Timeouts.WriteTimeoutSeconds))
+			if workerConfig.Config.Go.WriteTimeoutSeconds > 0 {
+				envVars = append(envVars, fmt.Sprintf("WORKER_WRITE_TIMEOUT_SECONDS=%d", workerConfig.Config.Go.WriteTimeoutSeconds))
 			}
-			if workerConfig.Config.Timeouts.IdleTimeoutSeconds > 0 {
-				envVars = append(envVars, fmt.Sprintf("WORKER_IDLE_TIMEOUT_SECONDS=%d", workerConfig.Config.Timeouts.IdleTimeoutSeconds))
+			if workerConfig.Config.Go.IdleTimeoutSeconds > 0 {
+				envVars = append(envVars, fmt.Sprintf("WORKER_IDLE_TIMEOUT_SECONDS=%d", workerConfig.Config.Go.IdleTimeoutSeconds))
 			}
 			if workerConfig.Config.Go.GOMAXPROCS > 0 {
 				envVars = append(envVars, fmt.Sprintf("GOMAXPROCS=%d", workerConfig.Config.Go.GOMAXPROCS))

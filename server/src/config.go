@@ -16,15 +16,7 @@ type WorkerConfig struct {
 	Name    string `yaml:"name"`
 	Type    string `yaml:"type"` // "go", "kotlin" or "php"
 	Enabled bool   `yaml:"enabled"`
-
-	Timeouts struct {
-		ReadTimeoutSeconds  int `yaml:"read_timeout_seconds"`
-		WriteTimeoutSeconds int `yaml:"write_timeout_seconds"`
-		IdleTimeoutSeconds  int `yaml:"idle_timeout_seconds"`
-	} `yaml:"timeouts"`
-	Logging struct {
-		LogFile string `yaml:"log_file"`
-	} `yaml:"logging"`
+	LogFile string `yaml:"log_file"`
 
 	// Kotline-specific configuration
 	Kotlin *struct {
@@ -38,9 +30,12 @@ type WorkerConfig struct {
 	} `yaml:"kotlin"`
 	// Go runtime configuration
 	Go *struct {
-		GOMAXPROCS  int    `yaml:"go_max_procs"`
-		GOMEMLIMIT  string `yaml:"go_mem_limit"`
-		MaxRequests int    `yaml:"max_requests"`
+		GOMAXPROCS          int    `yaml:"go_max_procs"`
+		GOMEMLIMIT          string `yaml:"go_mem_limit"`
+		ReadTimeoutSeconds  int    `yaml:"read_timeout_seconds"`
+		WriteTimeoutSeconds int    `yaml:"write_timeout_seconds"`
+		IdleTimeoutSeconds  int    `yaml:"idle_timeout_seconds"`
+		MaxRequests         int    `yaml:"max_requests"`
 	} `yaml:"go"`
 	// PHP-specific configuration
 	PHP *struct {
@@ -185,15 +180,28 @@ func LoadWorkerConfigs(workersDir string) ([]*WorkerConfigWithMeta, error) {
 
 // loadWorkerConfig loads a single worker config file
 func LoadWorkerConfig(configPath string) (*WorkerConfig, error) {
-	// Set defaults
+	// Set defaults and pre-initialize nested structs so unmarshalling
+	// only overrides supplied fields (avoids nil deref when `go` section
+	// is omitted from worker.yaml).
 	config := &WorkerConfig{}
-	config.Go.GOMAXPROCS = 2
-	config.Go.GOMEMLIMIT = ""
-	config.Go.MaxRequests = 0
-	config.Timeouts.ReadTimeoutSeconds = 30
-	config.Timeouts.WriteTimeoutSeconds = 30
-	config.Timeouts.IdleTimeoutSeconds = 120
-	config.Logging.LogFile = "logs/worker_{name}_{date}.log"
+	config.LogFile = "logs/worker_{name}_{date}.log"
+
+	// Pre-create the Go runtime config with sensible defaults.
+	config.Go = &struct {
+		GOMAXPROCS          int    `yaml:"go_max_procs"`
+		GOMEMLIMIT          string `yaml:"go_mem_limit"`
+		ReadTimeoutSeconds  int    `yaml:"read_timeout_seconds"`
+		WriteTimeoutSeconds int    `yaml:"write_timeout_seconds"`
+		IdleTimeoutSeconds  int    `yaml:"idle_timeout_seconds"`
+		MaxRequests         int    `yaml:"max_requests"`
+	}{
+		GOMAXPROCS:          2,
+		GOMEMLIMIT:          "",
+		ReadTimeoutSeconds:  30,
+		WriteTimeoutSeconds: 30,
+		IdleTimeoutSeconds:  120,
+		MaxRequests:         0,
+	}
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
