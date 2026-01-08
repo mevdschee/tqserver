@@ -210,14 +210,13 @@ func (s *Supervisor) watchDirectory(dir string) error {
 			parentPath := filepath.Dir(path)
 			parentName := filepath.Base(parentPath)
 
-			// Watch if it's a src or config directory, or if parent is workers directory
-			shouldWatch := dirName == "src" || dirName == "config" || parentName == filepath.Base(s.config.Workers.Directory) || path == dir
+			// Watch if it's a src, config or public directory, or if parent is workers directory
+			shouldWatch := dirName == "src" || dirName == "config" || dirName == "public" || parentName == filepath.Base(s.config.Workers.Directory) || path == dir
 
 			if shouldWatch {
 				// If this is a src or config directory, also watch all nested
-				// subdirectories so edits in nested packages (e.g. src/main/kotlin)
-				// emit events.
-				if dirName == "src" || dirName == "config" {
+				// host emit events.
+				if dirName == "src" || dirName == "config" || dirName == "public" {
 					// Walk this subtree and add watchers for every directory.
 					_ = filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
 						if err != nil {
@@ -265,13 +264,17 @@ func (s *Supervisor) watchForChanges() {
 
 				// Handle Go/Kotlin source file changes under worker src/ directories.
 				// For Go workers watch .go files; for Kotlin workers watch .kt/.kts files.
-				if ext == ".go" || ext == ".kt" || ext == ".kts" {
+				// For PHP workers watch .php files in public/ directory.
+				if ext == ".go" || ext == ".kt" || ext == ".kts" || ext == ".php" {
 					// Determine which worker (if any) this file belongs to by checking
 					// whether the file path is under the worker's src directory.
 					workers := s.router.GetAllWorkers()
 					for _, w := range workers {
-						workerSrc := filepath.Join(s.projectRoot, s.config.Workers.Directory, w.Name, "src")
-						if strings.HasPrefix(event.Name, workerSrc) {
+						workerRoot := filepath.Join(s.projectRoot, s.config.Workers.Directory, w.Name)
+						workerSrc := filepath.Join(workerRoot, "src")
+						workerPublic := filepath.Join(workerRoot, "public") // For PHP
+
+						if strings.HasPrefix(event.Name, workerSrc) || strings.HasPrefix(event.Name, workerPublic) {
 							// Match extension against worker type
 							if ext == ".go" && w.Type == "go" {
 								log.Printf("Go file changed: %s", event.Name)
@@ -279,6 +282,10 @@ func (s *Supervisor) watchForChanges() {
 							}
 							if (ext == ".kt" || ext == ".kts") && w.Type == "kotlin" {
 								log.Printf("Kotlin file changed: %s", event.Name)
+								s.handleFileChange(event.Name)
+							}
+							if ext == ".php" && w.Type == "php" {
+								log.Printf("PHP file changed: %s", event.Name)
 								s.handleFileChange(event.Name)
 							}
 							break
@@ -312,6 +319,17 @@ func (s *Supervisor) handleFileChange(filePath string) {
 		// Check if the changed file belongs to this worker's directory
 		workerDir := filepath.Join(s.projectRoot, s.config.Workers.Directory, worker.Name)
 		if strings.HasPrefix(pageDir, workerDir) {
+
+			// For PHP workers, we don't need to rebuild or restart the worker
+			// process (php-fpm), we just need to tell the browser to reload.
+			if worker.Type == "php" {
+				log.Printf("PHP content changed for %s, broadcasting reload", worker.Route)
+				if s.config.IsDevelopmentMode() && s.proxy != nil {
+					s.proxy.BroadcastReload()
+				}
+				return
+			}
+
 			log.Printf("Rebuilding worker for %s", worker.Route)
 
 			// Rebuild the worker
@@ -406,7 +424,11 @@ func (s *Supervisor) buildWorker(worker *Worker) error {
 	workerRoot := filepath.Join(s.projectRoot, s.config.Workers.Directory, worker.Name)
 	workerBinDir := filepath.Join(workerRoot, "bin")
 
-	// Create bin directory if it doesn't exist
+	// Clean bin directory to remove old binaries
+	// On Linux, this is safe even if the binary is running (inode is preserved until exit)
+	if err := os.RemoveAll(workerBinDir); err != nil {
+		log.Printf("Warning: failed to clean bin directory %s: %v", workerBinDir, err)
+	}
 	if err := os.MkdirAll(workerBinDir, 0755); err != nil {
 		return fmt.Errorf("failed to create bin directory: %w", err)
 	}
@@ -486,10 +508,8 @@ func (s *Supervisor) buildWorker(worker *Worker) error {
 		// For Go workers, use go build
 		workerSrcDir := filepath.Join(workerRoot, "src")
 
-		// Generate binary name
-		binaryName := fmt.Sprintf("tqworker_%s_%d",
-			worker.Name,
-			time.Now().Unix())
+		// Use fixed binary name (worker name)
+		binaryName := worker.Name
 		binaryPath = filepath.Join(workerBinDir, binaryName)
 
 		log.Printf("Building Go worker: %s -> %s", worker.Name, binaryPath)

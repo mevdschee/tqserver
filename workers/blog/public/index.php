@@ -147,7 +147,8 @@ http_response_code(200);
 
         <div class="info">
             <li>✅ <strong>Proven Runtime:</strong> Runs via industry standard php-fpm adapter.</li>
-            <p>Configuration is managed by TQServer and applied to the PHP runtime (via generated php-fpm pool configs and launcher).</p>
+            <p>Configuration is managed by TQServer and applied to the PHP runtime (via generated php-fpm pool configs
+                and launcher).</p>
         </div>
 
         <h2>Current Request Environment</h2>

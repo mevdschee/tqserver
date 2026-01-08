@@ -1,83 +1,17 @@
 # TQServer
 
-A high-performance function execution platform built with Go that provides
-sub-second hot reloads with native Go performance.
+A high-performance function execution platform built with Go that provides sub-second hot reloads with native Go performance.
 
-## Features
+## Overview
 
-- **Sub-second hot reloads** - Changes to page code are automatically detected,
-  rebuilt, and deployed in ~0.3-1.0 seconds
+TQServer bridges the gap between a high-performance web server and a flexible function-as-a-service development platform. 
+
+### Key Features
+- **Sub-second hot reloads** - Changes to page code are automatically detected, rebuilt, and deployed in ~0.3-1.0 seconds
 - **Filesystem-based routing** - URL structure mirrors your filesystem layout
-- **Graceful worker restarts** - Zero-downtime deployments with automatic
-  traffic switching
-- **Native Go performance** - Workers are compiled Go binaries, not interpreted
-  scripts
 - **Process isolation** - Each route runs in its own process
-- **Automatic builds** - File watching and automatic compilation on changes
-- **Port pool management** - Efficient port allocation prevents port exhaustion
-- **Health monitoring** - Periodic HTTP health checks on worker processes
-- **Binary cleanup** - Automatic removal of old compiled binaries (24+ hours
-  old)
-- **Per-route configuration** - Customize resources, timeouts, and limits per
-  route
-- **Configuration hot reload** - Automatically detect and apply configuration
-  changes without server restart
-- **Structured logging** - Server and worker logs with date-based rotation
-- **Quiet mode** - Suppress console output for production deployments
-- **Environment variables** - Workers receive WORKER_PORT, WORKER_NAME,
-  WORKER_ROUTE, and WORKER_MODE for runtime configuration
-
-## Missing Features / To Be Implemented
-
-The following features are planned but not yet implemented:
-
-- **TLS/HTTPS Support** - Currently only HTTP is supported; need to add SSL/TLS
-  certificate configuration
-- **Metrics & Monitoring** - Prometheus/OpenTelemetry integration for
-  observability (request counts, latencies, worker status)
-- **Middleware Support** - Global and per-route middleware for authentication,
-  rate limiting, CORS, etc.
-- **WebSocket Support** - Currently only HTTP is supported; WebSocket proxying
-  needs implementation
-- **Static File Serving** - Efficient serving of static assets (CSS, JS, images)
-  without worker overhead
-- **Request Logging** - Access logs with configurable format (Common Log Format,
-  JSON, etc.)
-- **Correlation ID** - To log over multiple workers (and remote API's)
-- **Load Balancing** - Multiple worker instances per route for horizontal
-  scaling
-- **Circuit Breaker** - Automatic failure detection and traffic routing around
-  unhealthy workers
-- **Docker Support** - Containerization with multi-stage builds and compose
-  files
-- **Graceful Shutdown Improvements** - Better handling of in-flight requests
-  during shutdown
-- **Worker Pooling** - Reuse worker processes instead of rebuilding for every
-  change
-- **Template Caching** - Cache compiled templates for better performance
-- **Rate Limiting** - Per-route and global rate limiting capabilities, also per
-  IP
-- **Authentication Middleware** - Built-in JWT, OAuth, or API key authentication
-- **Database Connection Pooling** - Shared database connection management across
-  workers
-- **Background Job Support** - Async task processing and job queues
-- **Admin Dashboard** - Web UI for monitoring workers, logs, and system health
-- **Testing Framework** - Unit and integration testing utilities for worker
-  functions
-- **CLI Improvements** - Better command-line interface with subcommands (start,
-  stop, reload, status)
-- **Log Rotation** - Ensure log files are automatically compressed and/or
-  removed
-- **Cluster support** - See also Load Balancing, but also take deployment into
-  account
-- **State management** - Database and cache should be suported
-- **Session management** - Session storage should be suported, session key
-  should be passed on
-- **Proxy outgoing HTTP** - For logging + debugging purposes
-- **websocket protocol** - proxy into rest
-- **grpc protocol** - proxy into rest
-- **web debugger** - to view request life cycle
-- **database editor** - for debug mode to make database changes
+- **Native Go performance** - Workers are compiled Go binaries, not interpreted scripts
+- **Graceful worker restarts** - Zero-downtime deployments with traffic switching
 
 ## Quick Start
 
@@ -95,16 +29,11 @@ For production:
 
 ### 2. Configure (optional)
 
-Edit `config/server.yaml` to customize:
-
-- Server port (default: 8080)
-- Worker port range (default: 9000-9999)
-- Timeouts (read, write, idle)
-- Worker startup and restart delays
+Edit `config/server.yaml` to customize ports and timeouts.
 
 ### 3. Run the server
 
-Development mode with automatic reloading:
+Development mode (watching for changes):
 ```bash
 ./server/bin/tqserver --mode dev
 ```
@@ -114,42 +43,22 @@ Production mode:
 ./server/bin/tqserver --mode prod
 ```
 
-The server will listen on port **8080** by default (or as configured).
-
 Visit http://localhost:8080 to see it in action!
 
-### 4. Edit and watch hot reload
+---
 
-In development mode, edit worker source files (e.g., `workers/index/src/main.go`) and save. The server will automatically rebuild and reload in under 1 second with zero downtime.
+# Part 1: The Web Server Platform
 
-In production mode, deploy changes and send a SIGHUP signal to trigger reload:
-```bash
-./scripts/deploy.sh production
-ssh user@hostname pkill -SIGHUP tqserver
-```
+This section covers the operational aspects of TQServer: configuration, deployment, and management.
 
-## Deployment
+## Server Features
 
-For production deployment to remote servers, see [DEPLOYMENT.md](DEPLOYMENT.md).
-
-Quick deployment example:
-```bash
-# Build for production
-./scripts/build-prod.sh
-
-# Deploy to production
-./scripts/deploy.sh production
-
-# Deploy specific worker only
-./scripts/deploy.sh production index
-```
-
-The deployment system uses rsync for efficient incremental updates and supports:
-- Multiple deployment targets (staging, production, custom)
-- Selective worker deployment
-- Pre/post-deployment hooks
-- Zero-downtime reloads via SIGHUP signal
-- Health checks after deployment
+- **Port pool management** - Efficient port allocation prevents port exhaustion
+- **Health monitoring** - Periodic HTTP health checks on worker processes
+- **Binary cleanup** - Automatic removal of old compiled binaries (24+ hours old)
+- **Configuration hot reload** - Automatically detect and apply configuration changes without server restart
+- **Structured logging** - Server and worker logs with date-based rotation
+- **Quiet mode** - Suppress console output for production deployments
 
 ## Command Line Options
 
@@ -163,69 +72,13 @@ Options:
         Suppress log output to stdout/stderr
 ```
 
-The `-quiet` flag is useful for production environments where you want logs only
-written to files.
+The `-quiet` flag is useful for production environments where you want logs only written to files.
 
-## Configuration
+## Server Configuration
 
-The server uses a YAML configuration file (`config/server.yaml`) with the
-following options:
+The server is configured via `config/server.yaml`.
 
-```yaml
-# Server settings
-server:
-  port: 8080 # HTTP server port
-  read_timeout_seconds: 30 # HTTP read timeout
-  write_timeout_seconds: 30 # HTTP write timeout
-  idle_timeout_seconds: 120 # HTTP idle timeout
-  log_file: "logs/server_{date}.log" # Server log file (use ~, null, or empty to disable)
-
-# Worker settings
-workers:
-  directory: "workers" # Directory containing workers
-
-  # Port range for worker processes
-  port_range_start: 9000 # First port for workers
-  port_range_end: 9999 # Last port for workers
-
-  # Timing settings (in milliseconds)
-  startup_delay_ms: 100 # Wait time after starting worker
-  restart_delay_ms: 100 # Delay before stopping old worker
-  shutdown_grace_period_ms: 500 # Grace period for shutdown
-
-# File watching settings
-file_watcher:
-  debounce_ms: 50 # Debounce for file changes
-```
-
-**Note:** Per-worker configuration (path, runtime settings, timeouts, logging) is configured in each worker's `config/worker.yaml` file. See `config/worker.example.yaml` for details.
-
-**Example worker configuration** (`workers/index/config/worker.yaml`):
-
-```yaml
-# Path prefix for this worker (required)
-path: "/"
-
-# Worker runtime settings
-runtime:
-  go_max_procs: 2
-  go_mem_limit: "512MiB"
-  max_requests: 10000
-
-# Timeout settings
-timeouts:
-  read_timeout_seconds: 30
-  write_timeout_seconds: 30
-  idle_timeout_seconds: 120
-
-# Logging
-logging:
-  log_file: "logs/worker_{name}_{date}.log"
-```
-
-### Configuration Options Reference
-
-#### Server Settings
+### Server Settings
 
 | Option                  | Type   | Default                  | Description                                                                                                    |
 | ----------------------- | ------ | ------------------------ | -------------------------------------------------------------------------------------------------------------- |
@@ -235,7 +88,9 @@ logging:
 | `idle_timeout_seconds`  | int    | 120                      | Keep-alive timeout                                                                                             |
 | `log_file`              | string | `logs/server_{date}.log` | Server log file path. Supports `{date}` placeholder. Use `~`, `null`, or empty string to disable file logging. |
 
-#### Worker Settings
+### Global Worker Defaults
+
+These settings in `config/server.yaml` define the default behavior for all workers managed by the server.
 
 | Option                     | Type   | Default     | Description                                        |
 | -------------------------- | ------ | ----------- | -------------------------------------------------- |
@@ -245,289 +100,103 @@ logging:
 | `restart_delay_ms`         | int    | 100         | Delay before stopping old worker during restart    |
 | `shutdown_grace_period_ms` | int    | 500         | Time allowed for graceful shutdown                 |
 
-#### Per-Worker Settings
+### Configuration Hot Reload
 
-Each worker is configured via its own `config/worker.yaml` file:
+TQServer automatically detects changes to `config/server.yaml` and applies them without requiring a server restart. This allows for zero-downtime adjustments to timeouts, resource limits, and worker policies.
+
+**Note:** Changes to `server.port` require a manual restart.
+
+## Deployment
+
+For production deployment details, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
+### Quick Deployment
+```bash
+# Build & Deploy
+./scripts/build-prod.sh
+./scripts/deploy.sh production
+
+# Deploy specific worker only
+./scripts/deploy.sh production index
+```
+
+### Cluster Architecture
+
+To scale from single-node to multi-node:
+
+1.  **Shared Code Distribution**: Use Git to pull code on all nodes. TQServer will rebuild binaries locally on each node.
+2.  **Shared Configuration**: `server.yaml` should be version controlled and identical across nodes.
+
+---
+
+# Part 2: Software Development Platform
+
+This section guides developers on building applications (workers) for TQServer.
+
+## Project Structure
+
+```
+tqserver/
+├── workers/              # Worker applications
+│   └── {name}/            # Individual worker
+│       ├── src/            # Worker source code
+│       ├── bin/            # Compiled worker binary
+│       ├── config/         # Worker-specific config
+│       └── views/          # Templates/HTML (optional)
+```
+
+## Developing Workers
+
+TQServer supports polyglot workers.
+
+### Go Workers (Native)
+Provide the highest performance (~300-1000ms reload).
+-   **Structure**: Standard Go executable.
+-   **Runtime**: Use `pkg/worker` for easy setup.
+-   **Example**: `workers/index/`
+
+### Kotlin Workers
+Run as standalone JARs.
+-   **Framework**: Ktor recommended.
+-   **Example**: `workers/api/` and [docs/workers/kotlin.md](docs/workers/kotlin.md)
+
+### PHP Workers
+Run via FastCGI (php-fpm).
+-   **Connection**: Supervisor manages a PHP-FPM adapter.
+-   **Example**: `workers/blog/` and [pkg/php/README.md](pkg/php/README.md)
+
+## Worker Configuration (`worker.yaml`)
+
+Each worker has its own configuration file at `workers/{name}/config/worker.yaml`.
 
 | Option                  | Type   | Default                         | Description                                                                                                 |
 | ----------------------- | ------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `path`                  | string | (required)                      | URL path prefix for this worker (e.g., "/", "/api")                                                       |
 | `go_max_procs`          | int    | 2                               | Sets Go's GOMAXPROCS (CPU threads). 0 = NumCPU                                                              |
 | `max_requests`          | int    | 0                               | Restart worker after N requests. 0 = unlimited                                                              |
-| `request_timeout_seconds` | int  | 30                              | HTTP request timeout for worker                                                                             |
-| `idle_timeout_seconds`  | int    | 120                             | HTTP idle timeout for worker                                                                                |
-| `go_mem_limit`          | string | ""                              | Go's GOMEMLIMIT (e.g., "512MiB", "2GiB"). Empty = unlimited                                                 |
-| `log_file`              | string | `logs/worker_{name}_{date}.log` | Worker log file template. Supports `{name}` and `{date}` placeholders. Use `~`, `null`, or empty to disable |
+| `go_mem_limit`          | string | ""                              | Go's GOMEMLIMIT (e.g., "512MiB").                                                                           |
+| `log_file`              | string | `logs/worker_{name}_{date}.log` | Worker log file template.                                                                                   |
 
-#### File Watcher Settings
+## Environment Variables
 
-| Option        | Type | Default | Description                                                      |
-| ------------- | ---- | ------- | ---------------------------------------------------------------- |
-| `debounce_ms` | int  | 50      | Debounce delay to avoid multiple rebuilds for rapid file changes |
+Workers receive configuration via environment variables at runtime.
 
-### Per-Worker Configuration
+| Variable                         | Description                                      |
+| -------------------------------- | ------------------------------------------------ |
+| `WORKER_PORT`                    | Port number assigned to this worker              |
+| `WORKER_NAME`                    | Worker folder name                               |
+| `WORKER_ROUTE`                   | URL path prefix                                  |
+| `WORKER_MODE`                    | `development` or `production`                    |
 
-Each worker has its own configuration file at `workers/{name}/config/worker.yaml`. This allows you to:
-
-- Set different resource limits per worker
-- Configure URL path routing individually
-- Apply different restart policies per worker
-
-**Example:** API worker with conservative limits (`workers/api/config/worker.yaml`):
-
-```yaml
-path: "/api"
-
-runtime:
-  go_max_procs: 2
-  go_mem_limit: "256MiB"
-  max_requests: 5000
-
-timeouts:
-  read_timeout_seconds: 15
-  write_timeout_seconds: 15
-  idle_timeout_seconds: 60
-
-logging:
-  log_file: "logs/api_{date}.log"
-```
-
-**Example:** Webhook worker with generous limits (`workers/webhooks/config/worker.yaml`):
-
-```yaml
-path: "/webhooks"
-
-runtime:
-  go_max_procs: 1
-  go_mem_limit: "1GiB"
-  max_requests: 20000
-
-timeouts:
-  read_timeout_seconds: 120
-  write_timeout_seconds: 120
-  idle_timeout_seconds: 300
-
-logging:
-  log_file: "logs/webhooks_{date}.log"
-```
-
-## Configuration Hot Reload
-
-TQServer automatically detects changes to the configuration file and applies
-them without requiring a server restart. When you modify `config/server.yaml`
-and save:
-
-1. The configuration is automatically reloaded
-2. All workers are gracefully restarted with the new settings
-3. New configuration values take effect (timeouts, resource limits, port ranges,
-   etc.)
-4. The server continues handling requests throughout the reload process
-
-This feature is useful for:
-
-- Adjusting worker resource limits in production
-- Enabling/disabling features without downtime
-- Testing different configurations during development
-- Applying security updates to timeouts and limits
-
-**Note:** Changes to the server port (`server.port`) require a manual server
-restart as the HTTP server cannot rebind to a new port while running.
-
-**Example workflow:**
-
-```bash
-# Edit config file
-vim config/server.yaml
-
-# Save changes - TQServer automatically detects and applies them
-# Watch the logs to see the reload in action:
-# "Config file changed: config/server.yaml"
-# "Reloading configuration..."
-# "✅ Configuration reloaded successfully"
-# "✅ All workers restarted with new configuration"
-```
-
-## Documentation
-
-See [project_brief.md](project_brief.md) for complete architecture
-documentation.
-
-## Worker Development
-
-TQServer supports workers written in multiple programming languages, each compiled or managed according to its runtime requirements.
-
-### Supported Worker Types
-
-#### Go Workers
-
-Native Go workers provide the highest performance and fastest reload times. Workers are compiled as standalone binaries and managed directly by the supervisor.
-
-**Features:**
-- Sub-second hot reloads (~300-1000ms)
-- Native Go performance with no runtime overhead
-- Direct process management by supervisor
-- Full access to Go standard library and ecosystem
-- Built-in health check support via `/health` endpoint
-
-**Example:** `workers/index/` - Default homepage worker written in Go
-
-**Documentation:** See [Worker Development](#worker-development) section below for Go worker examples.
-
-#### Kotlin Workers
-
-Kotlin workers use the Ktor framework and are compiled to JVM bytecode. They run as standalone JAR files managed by the supervisor.
-
-**Features:**
-- JVM ecosystem and library support
-- Ktor framework for HTTP routing
-- Gradle build system integration
-- Hot reload support with automatic rebuilding
-- Type-safe language with modern syntax
-
-**Example:** `workers/api/` - REST API worker demonstrating CRUD operations
-
-**Documentation:** See [workers/api/README.md](workers/api/README.md) and [docs/workers/kotlin.md](docs/workers/kotlin.md)
-
-#### PHP Workers
-
-PHP workers use the FastCGI protocol to communicate with TQServer. The supervisor manages PHP workers; the project now prefers a php-fpm-first approach with an adapter (central php-fpm instances managed via the launcher). Legacy direct `php-cgi` workers are still supported for testing.
-
-**Features:**
-- FastCGI protocol integration
-- Dynamic worker pool management (static, dynamic, on-demand)
-- PHP-FPM style configuration via YAML
-- Support for existing PHP applications
-- Configurable process pools and resource limits
-
-### PHP Workers — Runtime Notes
-
-- **php-fpm executable detection:** The supervisor will try the worker-configured binary first (`php.binary` / `php.binary` in `worker.yaml`), then common executable names (`php-fpm`, `php-fpm8.3`) via `exec.LookPath`, and finally scans `/usr/sbin`, `/sbin`, and `/usr/local/sbin` for `php-fpm*` executables. If no usable binary is found the supervisor will return a clear error — install `php-fpm` or set the worker's `php.binary` to the full path (e.g. `/usr/sbin/php-fpm8.3`).
-
-- **Listen address & ports:** For PHP workers the supervisor reserves a free port from the worker port pool and instructs `php-fpm` to listen on `127.0.0.1:<port>` (or the `listen_address` configured in the worker YAML). This avoids port collisions and keeps FastCGI sockets bound to loopback.
-
-- **Launch & readiness:** The supervisor launches `php-fpm` via the `phpfpm` launcher/adapter and waits briefly for the process to bind the configured TCP listen address before marking the worker healthy. This avoids immediate `connection refused` errors from the proxy.
-
-- **Restart behavior:** When a PHP worker is restarted, the supervisor restarts the `php-fpm` instance via the adapter and cleans up the old launcher/client — it does not attempt to rebuild a Go binary for PHP workers.
-
-- **Troubleshooting connection refused:** If you see `Failed to connect to FastCGI server` or `connection refused` in the logs:
-  - Ensure `php-fpm` is installed and reachable (check `/usr/sbin/php-fpm*` or run `which php-fpm`).
-  - Confirm your worker's `listen_address` is compatible with loopback (use `127.0.0.1` if unsure).
-  - Look at `server` logs for which php binary was selected and any php-fpm stderr output.
-
-
-**Example:** `workers/blog/` - Blog worker demonstrating PHP integration
-
-**Documentation:** See [workers/blog/README.md](workers/blog/README.md) and [pkg/php/README.md](pkg/php/README.md)
-
-### Environment Variables
-
-TQServer passes configuration to workers via environment variables:
-
-| Variable                         | Description                                      | Example         | Source                    |
-| -------------------------------- | ------------------------------------------------ | --------------- | ------------------------- |
-| `WORKER_PORT`                    | Port number assigned to this worker              | `9000`          | Supervisor (auto)         |
-| `WORKER_NAME`                    | Worker name (from directory)                     | `index`         | Supervisor (auto)         |
-| `WORKER_ROUTE`                   | URL path prefix for this worker                  | `/`             | Worker config             |
-| `WORKER_MODE`                    | Deployment mode (development/production)         | `development`   | Server mode               |
-| `WORKER_READ_TIMEOUT_SECONDS`    | Go HTTP read timeout                             | `30`            | Worker config (Go only)   |
-| `WORKER_WRITE_TIMEOUT_SECONDS`   | Go HTTP write timeout                            | `30`            | Worker config (Go only)   |
-| `WORKER_IDLE_TIMEOUT_SECONDS`    | Go HTTP idle/keep-alive timeout                  | `120`           | Worker config (Go only)   |
-| `GOMAXPROCS`                     | Go runtime CPU limit (number of threads)         | `2`             | Worker config (Go only)   |
-| `GOMEMLIMIT`                     | Go runtime soft memory limit                     | `512MiB`        | Worker config (Go only)   |
-
-Workers access these variables using Go's standard library:
-
+Example usage (Go):
 ```go
-import "os"
-
-func main() {
-    port := os.Getenv("WORKER_PORT")        // "9000"
-    name := os.Getenv("WORKER_NAME")        // "index"
-    route := os.Getenv("WORKER_ROUTE")      // "/"
-    mode := os.Getenv("WORKER_MODE")        // "development"
-    
-    // Timeout and runtime values are automatically used by worker.NewRuntime()
-    // GOMAXPROCS and GOMEMLIMIT are automatically applied by Go runtime
-}
+port := os.Getenv("WORKER_PORT")
+runtime := worker.NewRuntime() // Automatically processes Env Vars
 ```
 
-### Worker Runtime Package
+## Health Checks
 
-Workers use the `pkg/worker` package for initialization and HTTP server
-configuration. This package provides consistent environment variable parsing and
-server setup across all workers.
-
-**Basic Worker Example:**
-
-```go
-package main
-
-import (
-    "log"
-    "net/http"
-
-    "tqserver/pkg/worker"
-)
-
-func main() {
-    // Initialize worker runtime (reads WORKER_* environment variables)
-    runtime := worker.NewRuntime()
-
-    // Set up routes
-    http.HandleFunc("/", handleIndex)
-    http.HandleFunc("/health", handleHealth)
-
-    // Start server with proper timeouts and graceful shutdown
-    if err := runtime.StartServer(http.DefaultServeMux); err != nil {
-        log.Fatal(err)
-    }
-}
-
-func handleIndex(w http.ResponseWriter, r *http.Request) {
-    w.Write([]byte("Hello from worker!"))
-}
-
-func handleHealth(w http.ResponseWriter, r *http.Request) {
-    w.WriteHeader(http.StatusOK)
-    w.Write([]byte("OK"))
-}
-```
-
-### Worker Runtime API
-
-The `worker.Runtime` struct provides:
-
-```go
-type Runtime struct {
-    Port             int    // Worker port (from TQ_PORT)
-    MaxRequests      int    // Max requests before restart (from TQ_MAX_REQUESTS)
-    ReadTimeout      int    // HTTP read timeout in seconds (from TQ_READ_TIMEOUT_SECONDS)
-    WriteTimeout     int    // HTTP write timeout in seconds (from TQ_WRITE_TIMEOUT_SECONDS)
-    IdleTimeout      int    // HTTP idle timeout in seconds (from TQ_IDLE_TIMEOUT_SECONDS)
-    ShutdownTimeout  int    // Graceful shutdown timeout (from TQ_SHUTDOWN_GRACE_PERIOD_MS)
-    LogFile          string // Log file path (from TQ_LOG_FILE)
-    requestCount     int32  // Atomic request counter
-    shutdownRequested int32 // Atomic shutdown flag
-}
-```
-
-**Methods:**
-
-- `NewRuntime() (*Runtime, error)` - Parse environment and create runtime
-- `StartServer(handler http.Handler) error` - Start HTTP server with
-  configuration
-- `GetRequestCount() int32` - Get current request count
-- `ShouldShutdown() bool` - Check if max requests reached
-
-### Health Check Endpoint
-
-All workers **must** implement a `/health` endpoint that returns HTTP 200 OK.
-The supervisor uses this endpoint to:
-
-- Determine when a worker is ready after startup
-- Monitor worker health continuously (every 30 seconds)
-- Mark workers as unhealthy if checks fail (3 consecutive failures)
-
+Every worker **must** implement a `/health` endpoint returning `200 OK`.
 ```go
 http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(http.StatusOK)
@@ -535,83 +204,64 @@ http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 })
 ```
 
-### Worker Environment Variables
+---
 
-The supervisor automatically sets environment variables for each worker:
-Workers can access these via `worker.NewRuntime()` or directly from `os.Getenv()`.
+# Part 3: Session Management
 
-## Project Structure
+One of the most critical aspects of distributed systems and microservices is handling shared state and user sessions.
 
-```
-tqserver/
-├── server/               # Main server application
-│   ├── src/               # Server source code
-│   │   ├── main.go         # Entry point
-│   │   ├── config/         # Configuration
-│   │   ├── proxy/          # HTTP reverse proxy
-│   │   ├── router/         # Route discovery
-│   │   └── supervisor/     # Worker lifecycle
-│   ├── bin/               # Compiled server binary
-│   └── public/            # Public server assets
-├── workers/              # Worker applications
-│   └── {name}/            # Individual worker
-│       ├── src/            # Worker source code
-│       ├── bin/            # Compiled worker binary
-│       ├── public/         # Public web assets
-│       ├── views/          # HTML templates
-│       ├── config/         # Worker-specific config
-│       └── data/           # Worker data files
-├── pkg/                  # Shared packages
-│   ├── supervisor/        # Timestamp, registry, health
-│   ├── watcher/           # File watching
-│   ├── builder/           # Build automation
-│   ├── devmode/           # Dev mode controller
-│   ├── prodmode/          # Prod mode controller
-│   ├── modecontroller/    # Mode switching
-│   └── coordinator/       # Reload coordination
-├── scripts/              # Build & deployment
-├── config/               # Configuration files
-└── docs/                 # Documentation
-```
+## The Stateless Principle
 
-## Cluster Deployment Architecture
+TQServer workers are designed to be **stateless**.
+-   **Ephemeral Processes**: Workers can be restarted at any time (due to configuration changes, deployments, or `max_requests` limits).
+-   **Process Isolation**: Each request might be handled by a new instance or a different process.
+-   **Scalability**: A stateless design allows you to run multiple instances of the same worker or scale across multiple servers (cluster mode) without worrying about synchronization.
 
-### Scaling from Single-Node to Multi-Node
+**Rule of Thumb:** Never store session data (user login status, shopping carts, temp data) in global variables or local files within the worker. It will be lost on restart.
 
-The transition from single-node to multi-node deployment requires additional
-infrastructure components.
+## Recommended Architecture
 
-**Key additions for cluster mode:**
+### 1. External Session Store
+Use a fast, external key-value store for session data.
+-   **Redis** (Recommended): High performance, persistent, supports expiration.
+-   **Memcached**: Good for pure caching, simple string keys.
+-   **Database**: PostgreSQL/MySQL (slower, but durable).
 
-### 1. Shared Code Distribution
+### 2. Session Identifiers (Cookies)
+-   The client (browser) should hold a **Session ID** in a secure, HTTP-only cookie.
+-   The Worker reads this Cookie on every request.
+-   The Worker retrieves the session payload from Redis using the Session ID.
 
-**Challenge:** Updated function code must reach all cluster nodes.
+### 3. Implementation Workflow
 
-**Solution:** Git pull on all nodes and rebuild binaries on each node.
+1.  **User Logs In**:
+    -   Worker validates credentials against DB.
+    -   Worker generates a random `session_id`.
+    -   Worker stores `session_id -> user_data` in Redis (e.g., with 24h TTL).
+    -   Worker sets `Set-Cookie: session_id=...` header in response.
 
-**Implementation:**
+2.  **Subsequent Requests**:
+    -   Browser sends `Cookie: session_id=...`.
+    -   Worker extracts `session_id`.
+    -   Worker fetches data from Redis.
+    -   If not found, redirect to login.
 
-- Each node maintains a local Git repository
-- Nodes pull from a central repository when notified
-- Notifications trigger rebuild and restart process
+## Future Native Support
+We are planning built-in support for session management to simplify this workflow:
+-   **Session Middleware**: Automatic cookie handling and transparent session storage.
+-   **Pluggable Stores**: Configurable backends (Redis, File, Memory) in `server.yaml`.
 
-**Recommendation:** This is the simplest approach for code distribution.
+---
 
-### 2. Shared Configuration
+# Roadmap / Missing Features
 
-**Challenge:** Configuration and views must be consistent across all nodes.
+The following features are planned but not yet implemented:
 
-**Solution:** Read config and views during runtime, distribute with the code.
-
-**Implementation:**
-
-- Configuration file distributed alongside code
-- Version control ensures consistency
-- Updates deployed atomically with code changes
-
-**Recommendation:** This is the simplest approach for configuration management.
-
-### 3. Optional: Distributed Cache
-
-**Purpose:** Share state and cached data across cluster nodes for improved
-performance and consistency.
+- **TLS/HTTPS Support** - Currently only HTTP is supported
+- **Metrics & Monitoring** - Prometheus/OpenTelemetry integration
+- **Middleware Support** - Global and per-route middleware
+- **Session Management** - Built-in abstract session storage (as described above)
+- **WebSocket Support** - Proxying implementation needed
+- **Static File Serving** - Efficient serving without worker overhead
+- **Load Balancing** - Multiple worker instances per route
+- **Docker Support** - Containerization with multi-stage builds
