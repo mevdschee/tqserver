@@ -5,124 +5,152 @@ import (
 	"time"
 )
 
-// Config represents PHP worker configuration
+// Config represents PHP / php-fpm configuration used by the runtime.
+// This refactor uses a php-fpm-first configuration model (no backwards compatibility).
 type Config struct {
-	// Binary path to php-cgi executable
-	Binary string
+	// Path to the php-fpm binary to execute in dev/supervised mode.
+	PHPFPMBinary string
 
-	// ConfigFile is the optional base php.ini file path
-	ConfigFile string
+	// Optional base php.ini file to pass to php-fpm (via -c or env as needed).
+	PHPIni string
 
-	// Settings are individual PHP configuration directives
-	// These override values from ConfigFile
-	Settings map[string]string
+	// Global PHP-FPM options and pool configuration.
+	PHPFPM PHPFPMConfig
 
-	// DocumentRoot is the document root directory
+	// DocumentRoot is the document root directory used for chdir in pool config.
 	DocumentRoot string
 
-	// Pool configuration
-	Pool PoolConfig
+	// Settings are individual PHP configuration directives injected as env entries
+	// into the generated php-fpm pool (e.g. PHP_VALUE, env[] entries).
+	Settings map[string]string
 }
 
-// PoolConfig represents process pool configuration
+// PHPFPMConfig controls how php-fpm is launched and configured.
+type PHPFPMConfig struct {
+	// Enabled toggles using php-fpm. When false, no php-fpm is launched.
+	Enabled bool
+
+	// Listen is the address php-fpm should listen on (TCP host:port or unix socket path).
+	Listen string
+
+	// Transport indicates the listen transport: "tcp" or "unix".
+	Transport string
+
+	// Pool defines the pool-specific settings used to generate a php-fpm pool file.
+	Pool PoolConfig
+
+	// Env are extra environment variables injected into the php-fpm process.
+	Env map[string]string
+
+	// GeneratedConfigDir is the directory where generated php-fpm configs will be written.
+	// If empty, a secure temp directory will be used.
+	GeneratedConfigDir string
+
+	// NoDaemonize indicates the runtime should start php-fpm with -F (no-daemonize).
+	NoDaemonize bool
+}
+
+// PoolConfig represents an explicit php-fpm pool configuration that maps cleanly
+// to php-fpm directives.
 type PoolConfig struct {
-	// Manager type: "static", "dynamic", or "ondemand"
-	Manager string
+	// Name is the pool name used for the pool file (e.g. "tqserver").
+	Name string
 
-	// MinWorkers is the minimum number of workers (dynamic/ondemand)
-	MinWorkers int
+	// PM is the process manager: "static", "dynamic" or "ondemand".
+	PM string
 
-	// MaxWorkers is the maximum number of workers (dynamic/static)
-	MaxWorkers int
+	// MaxChildren maps to pm.max_children
+	MaxChildren int
 
-	// StartWorkers is the initial number of workers (dynamic)
-	StartWorkers int
+	// StartServers maps to pm.start_servers (dynamic)
+	StartServers int
 
-	// MaxRequests is the maximum requests per worker before restart (0 = unlimited)
+	// MinSpareServers maps to pm.min_spare_servers (dynamic)
+	MinSpareServers int
+
+	// MaxSpareServers maps to pm.max_spare_servers (dynamic)
+	MaxSpareServers int
+
+	// MaxRequests maps to pm.max_requests
 	MaxRequests int
 
-	// RequestTimeout is the maximum time for a single request
-	RequestTimeout time.Duration
+	// RequestTerminateTimeout maps to request_terminate_timeout (e.g. "30s").
+	RequestTerminateTimeout time.Duration
 
-	// IdleTimeout is the time before an idle worker is killed (ondemand)
-	IdleTimeout time.Duration
-
-	// ListenAddress is the FastCGI TCP listen address without port (e.g., "127.0.0.1")
-	ListenAddress string
+	// ProcessIdleTimeout maps to process_idle_timeout (ondemand) (e.g. "10s").
+	ProcessIdleTimeout time.Duration
 }
 
-// Validate checks if the configuration is valid
+// Validate checks if the configuration is valid for php-fpm generation and launch.
 func (c *Config) Validate() error {
-	if c.Binary == "" {
-		return fmt.Errorf("php binary path is required")
+	if !c.PHPFPM.Enabled {
+		return nil
 	}
-
+	if c.PHPFPM.Pool.Name == "" {
+		return fmt.Errorf("phpfpm pool name is required")
+	}
+	if c.PHPFPM.Listen == "" {
+		return fmt.Errorf("phpfpm listen address is required")
+	}
 	if c.DocumentRoot == "" {
 		return fmt.Errorf("document root is required")
 	}
-
-	// Validate pool configuration
-	if err := c.Pool.Validate(); err != nil {
-		return fmt.Errorf("pool config: %w", err)
+	if err := c.PHPFPM.Pool.Validate(); err != nil {
+		return fmt.Errorf("pool validation: %w", err)
 	}
-
 	return nil
 }
 
-// Validate checks if the pool configuration is valid
+// Validate checks pool constraints and fills sane defaults where applicable.
 func (p *PoolConfig) Validate() error {
-	if p.ListenAddress == "" {
-		return fmt.Errorf("listen_addr must be configured")
-	}
-
-	switch p.Manager {
+	switch p.PM {
 	case "static", "dynamic", "ondemand":
-		// Valid
+		// ok
 	default:
-		return fmt.Errorf("invalid pool manager: %s (must be static, dynamic, or ondemand)", p.Manager)
+		p.PM = "dynamic"
 	}
 
-	if p.Manager == "static" && p.MaxWorkers < 1 {
-		return fmt.Errorf("static pool requires max_workers >= 1")
+	if p.MaxChildren <= 0 {
+		p.MaxChildren = 5
 	}
 
-	if p.Manager == "dynamic" {
-		if p.MinWorkers < 1 {
-			return fmt.Errorf("dynamic pool requires min_workers >= 1")
+	if p.PM == "dynamic" {
+		if p.StartServers <= 0 {
+			p.StartServers = 2
 		}
-		if p.MaxWorkers < p.MinWorkers {
-			return fmt.Errorf("max_workers must be >= min_workers")
+		if p.MinSpareServers <= 0 {
+			p.MinSpareServers = 1
 		}
-		if p.StartWorkers < p.MinWorkers || p.StartWorkers > p.MaxWorkers {
-			return fmt.Errorf("start_workers must be between min_workers and max_workers")
+		if p.MaxSpareServers <= 0 {
+			p.MaxSpareServers = p.MaxChildren
 		}
 	}
 
-	if p.Manager == "ondemand" && p.MaxWorkers < 1 {
-		return fmt.Errorf("ondemand pool requires max_workers >= 1")
+	if p.MaxRequests < 0 {
+		p.MaxRequests = 0
 	}
 
-	if p.RequestTimeout <= 0 {
-		p.RequestTimeout = 30 * time.Second
+	if p.RequestTerminateTimeout <= 0 {
+		p.RequestTerminateTimeout = 30 * time.Second
 	}
 
-	if p.IdleTimeout <= 0 {
-		p.IdleTimeout = 10 * time.Second
+	if p.ProcessIdleTimeout <= 0 {
+		p.ProcessIdleTimeout = 10 * time.Second
 	}
 
 	return nil
 }
 
-// GetWorkerCount returns the number of workers to start initially
-func (p *PoolConfig) GetWorkerCount() int {
-	switch p.Manager {
+// GetInitialWorkerCount returns the number of workers the pool will start with.
+func (p *PoolConfig) GetInitialWorkerCount() int {
+	switch p.PM {
 	case "static":
-		return p.MaxWorkers
+		return p.MaxChildren
 	case "dynamic":
-		return p.StartWorkers
+		return p.StartServers
 	case "ondemand":
-		return 0 // Start with no workers
+		return 0
 	default:
-		return 1
+		return p.MaxChildren
 	}
 }

@@ -23,6 +23,25 @@ Config additions
 - `php_fpm.connect_timeout_ms`, `php_fpm.request_timeout_ms`
 - Backwards compatibility: if legacy worker mode configured, keep current behavior until migration enabled.
 
+php-fpm startup & config generation
+- Startup mode: when the runtime launches php-fpm for dev or supervised use, start php-fpm with `-F` (no-daemonize) so the process stays attached to the supervisor and logs stream to stdout/stderr.
+- Passing config: generate a php-fpm config (main + pool file) at startup from the YAML `php_fpm`/legacy `Pool` settings and pass it using `-y /path/to/generated/php-fpm.conf`.
+- Mapping YAML -> php-fpm pool fields: translate the existing YAML `Pool`/`php_fpm` keys to the standard php-fpm pool configuration. Example mappings:
+	- `pool.max_requests` -> `pm.max_requests`
+	- `pool.type` (if present) -> `pm = static|dynamic|ondemand`
+	- `pool.max_children` -> `pm.max_children`
+	- `pool.start_servers` -> `pm.start_servers` (dynamic)
+	- `pool.min_spare_servers` -> `pm.min_spare_servers` (dynamic)
+	- `pool.max_spare_servers` -> `pm.max_spare_servers` (dynamic)
+	- `pool.process_idle_timeout_ms` -> `request_terminate_timeout` / `process_idle_timeout` (choose appropriate php-fpm directive mapping)
+	- Any `PHP_*` environment values should be injected into the php-fpm pool `env[]` entries or exported when launching php-fpm as appropriate.
+- Implementation approach:
+	- At startup, render a minimal `php-fpm.conf` and a `pool.d/<name>.conf` using the values from the YAML config.
+	- Write those files into a secure temporary directory owned by the process (or configured path) and invoke php-fpm with `-F -y /tmp/generated/php-fpm.conf`.
+	- Ensure file permissions are restrictive and temporary files are cleaned up when the supervisor stops php-fpm.
+- Devmode: for developer convenience, support an option to keep generated config files under the workspace (e.g., `.tqserver/phpfpm/`) and print the `php-fpm` invocation (with `-F -y`) so developers can reproduce locally.
+
+
 Component changes
 - `pkg/php/worker.go`: refactor to call the `phpfpm` adapter instead of spawning/round-robin worker processes.
 - New package: `pkg/php/phpfpm` (or `pkg/php/adapter_phpfpm`) implementing FastCGI client, pooling, retries, and metrics.
