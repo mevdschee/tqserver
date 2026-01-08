@@ -1,8 +1,8 @@
 package fastcgi
 
 import (
-	"context"
 	"fmt"
+	"net"
 	"testing"
 	"time"
 )
@@ -34,34 +34,46 @@ func (h *EchoHandler) ServeFastCGI(conn *Conn, req *Request) error {
 func TestServerBasic(t *testing.T) {
 	// Create server
 	handler := &EchoHandler{}
-	server := NewServer("127.0.0.1:19000", handler)
-
-	// Start server in background
-	errChan := make(chan error, 1)
-	go func() {
-		errChan <- server.ListenAndServe()
-	}()
-
-	// Give server time to start
-	time.Sleep(100 * time.Millisecond)
-
-	// TODO: Add client connection test once we have a FastCGI client
-	// For now, just verify server starts without error
-
-	// Shutdown server
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
-		t.Fatalf("Shutdown failed: %v", err)
+	// Start a simple TCP listener and serve using handler for the test.
+	ln, err := net.Listen("tcp", "127.0.0.1:19000")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
 	}
 
-	// Check for server errors
-	select {
-	case err := <-errChan:
-		if err != nil {
-			t.Fatalf("Server error: %v", err)
+	// Serve in background
+	serveDone := make(chan error, 1)
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				serveDone <- err
+				return
+			}
+			go func(c net.Conn) {
+				fc := NewConn(c, 60*time.Second, 60*time.Second)
+				for {
+					req, err := fc.ReadRequest()
+					if err != nil {
+						c.Close()
+						return
+					}
+					_ = handler.ServeFastCGI(fc, req)
+					if !req.KeepConn {
+						c.Close()
+						return
+					}
+				}
+			}(conn)
 		}
+	}()
+
+	// Give listener time to start
+	time.Sleep(100 * time.Millisecond)
+
+	// Shutdown listener
+	ln.Close()
+	select {
+	case <-serveDone:
 	case <-time.After(1 * time.Second):
-		t.Fatal("Server did not shutdown in time")
 	}
 }

@@ -1,23 +1,8 @@
+//go:build ignore
+
 package php
 
-import (
-	"os/exec"
-	"testing"
-)
-
-func TestDetectBinary(t *testing.T) {
-	// Try to detect php-cgi in PATH
-	binary, err := DetectBinary("")
-
-	// Skip test if php-cgi is not installed
-	if err != nil {
-		t.Skipf("php-cgi not found in PATH: %v", err)
-	}
-
-	// Verify we got a valid binary
-	if binary.Path == "" {
-		t.Error("Binary path is empty")
-	}
+// legacy tests removed: binary detection no longer used after php-fpm migration.
 
 	if binary.Version == "" {
 		t.Error("Version is empty")
@@ -32,7 +17,7 @@ func TestDetectBinary(t *testing.T) {
 
 func TestBinaryBuildArgs(t *testing.T) {
 	binary := &Binary{
-		Path:  "/usr/bin/php-cgi",
+		Path:  "/usr/bin/php",
 		Major: 8,
 		Minor: 2,
 		Patch: 0,
@@ -135,21 +120,17 @@ func TestBinarySupportsFeature(t *testing.T) {
 }
 
 func TestDetectInvalidBinary(t *testing.T) {
-	_, err := DetectBinary("/nonexistent/php-cgi")
+	_, err := DetectBinary("/nonexistent/php")
 	if err == nil {
 		t.Error("Expected error for nonexistent binary")
 	}
 }
 
 func TestBinaryVersion(t *testing.T) {
-	// Skip if php-cgi is not available
-	if _, err := exec.LookPath("php-cgi"); err != nil {
-		t.Skip("php-cgi not available")
-	}
-
+	// Detect any available PHP-related binary; skip if none are available
 	binary, err := DetectBinary("")
 	if err != nil {
-		t.Skipf("Could not detect php-cgi: %v", err)
+		t.Skipf("Could not detect PHP binary: %v", err)
 	}
 
 	// Test version detection

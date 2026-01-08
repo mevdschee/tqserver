@@ -19,48 +19,10 @@ workers/blog/
 ### 1. Verify PHP is installed
 
 ```bash
-php-cgi -v
-```
-
-### 2. Test with php-cgi directly
-
-```bash
-cd workers/blog/public
-# Start php-cgi FastCGI server on a test port
-php-cgi -b 127.0.0.1:9999
-```
-
-### 3. Configure Nginx (for testing)
-
-Create `/etc/nginx/sites-available/tqserver-blog`:
-
-```nginx
-server {
-    listen 8080;
-    server_name localhost;
-    
-    root /home/maurits/projects/tqserver/workers/blog/public;
-    index index.php hello.php;
-    
-    location / {
-        try_files $uri $uri/ =404;
-    }
-    
-    location ~ \.php$ {
-        include fastcgi_params;
-        fastcgi_pass 127.0.0.1:9001;
-        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-        fastcgi_param PATH_INFO $fastcgi_path_info;
-    }
-}
-```
-
-Enable and restart Nginx:
-
-```bash
-sudo ln -s /etc/nginx/sites-available/tqserver-blog /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
+# Check PHP or php-fpm availability
+php -v
+# and
+php-fpm -v
 ```
 
 ### 4. Test the setup
@@ -83,9 +45,10 @@ curl http://localhost:8080/info.php
 - [x] Large response handling (tested with 122KB phpinfo)
 - [x] Buffered reading for TCP packet handling
 
-### Phase 2: PHP-CGI Integration ✅ COMPLETE
-- [x] Spawn php-cgi workers on internal ports
-- [x] Configure via CLI flags (`-d` overrides)
+### Phase 2: PHP Integration (php-fpm adapter / php-cgi) ✅ COMPLETE
+- [x] Support php-fpm-first via launcher + adapter
+- [x] Spawn php-cgi workers on internal ports (legacy/dev)
+- [x] Configure via CLI flags (`-d` overrides) or launcher config
 - [x] Request proxying (FastCGI → PHP workers)
 - [x] Error handling and connection management
 - [x] SCRIPT_FILENAME and CGI parameter mapping
@@ -114,7 +77,7 @@ The `worker.yaml` file demonstrates TQServer's approach:
 
 1. **No PHP-FPM config files**: All pool/process management is in TQServer's YAML
 2. **Optional php.ini**: Can use existing ini files as base configuration
-3. **CLI overrides**: Individual settings via `-d` flags to php-cgi
+3. **CLI overrides**: Individual settings via `-d` flags to the PHP process (CLI for `php-cgi` or launcher/env for `php-fpm`)
 4. **Flexible pools**: Different configs per route/worker
 
 ## Testing Hello World
@@ -128,7 +91,7 @@ bash start.sh
 # TQServer automatically:
 # 1. Reads workers/blog/config/worker.yaml
 # 2. Starts public FastCGI server on 127.0.0.1:9001
-# 3. Spawns 3 php-cgi workers on internal ports (9002, 9003, 9004)
+# 3. Spawns or connects to PHP workers on internal ports (e.g. 9002, 9003, 9004) or uses php-fpm listen socket
 # 4. Handles requests: Browser → TQServer:8080 → FastCGI:9001 → PHP workers
 ```
 

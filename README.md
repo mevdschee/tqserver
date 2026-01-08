@@ -390,7 +390,7 @@ Kotlin workers use the Ktor framework and are compiled to JVM bytecode. They run
 
 #### PHP Workers
 
-PHP workers use the FastCGI protocol to communicate with TQServer. The supervisor manages php-cgi worker processes and handles request routing.
+PHP workers use the FastCGI protocol to communicate with TQServer. The supervisor manages PHP workers; the project now prefers a php-fpm-first approach with an adapter (central php-fpm instances managed via the launcher). Legacy direct `php-cgi` workers are still supported for testing.
 
 **Features:**
 - FastCGI protocol integration

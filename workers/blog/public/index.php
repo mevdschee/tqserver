@@ -143,14 +143,13 @@ http_response_code(200);
             <li>✅ <strong>FastCGI Protocol:</strong> Compatible with Nginx, Apache, Caddy</li>
             <li>✅ <strong>Hot Reload:</strong> Configuration changes without downtime</li>
             <li>✅ <strong>Health Monitoring:</strong> Automatic worker restart on failures</li>
-            <li>✅ <strong>No PHP-FPM Required:</strong> Direct php-cgi management</li>
         </ul>
 
         <div class="info">
+            <li>✅ <strong>Flexible Runtime:</strong> Runs via php-fpm adapter (recommended) or direct php-cgi for testing</li>
             <p>This PHP script is running through TQServer's <code>dynamic</code> pool manager,
-                which automatically spawns and kills PHP workers based on traffic demand.</p>
-            <p>Configuration is managed entirely by TQServer via CLI flags to <code>php-cgi</code>,
-                eliminating the need for PHP-FPM configuration files.</p>
+                which automatically spawns and kills PHP workers based on traffic demand. In production the php-fpm-first adapter is recommended.</p>
+            <p>Configuration is managed by TQServer and applied to the PHP runtime (via launcher/env for `php-fpm` or CLI flags for `php-cgi`).</p>
         </div>
 
         <h2>Current Request Environment</h2>

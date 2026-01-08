@@ -276,7 +276,7 @@ func (p *Proxy) handlePHPRequest(w http.ResponseWriter, r *http.Request, worker 
 	params["REMOTE_PORT"] = "0"
 	params["CONTENT_TYPE"] = r.Header.Get("Content-Type")
 	params["CONTENT_LENGTH"] = fmt.Sprintf("%d", len(requestBody))
-	params["REDIRECT_STATUS"] = "200" // Required by PHP-CGI
+	params["REDIRECT_STATUS"] = "200" // Required by CGI-based runtimes (e.g., php-cgi)
 
 	// Add HTTP headers as FastCGI params
 	for key, values := range r.Header {

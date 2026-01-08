@@ -32,7 +32,7 @@ func (s WorkerState) String() string {
 	}
 }
 
-// Worker represents a single php-cgi process
+// Worker represents a single PHP worker (process or adapter-backed)
 type Worker struct {
 	ID int
 
@@ -68,7 +68,7 @@ func NewWorker(id int) *Worker {
 	return w
 }
 
-// Start spawns the php-cgi process
+// Start initializes the worker. For adapter-backed workers (php-fpm) this is a no-op.
 func (w *Worker) Start() error {
 	// In php-fpm mode the worker is a logical slot backed by a central php-fpm instance.
 	// Start is a no-op for the adapter-backed worker but we record the start time/state.

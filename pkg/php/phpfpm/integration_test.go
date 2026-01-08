@@ -1,7 +1,6 @@
 package phpfpm
 
 import (
-	"context"
 	"net"
 	"testing"
 	"time"
@@ -19,20 +18,41 @@ func TestEndToEndHandler(t *testing.T) {
 	client := NewClient(backendAddr, "tcp", 1, 2*time.Second, 2*time.Second)
 	defer client.Close()
 
-	// create handler and fastcgi server
+	// create handler and start an inline listener to serve FastCGI for the test
 	handler := NewHandler(client)
 
-	srvAddr := "127.0.0.1:0"
-	fcgiServer := fastcgi.NewServer(srvAddr, handler)
-
-	// start server (listen on random port)
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
 	actualAddr := ln.Addr().String()
+
+	// serve incoming connections using the handler
 	go func() {
-		_ = fcgiServer.Serve(ln)
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				fc := fastcgi.NewConn(c, 5*time.Second, 5*time.Second)
+				for {
+					req, err := fc.ReadRequest()
+					if err != nil {
+						c.Close()
+						return
+					}
+					if err := handler.ServeFastCGI(fc, req); err != nil {
+						c.Close()
+						return
+					}
+					if !req.KeepConn {
+						c.Close()
+						return
+					}
+				}
+			}(conn)
+		}
 	}()
 
 	// dial into the fastcgi server as a client
@@ -74,12 +94,8 @@ func TestEndToEndHandler(t *testing.T) {
 			if string(outBuf) != "hello from php-fpm" {
 				t.Fatalf("unexpected stdout: %q", string(outBuf))
 			}
-			// shutdown server
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-			if err := fcgiServer.Shutdown(ctx); err != nil {
-				t.Fatalf("shutdown: %v", err)
-			}
+			// shutdown listener
+			ln.Close()
 			return
 		}
 	}

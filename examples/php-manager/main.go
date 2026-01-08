@@ -6,8 +6,10 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/mevdschee/tqserver/pkg/php"
+	phpfpmpkg "github.com/mevdschee/tqserver/pkg/php/phpfpm"
 )
 
 func main() {
@@ -48,28 +50,24 @@ func main() {
 
 	log.Printf("Using php-fpm binary: %s", binaryPath)
 
-	log.Println("Creating PHP worker manager...")
-	manager, err := php.NewManager(config)
-	if err != nil {
-		log.Fatalf("Failed to create manager: %v", err)
+	log.Println("Starting php-fpm via Launcher...")
+	launcher := phpfpmpkg.NewLauncher(config)
+	if err := launcher.Start(); err != nil {
+		log.Fatalf("Failed to start php-fpm: %v", err)
 	}
 
-	log.Println("Starting PHP workers...")
-	if err := manager.Start(); err != nil {
-		log.Fatalf("Failed to start workers: %v", err)
-	}
-
-	log.Println("PHP workers started successfully!")
-	log.Printf("Workers listening on php-fpm listen: %s", config.PHPFPM.Listen)
+	log.Println("php-fpm started successfully!")
+	log.Printf("php-fpm listen: %s", config.PHPFPM.Listen)
 	log.Println("\nPress Ctrl+C to stop")
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 
-	log.Println("\nShutting down PHP workers...")
-	if err := manager.Stop(); err != nil {
-		log.Fatalf("Error stopping manager: %v", err)
+	log.Println("\nShutting down php-fpm...")
+	shutdownTimeout := 5 * time.Second
+	if err := launcher.Stop(shutdownTimeout); err != nil {
+		log.Fatalf("Error stopping php-fpm: %v", err)
 	}
 
 	log.Println("Shutdown complete")

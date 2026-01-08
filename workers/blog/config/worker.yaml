@@ -5,8 +5,8 @@ enabled: true
 
 # PHP Configuration
 php:
-  # Path to php-cgi binary (auto-detected if not specified)
-  # binary: /usr/bin/php-cgi
+  # Path to PHP binary (php-fpm/php-cgi/php) (auto-detected if not specified)
+  # binary: /usr/bin/php
 
   # Optional base configuration from php.ini file
   # config_file: /etc/php/8.2/php.ini
