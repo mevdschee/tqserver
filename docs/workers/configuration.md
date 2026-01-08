@@ -98,8 +98,9 @@ workers:
   port_range_start: 10000
   port_range_end: 19999
   startup_delay_ms: 200
-  restart_delay_ms: 200
+  restart_delay_ms: 200           # Delay before stopping old worker (starts after new port is ready)
   shutdown_grace_period_ms: 1000
+  port_wait_timeout_ms: 5000
 
 # File watcher (hot reload)
 file_watcher:

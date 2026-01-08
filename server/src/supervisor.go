@@ -968,7 +968,22 @@ func (s *Supervisor) restartWorker(worker *Worker) error {
 		return fmt.Errorf("failed to start new worker: %w", err)
 	}
 
+	// Wait for the new worker's port to be ready
+	if err := s.waitForPort(worker.Port); err != nil {
+		log.Printf("❌ New worker failed to start on port %d: %v", worker.Port, err)
+		// Try to revert to old worker
+		s.stopWorker(worker)        // Stop the failed new one
+		worker.Process = oldProcess // Restore old process
+		worker.Port = oldPort       // Restore old port
+		worker.SetHealthy(true)
+		return fmt.Errorf("new worker failed to become ready: %w", err)
+	}
+
+	log.Printf("New worker for %s is accepting connections on port %d", worker.Route, worker.Port)
+
 	// Stop old worker after a brief delay
+	// This delay now starts ONLY after the port is ready, ensuring "keep the timeouts,
+	// but only count these from the moment that the new port starts accepting connections"
 	time.Sleep(s.config.GetRestartDelay())
 	if oldProcess != nil {
 		log.Printf("Stopping old worker on port %d", oldPort)
@@ -981,6 +996,23 @@ func (s *Supervisor) restartWorker(worker *Worker) error {
 	}
 
 	return nil
+}
+
+// waitForPort waits for a TCP port to accept connections
+func (s *Supervisor) waitForPort(port int) error {
+	// Wait up to Config.PortWaitTimeoutMs for the port to become ready
+	timeout := s.config.GetPortWaitTimeout()
+	deadline := time.Now().Add(timeout)
+
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 100*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return fmt.Errorf("timeout waiting for port %d (exceeded %v)", port, timeout)
 }
 
 // checkPHPHealth performs an active TCP probe to check if the PHP worker is reachable

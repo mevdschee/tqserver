@@ -45,5 +45,9 @@ In **Development Mode**, the emphasis is on speed:
 
 In **Production Mode**:
 
--   **Zero-Downtime Reloads**: The new worker process is started on a generic port *before* the old process is stopped, ensuring no dropped requests during updates.
+-   **Zero-Downtime Reloads**:
+    1.  The new worker process is started on a generic port.
+    2.  **Port Readiness Check**: The Supervisor connects to the new port to ensure it is accepting connections.
+    3.  **Restart Delay**: The configured `restart_delay_ms` timer starts *only after* the port is ready.
+    4.  **Graceful Switch**: Traffic is routed to the new worker, and the old process is stopped.
 -   **Graceful Shutdown**: Workers are sent `SIGINT` to finish current requests before being forced to exit.

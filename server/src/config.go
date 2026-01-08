@@ -72,6 +72,7 @@ type Config struct {
 		StartupDelayMs        int    `yaml:"startup_delay_ms"`
 		RestartDelayMs        int    `yaml:"restart_delay_ms"`
 		ShutdownGracePeriodMs int    `yaml:"shutdown_grace_period_ms"`
+		PortWaitTimeoutMs     int    `yaml:"port_wait_timeout_ms"`
 	} `yaml:"workers"`
 
 	FileWatcher struct {
@@ -93,7 +94,8 @@ func LoadConfig(configPath string) (*Config, error) {
 	config.Workers.PortRangeEnd = 9999
 	config.Workers.StartupDelayMs = 100
 	config.Workers.RestartDelayMs = 100
-	config.Workers.ShutdownGracePeriodMs = 500
+	config.Workers.ShutdownGracePeriodMs = 5000 // Default 5s
+	config.Workers.PortWaitTimeoutMs = 5000     // Default 5s
 	config.FileWatcher.DebounceMs = 50
 
 	// Set mode from environment variable (defaults to "dev")
@@ -270,6 +272,11 @@ func (c *Config) GetShutdownGracePeriod() time.Duration {
 // GetDebounceDelay returns the debounce delay as a time.Duration
 func (c *Config) GetDebounceDelay() time.Duration {
 	return time.Duration(c.FileWatcher.DebounceMs) * time.Millisecond
+}
+
+// GetPortWaitTimeout returns the port wait timeout as a time.Duration
+func (c *Config) GetPortWaitTimeout() time.Duration {
+	return time.Duration(c.Workers.PortWaitTimeoutMs) * time.Millisecond
 }
 
 // IsDevelopmentMode returns true if the server is running in development mode

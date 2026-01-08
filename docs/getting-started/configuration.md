@@ -178,8 +178,9 @@ Configure worker startup and shutdown behavior:
 ```yaml
 workers:
   startup_delay_ms: 200           # Wait time before routing traffic (default: 100ms)
-  restart_delay_ms: 200           # Delay before stopping old worker (default: 100ms)
+  restart_delay_ms: 200           # Delay before stopping old worker (starts after new port is ready)
   shutdown_grace_period_ms: 1000  # Time for graceful shutdown (default: 500ms)
+  port_wait_timeout_ms: 5000      # Max time to wait for new port (default: 5000ms)
 ```
 
 ## Logging Configuration
