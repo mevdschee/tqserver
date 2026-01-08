@@ -9,10 +9,10 @@ Successfully implemented **Phase 2: PHP Integration** for TQServer. The implemen
 ### Core Components (1,137 lines of code + 304 lines of tests)
 
 1. **Binary Detection & Management** (`pkg/php/binary.go`)
-   - Auto-detect php-cgi in PATH
-   - Parse PHP version (major.minor.patch)
-   - Generate command-line arguments
-   - Feature detection (OPcache, JIT, Fibers)
+  - Auto-detect PHP binary (php-fpm/php-cgi/php) in PATH
+  - Parse PHP version (major.minor.patch)
+  - Generate runtime-specific arguments or pool config
+  - Feature detection (OPcache, JIT, Fibers)
 
 2. **Configuration System** (`pkg/php/config.go`)
    - Flexible PHP settings (php.ini + CLI overrides)
@@ -20,13 +20,13 @@ Successfully implemented **Phase 2: PHP Integration** for TQServer. The implemen
    - Validation logic
    - Worker limits and timeouts
 
-3. **Worker Process Management** (`pkg/php/worker.go`)
-   - Spawn php-cgi processes
-   - State tracking (idle/active/terminating/crashed)
-   - Stdout/stderr capture
-   - Health monitoring
-   - Automatic recycling (max requests)
-   - Graceful shutdown
+3. **Worker Process Management / Adapter** (`pkg/php/worker.go`)
+  - Manage php-fpm pools via launcher and adapter (legacy php-cgi spawning available for tests)
+  - Logical worker slot tracking (idle/active/terminating)
+  - Stdout/stderr capture from PHP runtime
+  - Health monitoring
+  - Automatic recycling (max requests)
+  - Graceful shutdown
 
 4. **Pool Manager** (`pkg/php/manager.go`)
    - Three pool strategies:
@@ -52,7 +52,7 @@ Successfully implemented **Phase 2: PHP Integration** for TQServer. The implemen
 
 ## Key Features
 
-✅ **php-fpm-first supported** - TQServer generates php-fpm pool configs and can launch `php-fpm` in the foreground. Legacy direct `php-cgi` management is deprecated.
+✅ **php-fpm-first supported** - TQServer generates php-fpm pool configs and can launch `php-fpm` in the foreground. Legacy direct `php-cgi` management is deprecated (retained only for test/dev use).
 ✅ **Flexible Configuration** - php.ini base + individual overrides  
 ✅ **Three Pool Modes** - Static, dynamic, ondemand  
 ✅ **Automatic Recovery** - Crashed workers automatically replaced  
@@ -60,7 +60,7 @@ Successfully implemented **Phase 2: PHP Integration** for TQServer. The implemen
 ✅ **Worker Recycling** - Prevent memory leaks via max requests  
 ✅ **Graceful Shutdown** - Clean termination with timeout  
 ✅ **Process Isolation** - Each worker is a separate process  
-✅ **Output Logging** - Capture stdout/stderr from php-cgi  
+✅ **Output Logging** - Capture stdout/stderr from the PHP runtime (php-fpm/php-cgi)
 ✅ **Version Detection** - Parse PHP version and capabilities  
 
 ## Architecture
@@ -68,10 +68,9 @@ Successfully implemented **Phase 2: PHP Integration** for TQServer. The implemen
 ### Process Management
 ```
 TQServer
-  └─> Manager
-       ├─> Worker 1 (php-cgi process on socket .0)
-       ├─> Worker 2 (php-cgi process on socket .1)
-       ├─> Worker N (php-cgi process on socket .N)
+  └─> Manager / Launcher
+       ├─> php-fpm (pool) -> PHP worker processes
+       ├─> php-fpm (pool) -> PHP worker processes
        └─> Health Monitor (goroutine)
 ```
 
