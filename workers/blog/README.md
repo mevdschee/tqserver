@@ -75,29 +75,38 @@ curl http://localhost:8080/info.php
 
 ## Development Roadmap
 
-### Phase 1: Basic FastCGI ✅
+### Phase 1: Basic FastCGI ✅ COMPLETE
 - [x] FastCGI protocol implementation
 - [x] Connection handling
 - [x] Protocol tests
-- [ ] Integration with TQServer routing
+- [x] Integration with TQServer routing
+- [x] Large response handling (tested with 122KB phpinfo)
+- [x] Buffered reading for TCP packet handling
 
-### Phase 2: PHP-CGI Integration
-- [ ] Spawn php-cgi workers
-- [ ] Configure via CLI flags
-- [ ] Request proxying
-- [ ] Error handling
+### Phase 2: PHP-CGI Integration ✅ COMPLETE
+- [x] Spawn php-cgi workers on internal ports
+- [x] Configure via CLI flags (`-d` overrides)
+- [x] Request proxying (FastCGI → PHP workers)
+- [x] Error handling and connection management
+- [x] SCRIPT_FILENAME and CGI parameter mapping
+- [x] REDIRECT_STATUS parameter support
 
-### Phase 3: Pool Management
-- [ ] Static pool manager
-- [ ] Dynamic pool manager
+### Phase 3: Pool Management ✅ COMPLETE
+- [x] Static pool manager
+- [x] Dynamic pool manager (min/max workers)
+- [x] Health monitoring (socket verification)
+- [x] Worker state tracking (idle/active/terminating)
+- [x] Graceful shutdown with SIGTERM
 - [ ] Ondemand pool manager
-- [ ] Health monitoring
+- [ ] Advanced metrics
 
-### Phase 4: Advanced Features
+### Phase 4: Advanced Features 🚧 IN PROGRESS
 - [ ] Hot reload support
-- [ ] Multiple PHP versions
+- [ ] Multiple PHP versions per route
 - [ ] Slow request logging
-- [ ] Performance metrics
+- [ ] Performance metrics dashboard
+- [ ] Request queuing
+- [ ] Worker crash recovery
 
 ## Configuration Notes
 
@@ -110,27 +119,62 @@ The `worker.yaml` file demonstrates TQServer's approach:
 
 ## Testing Hello World
 
-Once Phase 2 is complete, you'll be able to:
+✅ **Now Working!** The system is fully operational:
 
 ```bash
 # Start TQServer
-./server/bin/tqserver
+bash start.sh
 
-# TQServer will:
-# 1. Read workers/blog/config/worker.yaml
-# 2. Start public FastCGI server on 127.0.0.1:9001
-# 3. Spawn 3 php-cgi workers on internal ports (9002, 9003, 9004)
-# 4. Proxy requests from Nginx → FastCGI server → internal PHP workers
+# TQServer automatically:
+# 1. Reads workers/blog/config/worker.yaml
+# 2. Starts public FastCGI server on 127.0.0.1:9001
+# 3. Spawns 3 php-cgi workers on internal ports (9002, 9003, 9004)
+# 4. Handles requests: Browser → TQServer:8080 → FastCGI:9001 → PHP workers
 ```
 
-Then visit:
-- http://localhost:8080/hello.php - See "Hello from TQServer!"
-- http://localhost:8080/info.php - See PHP configuration
+### Test Endpoints
+
+```bash
+# Simple hello world (small response)
+curl http://localhost:8080/blog/hello.php
+# Output: Hello from TQServer!
+
+# PHP info page (large response ~122KB)
+curl http://localhost:8080/blog/info.php | head -20
+# Output: Full phpinfo() HTML
+
+# Test concurrent requests
+for i in {1..10}; do curl http://localhost:8080/blog/hello.php & done; wait
+# All 10 requests succeed, load balanced across workers
+```
+
+### Performance
+
+- ✅ Handles small responses (< 1KB)
+- ✅ Handles large responses (tested up to 122KB phpinfo)
+- ✅ Concurrent requests load balanced across worker pool
+- ✅ Workers return to idle state after serving requests
+- ✅ No hanging or blocking on large responses
 
 ## Next Steps
 
-1. Complete FastCGI server integration with TQServer
-2. Implement PHP-CGI process spawning
-3. Test with Nginx forwarding
-4. Add process pool management
-5. Implement health checks and auto-recovery
+### Completed ✅
+1. ✅ FastCGI server integration with TQServer
+2. ✅ PHP-CGI process spawning and management
+3. ✅ Direct HTTP handling (no Nginx needed for dev)
+4. ✅ Dynamic and static pool management
+5. ✅ Health checks and socket verification
+6. ✅ Large response handling (buffered reading)
+
+### In Progress 🚧
+1. Ondemand pool manager implementation
+2. Worker crash detection and auto-restart
+3. Slow request logging and alerts
+4. Comprehensive metrics collection
+
+### Planned 📋
+1. Multiple PHP version support (e.g., PHP 8.2 for /admin, PHP 8.3 for /api)
+2. Request queuing with overflow handling
+3. Advanced monitoring dashboard
+4. Hot reload for PHP configuration changes
+5. Production-ready error handling and logging
