@@ -14,7 +14,7 @@ import (
 
 // TestGenerateFromWorkerYAML verifies that generating php-fpm config using
 // values taken directly from a worker's YAML (`workers/blog/config/worker.yaml`)
-// produces pool config with the expected `php_admin_flag[...]` entries and pool directives.
+// produces pool config with the expected `php_admin_value[...]` entries and pool directives.
 func TestGenerateFromWorkerYAML(t *testing.T) {
 	// read worker.yaml
 	yamlPath := filepath.Join("..", "..", "workers", "blog", "config", "worker.yaml")
