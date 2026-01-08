@@ -46,7 +46,6 @@ TQServer is currently in active development and has not reached a stable 1.0 rel
 - ✅ Automatic builds
 - ✅ Port pool management
 - ✅ Health monitoring
-- ✅ Binary cleanup
 - ✅ Per-route configuration
 - ✅ Configuration hot reload
 - ✅ Structured logging
@@ -102,7 +101,6 @@ Not applicable for alpha versions.
 - File watcher with debouncing
 - Health check system
 - Configuration hot reload
-- Binary cleanup system
 - Mode controller (dev/prod modes)
 - Structured logging system
 - Graceful restart mechanism

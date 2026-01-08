@@ -159,7 +159,6 @@ pkg/
 Reusable components for worker supervision:
 - Health check implementations
 - Worker state tracking
-- Timestamp-based cleanup logic
 
 #### watcher
 File system watching using `fsnotify`:

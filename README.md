@@ -54,7 +54,6 @@ This section covers the operational aspects of TQServer: configuration, deployme
 
 - **Port pool management** - Efficient port allocation prevents port exhaustion
 - **Health monitoring** - Periodic HTTP health checks on worker processes
-- **Binary cleanup** - Automatic removal of old compiled binaries (24+ hours old)
 - **Configuration hot reload** - Automatically detect and apply configuration changes without server restart
 - **Structured logging** - Server and worker logs with date-based rotation
 - **Quiet mode** - Suppress console output for production deployments
