@@ -80,13 +80,14 @@ type Config struct {
 	} `yaml:"server"`
 
 	Workers struct {
-		Directory             string `yaml:"directory"`
-		PortRangeStart        int    `yaml:"port_range_start"`
-		PortRangeEnd          int    `yaml:"port_range_end"`
-		StartupDelayMs        int    `yaml:"startup_delay_ms"`
-		RestartDelayMs        int    `yaml:"restart_delay_ms"`
-		ShutdownGracePeriodMs int    `yaml:"shutdown_grace_period_ms"`
-		PortWaitTimeoutMs     int    `yaml:"port_wait_timeout_ms"`
+		Directory                string `yaml:"directory"`
+		PortRangeStart           int    `yaml:"port_range_start"`
+		PortRangeEnd             int    `yaml:"port_range_end"`
+		StartupDelayMs           int    `yaml:"startup_delay_ms"`
+		RestartDelayMs           int    `yaml:"restart_delay_ms"`
+		ShutdownGracePeriodMs    int    `yaml:"shutdown_grace_period_ms"`
+		HealthCheckWaitTimeoutMs int    `yaml:"health_check_wait_timeout_ms"`
+		HealthCheckTimeoutMs     int    `yaml:"health_check_timeout_ms"`
 	} `yaml:"workers"`
 
 	FileWatcher struct {
@@ -108,8 +109,9 @@ func LoadConfig(configPath string) (*Config, error) {
 	config.Workers.PortRangeEnd = 9999
 	config.Workers.StartupDelayMs = 100
 	config.Workers.RestartDelayMs = 100
-	config.Workers.ShutdownGracePeriodMs = 5000 // Default 5s
-	config.Workers.PortWaitTimeoutMs = 5000     // Default 5s
+	config.Workers.ShutdownGracePeriodMs = 5000    // Default 5s
+	config.Workers.HealthCheckWaitTimeoutMs = 5000 // Default 5s
+	config.Workers.HealthCheckTimeoutMs = 250      // Default 250ms
 	config.FileWatcher.DebounceMs = 50
 
 	// Set mode from environment variable (defaults to "dev")
@@ -288,9 +290,14 @@ func (c *Config) GetDebounceDelay() time.Duration {
 	return time.Duration(c.FileWatcher.DebounceMs) * time.Millisecond
 }
 
-// GetPortWaitTimeout returns the port wait timeout as a time.Duration
-func (c *Config) GetPortWaitTimeout() time.Duration {
-	return time.Duration(c.Workers.PortWaitTimeoutMs) * time.Millisecond
+// GetHealthCheckWaitTimeout returns the health check wait timeout as a time.Duration
+func (c *Config) GetHealthCheckWaitTimeout() time.Duration {
+	return time.Duration(c.Workers.HealthCheckWaitTimeoutMs) * time.Millisecond
+}
+
+// GetHealthCheckTimeout returns the health check request timeout as a time.Duration
+func (c *Config) GetHealthCheckTimeout() time.Duration {
+	return time.Duration(c.Workers.HealthCheckTimeoutMs) * time.Millisecond
 }
 
 // IsDevelopmentMode returns true if the server is running in development mode

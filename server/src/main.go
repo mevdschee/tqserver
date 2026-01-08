@@ -75,8 +75,37 @@ func main() {
 
 	// Wait for interrupt signal
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	<-sigChan
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+
+	for {
+		sig := <-sigChan
+		if sig == syscall.SIGHUP {
+			log.Println("Received SIGHUP, reloading configuration...")
+
+			// Reload configuration
+			newConfig, err := LoadConfig(configFile)
+			if err != nil {
+				log.Printf("Failed to reload config: %v", err)
+				continue
+			}
+			// Override mode if specified via flag
+			if *mode != "" {
+				newConfig.Mode = *mode
+			}
+
+			// Reload worker configs
+			newWorkerConfigs, err := LoadWorkerConfigs(newConfig.Workers.Directory)
+			if err != nil {
+				log.Printf("Failed to reload worker configs: %v", err)
+				continue
+			}
+			log.Printf("Reloaded %d worker(s)", len(newWorkerConfigs))
+
+			supervisor.Reload(newConfig, newWorkerConfigs)
+		} else {
+			break
+		}
+	}
 
 	log.Println("Shutting down...")
 

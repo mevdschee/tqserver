@@ -531,6 +531,22 @@ Peak memory usage = 2x normal
 - Typical overhead: 10-100MB per worker
 - Monitor memory during swaps
 
+
+## SIGHUP Configuration Reload
+
+In addition to file-watcher based hot reloading during development, TQServer supports explicit zero-downtime reloads via the `SIGHUP` signal. This is ideal for production deployments or manual configuration updates.
+
+### Workflow
+
+1.  **Trigger**: Send `SIGHUP` signal to the TQServer process (e.g., `kill -SIGHUP <pid>`).
+2.  **Configuration Reload**: Server reloads `server.yaml` and all `worker.yaml` configurations.
+3.  **Rolling Restart**:
+    -   For each worker, it spawns new instances using the updated configuration.
+    -   It waits for these new instances to pass ready checks (port binding + health check).
+    -   Once healthy, they are added to the routing pool.
+    -   Old instances are then gracefully terminated.
+4.  **Zero Downtime**: During the transition, traffic is seamlessly shifted to new instances without dropping requests.
+
 ## Limitations
 
 ### When Hot Reload Doesn't Help

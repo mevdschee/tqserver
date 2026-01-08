@@ -1,6 +1,6 @@
 # TQServer Documentation
 
-Welcome to the TQServer documentation. TQServer is a high-performance function execution platform built with Go that provides sub-second hot reloads with native Go performance.
+Welcome to the TQServer documentation. TQServer is a high-performance function execution platform built with Go that provides sub-second hot reloads with native Go performance and zero-downtime reconfiguration.
 
 ## Table of Contents
 

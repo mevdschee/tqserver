@@ -369,11 +369,21 @@ func (s *Supervisor) spawnWorkerInstance(w *Worker) (*WorkerInstance, error) {
 		Healthy:     true,
 	}
 
+	log.Printf("Spawned worker instance %s for %s on port %d, waiting for health...", inst.ID, w.Name, port)
+
+	// Wait for health check to pass
+	if err := s.waitForHealth(port); err != nil {
+		log.Printf("Worker %s failed health check: %v", inst.ID, err)
+		// Cleanup failed process
+		cmd.Process.Kill()
+		return nil, fmt.Errorf("worker failed health check: %w", err)
+	}
+
 	w.mu.Lock()
 	w.Instances = append(w.Instances, inst)
 	w.mu.Unlock()
 
-	log.Printf("Spawned worker instance %s for %s on port %d", inst.ID, w.Name, port)
+	log.Printf("Worker instance %s is ready and added to pool", inst.ID)
 
 	// Monitor process exit
 	go func() {
@@ -392,27 +402,32 @@ func (s *Supervisor) spawnWorkerInstance(w *Worker) (*WorkerInstance, error) {
 		w.Instances = newInstances
 	}()
 
-	// Wait for port to be open
-	s.waitForPort(port)
-
 	return inst, nil
 }
 
-func (s *Supervisor) waitForPort(port int) {
-	timeout := time.After(s.config.GetPortWaitTimeout())
+func (s *Supervisor) waitForHealth(port int) error {
+	timeoutDuration := s.config.GetHealthCheckWaitTimeout()
+	timeout := time.After(timeoutDuration)
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
-	addr := fmt.Sprintf("localhost:%d", port)
+	url := fmt.Sprintf("http://localhost:%d/health", port)
+	client := http.Client{
+		Timeout: 500 * time.Millisecond,
+	}
+
 	for {
 		select {
 		case <-timeout:
-			return
+			return fmt.Errorf("timeout waiting for port %d after %v", port, timeoutDuration)
 		case <-ticker.C:
-			conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+			resp, err := client.Get(url)
 			if err == nil {
-				conn.Close()
-				return
+				if resp.StatusCode == http.StatusOK {
+					resp.Body.Close()
+					return nil
+				}
+				resp.Body.Close()
 			}
 		}
 	}
@@ -793,6 +808,85 @@ func (s *Supervisor) findBunBinary() (string, error) {
 	}
 
 	return "", fmt.Errorf("bun executable not found in PATH or ~/.bun/bin/bun")
+}
+
+// Reload reloads configuration and restarts workers
+func (s *Supervisor) Reload(newConfig *Config, newWorkerConfigs []*WorkerConfigWithMeta) {
+	log.Println("Reloading supervisor configuration...")
+	s.mu.Lock()
+	s.config = newConfig
+	s.workerConfigs = newWorkerConfigs
+	s.mu.Unlock()
+
+	// Trigger rolling restart for all active workers
+	workers := s.router.GetAllWorkers()
+	for _, w := range workers {
+		// Find config for this worker
+		found := false
+		for _, wc := range newWorkerConfigs {
+			if wc.Name == w.Name {
+				found = true
+				break
+			}
+		}
+
+		if found {
+			go s.rollingRestart(w)
+		} else {
+			log.Printf("Worker %s removed from config, stopping...", w.Name)
+			s.stopWorker(w)
+		}
+	}
+}
+
+// rollingRestart performs a zero-downtime restart of a worker
+func (s *Supervisor) rollingRestart(w *Worker) {
+	if w.Type == "php" {
+		log.Printf("Rolling restart not fully implemented for PHP worker %s", w.Name)
+		return
+	}
+
+	log.Printf("Rolling restart for worker %s", w.Name)
+
+	w.mu.Lock()
+	currentCount := len(w.Instances)
+	if currentCount < w.MinWorkers {
+		currentCount = w.MinWorkers
+	}
+	w.mu.Unlock()
+
+	newInstances := make([]*WorkerInstance, 0)
+	for i := 0; i < currentCount; i++ {
+		inst, err := s.spawnWorkerInstance(w)
+		if err != nil {
+			log.Printf("Failed to spawn new instance for %s during reload: %v", w.Name, err)
+		} else {
+			newInstances = append(newInstances, inst)
+		}
+	}
+
+	if len(newInstances) > 0 {
+		log.Printf("Started %d new instances for %s. Stopping old instances...", len(newInstances), w.Name)
+
+		w.mu.Lock()
+		allInstances := w.Instances
+		w.mu.Unlock()
+
+		for _, inst := range allInstances {
+			isNew := false
+			for _, newInst := range newInstances {
+				if inst.ID == newInst.ID {
+					isNew = true
+					break
+				}
+			}
+
+			if !isNew {
+				log.Printf("Stopping old instance %s", inst.ID)
+				go s.terminateInstance(inst)
+			}
+		}
+	}
 }
 
 // monitorWorkerHealth periodically checks if workers are healthy
