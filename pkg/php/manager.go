@@ -229,7 +229,20 @@ func (m *Manager) performHealthCheck() {
 	for i := len(m.workers) - 1; i >= 0; i-- {
 		worker := m.workers[i]
 
-		// Check if worker should be restarted
+		// Check if worker reached pool max_requests (php-fpm pool-level) and should be rotated
+		if m.config != nil && m.config.PHPFPM.Pool.MaxRequests > 0 && worker.GetRequestCount() >= int64(m.config.PHPFPM.Pool.MaxRequests) {
+			log.Printf("[Worker %d] Restarting due to max_requests (requests: %d)", worker.ID, worker.GetRequestCount())
+			m.workers = append(m.workers[:i], m.workers[i+1:]...)
+			go worker.Stop()
+			if err := m.spawnWorker(); err != nil {
+				log.Printf("Failed to spawn replacement worker: %v", err)
+			} else {
+				m.totalRestarts++
+			}
+			continue
+		}
+
+		// Check if worker should be restarted due to crash
 		if worker.ShouldRestart() {
 			log.Printf("[Worker %d] Restarting (requests: %d, state: %s)",
 				worker.ID, worker.GetRequestCount(), worker.GetState())

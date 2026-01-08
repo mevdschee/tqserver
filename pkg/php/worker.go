@@ -157,17 +157,8 @@ func (w *Worker) GetIdleTime() time.Duration {
 
 // ShouldRestart checks if the worker should be restarted
 func (w *Worker) ShouldRestart() bool {
-	// Check if max requests limit is reached
-	if w.config != nil && w.config.PHPFPM.Pool.MaxRequests > 0 && w.GetRequestCount() >= int64(w.config.PHPFPM.Pool.MaxRequests) {
-		return true
-	}
-
-	// Check if worker has crashed
-	if w.getState() == WorkerStateCrashed {
-		return true
-	}
-
-	return false
+	// Only consider a restart when the worker has crashed; max-requests is managed by the manager.
+	return w.getState() == WorkerStateCrashed
 }
 
 // Wait waits for the worker to exit
