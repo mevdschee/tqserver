@@ -245,7 +245,7 @@ To test the implementation, you need:
 1. ✅ **Full FastCGI Protocol Integration** - Phase 1 + Phase 2 connected
 2. ✅ **Dynamic Pool Manager** - PHP-FPM's most popular mode implemented
 3. ✅ **Production-Ready Architecture** - Manager, workers, health monitoring
-4. ✅ **Zero External Dependencies** - No php-fpm required, pure php-cgi
+4. ✅ **php-fpm-first Integration** - TQServer generates and manages php-fpm pools (legacy php-cgi available for tests)
 5. ✅ **Configuration Hot Reload** - TQServer's existing hot-reload works with PHP
 6. ✅ **Beautiful Demo** - index.php showcases all features
 
@@ -382,12 +382,12 @@ Phase 2 Integration is **✅ COMPLETE and PRODUCTION-READY**.
 
 ### System Status:
 - **FastCGI Protocol:** ✅ Fully functional with buffered reading
-- **PHP-CGI Integration:** ✅ All features working (hello.php, info.php)
+- **PHP Integration (php-fpm-backed):** ✅ All features working (hello.php, info.php)
 - **Dynamic Pool:** ✅ Auto-scaling 2-10 workers operational
 - **Static Pool:** ✅ Implemented (fixed worker count)
 - **Request Routing:** ✅ HTTP → FastCGI → PHP-CGI working end-to-end
 
-TQServer now functions as a **Go-based PHP-FPM alternative** with superior observability, configuration management, and the same dynamic pool management that makes PHP-FPM the industry standard.
+TQServer now functions as a webserver with PHP support via php-fpm, with superior observability, configuration management, and the same dynamic pool management that makes PHP-FPM the industry standard.
 
 ---
 

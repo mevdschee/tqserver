@@ -1,6 +1,6 @@
 # Blog Worker (PHP Example)
 
-This is a test worker to demonstrate TQServer's PHP-FPM alternative functionality.
+This is a test worker to demonstrate TQServer as a webserver with PHP support via php-fpm.
 
 ## Structure
 

@@ -1,4 +1,4 @@
-# PHP-FPM Alternative: Implementation Plan
+# PHP-FPM Integration: Implementation Plan
 
 **Author:** TQServer Team  
 **Date:** January 7, 2026  
@@ -23,7 +23,7 @@
 
 ## Executive Summary
 
-This document outlines a plan to transform TQServer into a **Go-based PHP-FPM alternative** that can execute PHP scripts through a pool of persistent PHP processes, providing FastCGI-compatible request handling with superior performance, resource management, and developer experience.
+This document outlines a plan to define TQServer as a webserver that provides PHP support by integrating with `php-fpm`. TQServer will execute PHP scripts by managing php-fpm pools and communicating with them over the FastCGI protocol, providing reliable request handling, pool management, and developer-friendly configuration.
 
 **Key Goals:**
 1. Maintain process pool management similar to PHP-FPM
@@ -72,7 +72,7 @@ TQServer already has many of the foundational pieces:
 
 ### Gaps to Fill
 
-To become a PHP-FPM alternative, TQServer needs:
+To integrate with php-fpm, TQServer provides:
 
 - ✅ **FastCGI Protocol Support**: Complete - server, client, and protocol implementation
 - ✅ **PHP-CGI Process Management**: Complete - spawns and manages php-cgi workers directly
@@ -1374,7 +1374,7 @@ sudo systemctl restart tqserver
 | Phase 5: Advanced Features | 4-5 weeks | Feature parity with PHP-FPM |
 | Phase 6: Performance Optimization | 2-3 weeks | Production-ready performance |
 | Phase 7: Documentation & Migration | 2 weeks | Complete documentation |
-| **Total** | **18-23 weeks** | **Production-ready PHP-FPM alternative** |
+| **Total** | **18-23 weeks** | **Production-ready webserver with php-fpm integration** |
 
 ---
 
@@ -1399,7 +1399,7 @@ sudo systemctl restart tqserver
 
 ## Conclusion
 
-Transforming TQServer into a Go-based PHP-FPM alternative is technically feasible and strategically valuable. The existing architecture provides a strong foundation with process management, health monitoring, and graceful restarts already in place.
+Transforming TQServer into a webserver that provides PHP support via php-fpm is technically feasible and strategically valuable. The existing architecture provides a strong foundation with process management, health monitoring, and graceful restarts already in place.
 
 The primary engineering challenges are:
 1. FastCGI protocol implementation (well-documented, straightforward)

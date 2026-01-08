@@ -1,8 +1,8 @@
 <?php
 
-/**
- * Blog Worker - PHP-FPM Alternative via TQServer
- * This script demonstrates PHP execution through TQServer's dynamic pool manager
+/*
+ * Blog Worker - Webserver with PHP via php-fpm
+ * This script demonstrates PHP execution through TQServer's php-fpm integration and dynamic pool manager
  */
 
 // Get request information
@@ -160,9 +160,12 @@ http_response_code(200);
         </div>
 
         <p style="text-align: center; color: #718096; margin-top: 30px;">
-            Powered by <strong>TQServer</strong> - Go-based PHP-FPM Alternative
+            Powered by <strong>TQServer</strong> - Webserver with PHP support via php-fpm
         </p>
     </div>
+    <?php if (getenv('WORKER_SERVER_MODE') === 'dev'): ?>
+        <script src="/dev-reload.js"></script>
+    <?php endif; ?>
 </body>
 
 </html>
