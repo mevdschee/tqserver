@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -141,6 +142,10 @@ func (s *Supervisor) Start() error {
 
 	s.wg.Add(1)
 	go s.watchForChanges()
+
+	// Start monitoring worker health
+	s.wg.Add(1)
+	go s.monitorWorkerHealth()
 
 	return nil
 }
@@ -772,4 +777,146 @@ func (s *Supervisor) findBunBinary() (string, error) {
 	}
 
 	return "", fmt.Errorf("bun executable not found in PATH or ~/.bun/bin/bun")
+}
+
+// monitorWorkerHealth periodically checks if workers are healthy
+func (s *Supervisor) monitorWorkerHealth() {
+	defer s.wg.Done()
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-s.stopChan:
+			return
+		case <-ticker.C:
+			// Check all workers
+			workers := s.router.GetAllWorkers()
+			for _, worker := range workers {
+				// For PHP workers, perform active health check via TCP
+				if worker.Type == "php" {
+					if !s.checkPHPHealth(worker) {
+						log.Printf("PHP worker active health check failed for %s, restarting...", worker.Name)
+						// Restart the worker
+						// Note: This is a bit aggressive, but consistent with previous behavior
+						// We run this in a goroutine to not block the monitor loop
+						go func(w *Worker) {
+							s.stopWorker(w)
+							// Get config to restart correctly
+							workerMeta := s.getWorkerConfig(w.Name)
+							if workerMeta != nil {
+								if err := s.startPHPWorker(w, workerMeta); err != nil {
+									log.Printf("Failed to restart PHP worker %s: %v", w.Name, err)
+								}
+							}
+						}(worker)
+					}
+				} else {
+					// For Bun/Go workers, check HTTP health endpoint
+					if !s.checkHTTPHealth(worker) {
+						log.Printf("Worker active health check failed for %s, restarting...", worker.Name)
+						go func(w *Worker) {
+							// Rolling restart: stop all instances and let dispatcher respawn them
+							// Or we could restart specific instances if we tracked which one failed.
+							// For simplicity, we restart the whole worker group for now.
+							s.stopWorker(w)
+							// Dispatcher loop will notice 0 instances and scale up.
+						}(worker)
+					}
+				}
+			}
+		}
+	}
+}
+
+// checkHTTPHealth performs an active HTTP GET to /health on worker instances
+func (s *Supervisor) checkHTTPHealth(worker *Worker) bool {
+	worker.mu.Lock()
+	instances := make([]*WorkerInstance, len(worker.Instances))
+	copy(instances, worker.Instances)
+	worker.mu.Unlock()
+
+	if len(instances) == 0 {
+		return false
+	}
+
+	// We check all instances. If ANY is unhealthy, we return false for the worker?
+	// Or we probably want to try to keep the worker alive but maybe kill the bad instance?
+	// The current logic in monitorWorkerHealth restarts the WHOLE worker if this returns false.
+	// So let's return false only if ALL instances fail, or if a majority fail?
+	// Or maybe we should just return true if at least one is healthy?
+	// Given the restart logic above (stops all instances), let's be strict:
+	// If any instance is explicitly BAD (connection refused / 500), we probably want to fix it.
+	// But restarting everything for one bad instance is harsh.
+	// Let's iterate and if we find a bad one, we terminate THAT instance individually here?
+	// But the function signature returns `bool` for the whole worker.
+	// Let's change the pattern: checkHTTPHealth cleans up bad instances and returns true if at least one remains healthy.
+
+	healthyCount := 0
+	client := http.Client{
+		Timeout: 500 * time.Millisecond,
+	}
+
+	for _, inst := range instances {
+		url := fmt.Sprintf("http://localhost:%d/health", inst.Port)
+		resp, err := client.Get(url)
+		isHealthy := false
+		if err == nil {
+			if resp.StatusCode == http.StatusOK {
+				isHealthy = true
+			}
+			resp.Body.Close()
+		}
+
+		if isHealthy {
+			healthyCount++
+		} else {
+			log.Printf("Broadcasting health check failure for instance %s (%s)", inst.ID, url)
+			// We can proactively terminate this specific bad instance
+			// and let the dispatcher replace it.
+			go s.terminateInstance(inst)
+		}
+	}
+
+	// If we have at least one healthy instance, or if we had 0 instances to start with (caught above),
+	// we say the worker "group" is fine (the bad ones are being killed).
+	// If healthyCount == 0, then we might need the big restart hammer from the caller.
+	return healthyCount > 0
+}
+
+// checkPHPHealth performs an active TCP probe to check if the PHP worker is reachable
+func (s *Supervisor) checkPHPHealth(worker *Worker) bool {
+	// For now, checks the first instance (PHP pool master)
+	// In the future we might want to check all instances if we have multiple PHP pools?
+	// But startPHPWorker creates one 'php-master' instance with the port.
+	if len(worker.Instances) == 0 {
+		return false
+	}
+
+	// Find the php-master instance or just use the first one
+	port := worker.Instances[0].Port
+	if port == 0 {
+		return false
+	}
+
+	workerMeta := s.getWorkerConfig(worker.Name)
+	if workerMeta == nil || workerMeta.Config.PHP == nil {
+		return false
+	}
+
+	host := workerMeta.Config.PHP.Pool.ListenAddress
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	addr := fmt.Sprintf("%s:%d", host, port)
+
+	conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+	if err != nil {
+		// Only log verbose if we want to debug, otherwise it spams if down
+		// log.Printf("Health check failed for PHP worker %s (%s): %v", worker.Name, addr, err)
+		return false
+	}
+	conn.Close()
+	return true
 }
