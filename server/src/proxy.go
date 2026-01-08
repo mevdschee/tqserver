@@ -120,12 +120,12 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// In dev mode, set X-TQWorker-* headers for all worker types
+	// In dev mode, set X-TQServer-Worker-* headers for all worker types
 	setDevHeaders := func(header http.Header) {
-		header.Set("X-TQWorker-Name", worker.Name)
-		header.Set("X-TQWorker-Type", worker.Type)
-		header.Set("X-TQWorker-Route", worker.Route)
-		header.Set("X-TQWorker-Port", fmt.Sprintf("%d", worker.Port))
+		header.Set("X-TQServer-Worker-Name", worker.Name)
+		header.Set("X-TQServer-Worker-Type", worker.Type)
+		header.Set("X-TQServer-Worker-Route", worker.Route)
+		header.Set("X-TQServer-Worker-Port", fmt.Sprintf("%d", worker.Port))
 	}
 	devHeadersSet := p.config.IsDevelopmentMode()
 

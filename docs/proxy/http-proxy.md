@@ -21,10 +21,10 @@ The proxy handles static files efficiently without involving worker processes.
 
 ### Development Headers
 In Development Mode, the proxy injects debugging headers into matched responses:
--   `X-TQWorker-Name`: Name of the worker (e.g., "blog")
--   `X-TQWorker-Type`: Runtime type (e.g., "php", "go")
--   `X-TQWorker-Route`: Configured route (e.g., "/blog")
--   `X-TQWorker-Port`: Internal upstream port (e.g., "9005")
+-   `X-TQServer-Worker-Name`: Name of the worker (e.g., "blog")
+-   `X-TQServer-Worker-Type`: Runtime type (e.g., "php", "go")
+-   `X-TQServer-Worker-Route`: Configured route (e.g., "/blog")
+-   `X-TQServer-Worker-Port`: Internal upstream port (e.g., "9005")
 
 ### PHP FastCGI
 For PHP workers, the proxy acts as a FastCGI client, translating HTTP requests into the FastCGI protocol and communicating directly with the `php-fpm` pool managed by the Supervisor.

@@ -7,7 +7,7 @@ Enable development mode in `config/tqserver.yaml` by setting `mode: development`
 ### Features
 1.  **Build Error Pages**: If a Go worker fails to compile, the browser shows a formatted error page with the compiler output instead of a generic 500 error.
 2.  **Live Reload**: Saving a file triggers an automatic browser refresh.
-3.  **Debug Headers**: Responses include `X-TQWorker-*` headers to trace which worker and port handled the request.
+3.  **Debug Headers**: Responses include `X-TQServer-Worker-*` headers to trace which worker and port handled the request.
 
 ## Common Issues
 
