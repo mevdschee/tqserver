@@ -111,10 +111,24 @@ http_response_code(200);
         <span class="badge">✓ Dynamic Pool Manager</span>
 
         <div class="info">
-            <p><strong>Worker:</strong> blog</p>
-            <p><strong>Type:</strong> PHP via FastCGI</p>
-            <p><strong>Path:</strong> <?php echo htmlspecialchars($requestUri); ?></p>
-            <p><strong>Method:</strong> <?php echo htmlspecialchars($requestMethod); ?></p>
+            <p><strong>Worker:</strong>
+                <?php echo getenv('WORKER_NAME'); ?>
+            </p>
+            <p><strong>Type:</strong>
+                <?php echo getenv('WORKER_TYPE'); ?>
+            </p>
+            <p><strong>Path:</strong>
+                <?php echo getenv('WORKER_PATH'); ?>
+            </p>
+            <p><strong>Port:</strong>
+                <?php echo getenv('WORKER_PORT'); ?>
+            </p>
+            <p><strong>Method:</strong>
+                <?php echo ($requestMethod); ?>
+            </p>
+            <p><strong>URI:</strong>
+                <?php echo ($requestUri); ?>
+            </p>
         </div>
 
         <h2>PHP Runtime Info</h2>

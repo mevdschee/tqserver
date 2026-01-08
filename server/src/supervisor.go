@@ -559,6 +559,8 @@ func (s *Supervisor) startWorker(worker *Worker) error {
 		fmt.Sprintf("WORKER_NAME=%s", worker.Name),
 		fmt.Sprintf("WORKER_ROUTE=%s", worker.Route),
 		fmt.Sprintf("WORKER_MODE=%s", s.config.Mode),
+		fmt.Sprintf("WORKER_TYPE=%s", worker.Type),
+		fmt.Sprintf("WORKER_PATH=%s", worker.Route),
 	}
 
 	// Add timeout settings from worker config if available
@@ -765,6 +767,8 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 		"WORKER_NAME":        worker.Name,
 		"WORKER_ROUTE":       worker.Route,
 		"WORKER_PORT":        fmt.Sprintf("%d", worker.Port),
+		"WORKER_TYPE":        worker.Type,
+		"WORKER_PATH":        worker.Route,
 	}
 
 	cfg := &php.Config{
