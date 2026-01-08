@@ -26,31 +26,33 @@ workers/blog/
 
 ## Accessing Assets
 
-Assets in `public/` are mapped to the worker's route.
+Assets in `public/` are served using the request's full URL path.
 
--   File: `workers/blog/public/css/style.css`
--   URL: `/blog/public/css/style.css` 
-    *(Note: The `public/` segment is currently part of the default path convention, though this depends on your proxy configuration)*.
+**Important**: Because the proxy includes the worker's route prefix in the file lookup, you must nest your assets under a directory matching your route name.
 
-> [!NOTE]
-> Actually, strictly speaking, TQServer serves `workers/{name}/public/{path}` when the URL matches.
-> If you request `/blog/css/style.css`, the proxy checks `workers/blog/public/css/style.css`.
-> So usually the URL does **not** contain `public`. Assumes: `workers/blog/public/` maps to `/blog/`.
+### Example: Worker mounted at `/blog`
 
-*Wait, let me verify the Proxy logic in `proxy.go`.*
-
-```go
-// From proxy.go
-workerPublicPath := filepath.Join(p.projectRoot, p.config.Workers.Directory, worker.Name, "public", r.URL.Path)
+Structure:
 ```
-If `r.URL.Path` is `/blog/style.css`, it looks in `workers/blog/public/blog/style.css`?
-**NO.**
-If worker route is `/blog`.
-The `proxy.go` uses `r.URL.Path` directly?
-`workerPublicPath := filepath.Join(..., "public", r.URL.Path)`
-If checking for static file, it uses full path.
-If I request `/blog/style.css`, it checks `workers/blog/public/blog/style.css`.
-This implies assets inside `public` must be nested under a folder matching the route?
-Or maybe I misread `proxy.go`.
+workers/blog/public/
+└── blog/              <-- Nest under route name
+    └── css/
+        └── style.css
+```
 
-Let's re-read `proxy.go` serving logic carefully before finalizing this doc.
+-   **URL**: `/blog/css/style.css`
+-   **Lookup**: `workers/blog/public/blog/css/style.css`
+
+### Example: Worker mounted at `/` (index)
+
+Structure:
+```
+workers/index/public/
+└── css/
+    └── style.css
+```
+
+-   **URL**: `/css/style.css`
+-   **Lookup**: `workers/index/public/css/style.css`
+
+
