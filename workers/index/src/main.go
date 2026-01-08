@@ -33,13 +33,15 @@ func main() {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 		data := map[string]interface{}{
-			"Route":     runtime.Route,
-			"Port":      runtime.Port,
-			"Method":    r.Method,
-			"Path":      r.URL.Path,
-			"Time":      time.Now().Format("2006-01-02 15:04:05"),
-			"PageTitle": "Welcome to TQServer",
-			"DevMode":   runtime.IsDevelopmentMode(),
+			"WorkerPath": runtime.Path,
+			"WorkerName": runtime.Name,
+			"WorkerType": runtime.Type,
+			"WorkerPort": runtime.Port,
+			"Method":     r.Method,
+			"URI":        r.URL.RequestURI(),
+			"Time":       time.Now().Format("2006-01-02 15:04:05"),
+			"PageTitle":  "Welcome to TQServer",
+			"DevMode":    runtime.IsDevelopmentMode(),
 		}
 
 		output, err := tmpl.RenderFile("views/index.html", data)

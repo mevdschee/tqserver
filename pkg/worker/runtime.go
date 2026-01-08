@@ -11,6 +11,8 @@ import (
 
 // Runtime provides common worker initialization and server management
 type Runtime struct {
+	Name         string
+	Type         string
 	Port         string
 	Path         string
 	Mode         string
@@ -36,12 +38,24 @@ func NewRuntime() *Runtime {
 		mode = "dev"
 	}
 
+	workerName := os.Getenv("WORKER_NAME")
+	if workerName == "" {
+		workerName = "worker"
+	}
+
+	workerType := os.Getenv("WORKER_TYPE")
+	if workerType == "" {
+		workerType = "go"
+	}
+
 	// Get timeout settings from environment
 	readTimeout := parseTimeout("WORKER_READ_TIMEOUT_SECONDS", 30)
 	writeTimeout := parseTimeout("WORKER_WRITE_TIMEOUT_SECONDS", 30)
 	idleTimeout := parseTimeout("WORKER_IDLE_TIMEOUT_SECONDS", 120)
 
 	return &Runtime{
+		Name:         workerName,
+		Type:         workerType,
 		Port:         port,
 		Path:         path,
 		Mode:         mode,
