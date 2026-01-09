@@ -365,12 +365,38 @@ func (s *Supervisor) spawnWorkerInstance(w *Worker) (*WorkerInstance, error) {
 
 	cmd.Env = env
 
-	// Create logs directory
-	logFile, err := os.Create(filepath.Join(s.projectRoot, "logs", fmt.Sprintf("%s_%d.log", w.Name, port)))
+	// Determine log file path
+	logPath := fmt.Sprintf("logs/%s_%d.log", w.Name, port) // Default
+	if workerMeta != nil {
+		if workerMeta.Config.Logging.LogFile != "" {
+			logPath = workerMeta.Config.Logging.LogFile
+		} else if workerMeta.Config.LogFile != "" {
+			logPath = workerMeta.Config.LogFile
+		}
+	}
+
+	// Replace placeholders
+	logPath = strings.ReplaceAll(logPath, "{name}", w.Name)
+	logPath = strings.ReplaceAll(logPath, "{port}", fmt.Sprintf("%d", port))
+	logPath = strings.ReplaceAll(logPath, "{date}", time.Now().Format("2006-01-02"))
+
+	// Resolve absolute path
+	if !filepath.IsAbs(logPath) {
+		logPath = filepath.Join(s.projectRoot, logPath)
+	}
+
+	// Ensure directory exists
+	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
+		log.Printf("Failed to create log directory: %v", err)
+	}
+
+	// Create/Open log file
+	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err == nil {
 		cmd.Stdout = logFile
 		cmd.Stderr = logFile
 	} else {
+		log.Printf("Failed to open log file %s: %v", logPath, err)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr // Fallback
 	}
@@ -619,11 +645,7 @@ func (s *Supervisor) handleFileEvent(path string) {
 		return
 	}
 
-	// Identify worker
-	// If code changed -> rebuild and restart all instances (rolling restart?)
-	// For now: restart all.
-
-	// Find worker
+	// Find matching worker
 	workers := s.router.GetAllWorkers()
 	for _, w := range workers {
 		workerDir := filepath.Join(s.projectRoot, s.config.Workers.Directory, w.Name)
@@ -643,9 +665,6 @@ func (s *Supervisor) handleFileEvent(path string) {
 
 			// Rolling Restart:
 			// For each instance, kill it. Logic in dispatcher will respawn it if needed.
-			// Or we can just call stopWorker and let dispatcher respawn.
-			// But dispatcher is running.
-			// Let's just kill all instances. Dispatcher loop will see MinWorkers > len(Instances) and spawn new ones.
 			s.stopWorker(w)
 
 			if s.proxy != nil {

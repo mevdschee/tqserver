@@ -16,7 +16,11 @@ type WorkerConfig struct {
 	Name    string `yaml:"name"`
 	Type    string `yaml:"type"` // "go", "kotlin" or "php"
 	Enabled bool   `yaml:"enabled"`
-	LogFile string `yaml:"log_file"`
+	LogFile string `yaml:"log_file"` // Deprecated: use Logging.LogFile
+
+	Logging struct {
+		LogFile string `yaml:"log_file"`
+	} `yaml:"logging"`
 
 	// Go runtime configuration
 	Go *struct {
