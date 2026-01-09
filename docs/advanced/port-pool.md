@@ -28,7 +28,7 @@ The allocation strategy is a simple round-robin increment:
 
 Since multiple processes might be starting simultaneously or external applications might use ports in the range, TQServer includes safety checks:
 
--   **Go/Kotlin Workers**: Ports are assigned directly. It is assumed the range is reserved for TQServer.
+-   **Go/Bun Workers**: Ports are assigned directly. It is assumed the range is reserved for TQServer.
 -   **PHP Workers**: The Supervisor performs an active probe. It attempts to bind a `net.Listen` on the candidate port.
     -   If successful, the port is truly free. The listener is closed, and the port is assigned to the PHP-FPM pool.
     -   If the bind fails (port in use), the Supervisor increments to the next port and retries until a free one is found or the range is exhausted.
