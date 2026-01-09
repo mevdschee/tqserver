@@ -7,14 +7,15 @@ TQServer's Supervisor is responsible for managing the entire lifecycle of your w
 1.  **Discovery**: The Supervisor scans the `workers/` directory and `config/tqserver.yaml` to identify enabled workers.
 2.  **Build (Compiled Workers)**:
     -   **Go**: Compiles the worker using `go build` into a binary named after the worker.
-    -   **Kotlin**: Uses `./gradlew build` to compile the worker into a JAR (or uses an existing up-to-date build).
+    -   **Bun**: Installs dependencies using `bun install` if `package.json` exists.
     -   *PHP workers skip this step.*
 3.  **Start**:
-    -   **Go/Kotlin**: The binary is executed on an assigned port with environment variables (e.g., `WORKER_PORT`, `WORKER_ROUTE`).
-    -   **PHP**: A dedicated `php-fpm` pool is started for the specific worker via a custom launcher.
+    -   **Go**: The binary is executed on an assigned port.
+    -   **Bun**: Executed via `bun run index.ts`.
+    -   **PHP**: A dedicated `php-fpm` pool is started.
 4.  **Monitor**: The Supervisor watches the process for exit codes and health.
 5.  **Restart**:
-    -   **File Changes**: Refreshes the code and restarts the process (or broadcasts reload for PHP).
+    -   **File Changes**: Refreshes the code and restarts the process.
     -   **Config Changes**: Restarts the worker with new settings.
     -   **Health Failure**: Automatically restarts unhealthy or crashed workers.
 
@@ -26,8 +27,8 @@ The Supervisor employs multiple strategies to ensure workers are healthy:
 The Supervisor watches the OS process ID (PID). If a worker process exits unexpectedly (non-zero exit code), it is immediately flagged as unhealthy and queued for a restart.
 
 ### 2. Active Health Checks
--   **PHP Workers**: The Supervisor runs a periodic TCP dial check (`checkPHPHealth`) to the FastCGI port. If the connection is refused, the worker is marked unhealthy and restarted.
--   **Go/Kotlin Workers**: Currently rely on process state, but can be extended to support HTTP health checks.
+-   **PHP Workers**: The Supervisor runs a periodic TCP dial check.
+-   **Go/Bun Workers**: Use HTTP health checks (`/health`).
 
 ### 3. Resource Limits
 -   **Max Requests**: Go workers can be configured to restart after serving a set number of requests (`max_requests`) to prevent memory leaks.

@@ -30,6 +30,6 @@ In Development Mode, the proxy injects debugging headers into matched responses:
 For PHP workers, the proxy acts as a FastCGI client, translating HTTP requests into the FastCGI protocol and communicating directly with the `php-fpm` pool managed by the Supervisor.
 
 ### Error Pages
--   **Build Errors**: Displays compilation errors for Go/Kotlin workers.
+-   **Build Errors**: Displays compilation errors for Go/Bun workers.
 -   **502 Bad Gateway**: Generates a standard error if an HTTP proxy request fails mid-stream.
 -   **503 Service Unavailable**: Displays a branded error page if a worker is unreachable (e.g. PHP connection refused) or marked unhealthy.

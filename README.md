@@ -155,10 +155,10 @@ Provide the highest performance (~300-1000ms reload).
 -   **Runtime**: Use `pkg/worker` for easy setup.
 -   **Example**: `workers/index/`
 
-### Kotlin Workers
-Run as standalone JARs.
--   **Framework**: Ktor recommended.
--   **Example**: `workers/api/` and [docs/workers/kotlin.md](docs/workers/kotlin.md)
+### TypeScript Workers (Bun)
+Run as standalone Bun processes.
+-   **Runtime**: Bun.
+-   **Example**: `workers/api/` and [docs/workers/typescript.md](docs/workers/typescript.md)
 
 ### PHP Workers
 Run via FastCGI (php-fpm).
