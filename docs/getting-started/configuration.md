@@ -13,6 +13,22 @@
 
 TQServer uses YAML-based configuration files for both server-level and worker-level settings. Configuration changes are automatically detected and applied without requiring a server restart.
 
+## Command Line Options
+
+You can start the server with the following command line options:
+
+```bash
+bin/tqserver [options]
+
+Options:
+  -config string
+        Path to config file (default "config/server.yaml")
+  -quiet
+        Suppress log output to stdout/stderr
+```
+
+The `-quiet` flag is useful for production environments where you want logs only written to files.
+
 ## Server Configuration
 
 The main server configuration file is located at `config/server.yaml`:

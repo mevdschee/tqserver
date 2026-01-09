@@ -303,6 +303,15 @@ worker:
 
 Every worker receives these standard environment variables:
 
+| Variable | Description |
+| :--- | :--- |
+| `WORKER_PORT` | Port number assigned to this worker |
+| `WORKER_NAME` | Worker folder name |
+| `WORKER_ROUTE` | URL path prefix |
+| `WORKER_MODE` | `development` or `production` |
+
+### Detailed List
+
 ```bash
 # Worker identity
 WORKER_NAME=api              # Worker name
