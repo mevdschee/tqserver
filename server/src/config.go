@@ -14,7 +14,7 @@ import (
 type WorkerConfig struct {
 	Path    string `yaml:"path"`
 	Name    string `yaml:"name"`
-	Type    string `yaml:"type"` // "go", "kotlin" or "php"
+	Type    string `yaml:"type"` // "go", "bun" or "php"
 	Enabled bool   `yaml:"enabled"`
 	LogFile string `yaml:"log_file"` // Deprecated: use Logging.LogFile
 

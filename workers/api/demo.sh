@@ -1,5 +1,5 @@
 #!/bin/bash
-# Demo script for Kotlin API Worker
+# Demo script for API Worker
 # This script demonstrates the CRUD operations
 
 set -e
@@ -7,7 +7,7 @@ set -e
 BASE_URL="${BASE_URL:-http://localhost:3000/api}"
 
 echo "=========================================="
-echo "TQServer Kotlin API Worker Demo"
+echo "TQServer API Worker Demo"
 echo "=========================================="
 echo "Base URL: $BASE_URL"
 echo ""
