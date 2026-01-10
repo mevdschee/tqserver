@@ -73,9 +73,14 @@ Workers must configure their HTTP clients to use the proxy.
 ### Go Workers
 
 ```go
-import "golang.org/x/net/proxy"
+import (
+    "net/url"
+    "os"
+    "golang.org/x/net/proxy"
+)
 
-dialer, _ := proxy.SOCKS5("tcp", "127.0.0.1:1080", nil, proxy.Direct)
+proxyURL, _ := url.Parse(os.Getenv("SOCKS5_PROXY"))
+dialer, _ := proxy.SOCKS5("tcp", proxyURL.Host, nil, proxy.Direct)
 transport := &http.Transport{Dial: dialer.Dial}
 client := &http.Client{Transport: transport}
 ```

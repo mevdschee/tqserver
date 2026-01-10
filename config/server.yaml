@@ -39,7 +39,7 @@ file_watcher:
 # SOCKS5 Proxy for outgoing API call logging
 # When enabled, all workers will route outgoing connections through this proxy
 socks5:
-  enabled: false  # Set to true to enable proxy
+  enabled: true  # Set to true to enable proxy
   port: 1080
   log_file: "logs/socks5_{date}.log"
   log_format: "json"  # "json" | "text"

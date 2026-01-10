@@ -85,6 +85,16 @@ func main() {
 		io.WriteString(w, output)
 	})
 
+	// Debug: show SOCKS5 environment variables
+	http.HandleFunc("/env", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		fmt.Fprintf(w, "SOCKS5_PROXY=%s\n", os.Getenv("SOCKS5_PROXY"))
+		fmt.Fprintf(w, "ALL_PROXY=%s\n", os.Getenv("ALL_PROXY"))
+		fmt.Fprintf(w, "TQSERVER_WORKER_UA=%s\n", os.Getenv("TQSERVER_WORKER_UA"))
+		fmt.Fprintf(w, "SSL_CERT_FILE=%s\n", os.Getenv("SSL_CERT_FILE"))
+		fmt.Fprintf(w, "NODE_EXTRA_CA_CERTS=%s\n", os.Getenv("NODE_EXTRA_CA_CERTS"))
+	})
+
 	// Health check endpoint
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
