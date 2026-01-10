@@ -363,6 +363,21 @@ func (s *Supervisor) spawnWorkerInstance(w *Worker) (*WorkerInstance, error) {
 		}
 	}
 
+	// SOCKS5 proxy environment variables
+	if s.config.Socks5.Enabled {
+		env = append(env, fmt.Sprintf("SOCKS5_PROXY=socks5://127.0.0.1:%d", s.config.Socks5.Port))
+		env = append(env, fmt.Sprintf("ALL_PROXY=socks5://127.0.0.1:%d", s.config.Socks5.Port))
+		env = append(env, fmt.Sprintf("TQSERVER_WORKER_UA=TQServer/%s", w.Name))
+		if s.config.Socks5.HTTPSInspection != nil && s.config.Socks5.HTTPSInspection.Enabled {
+			caCert := s.config.Socks5.HTTPSInspection.CACert
+			if !filepath.IsAbs(caCert) {
+				caCert = filepath.Join(s.projectRoot, caCert)
+			}
+			env = append(env, fmt.Sprintf("SSL_CERT_FILE=%s", caCert))
+			env = append(env, fmt.Sprintf("NODE_EXTRA_CA_CERTS=%s", caCert))
+		}
+	}
+
 	cmd.Env = env
 
 	// Determine log file path
@@ -796,6 +811,20 @@ func (s *Supervisor) startPHPWorker(worker *Worker, workerMeta *WorkerConfigWith
 		"WORKER_PATH":        worker.Path,
 		"WORKER_PORT":        fmt.Sprintf("%d", port),
 		"WORKER_TYPE":        worker.Type,
+	}
+
+	// SOCKS5 proxy environment variables for PHP
+	if s.config.Socks5.Enabled {
+		envVars["SOCKS5_PROXY"] = fmt.Sprintf("socks5://127.0.0.1:%d", s.config.Socks5.Port)
+		envVars["ALL_PROXY"] = fmt.Sprintf("socks5://127.0.0.1:%d", s.config.Socks5.Port)
+		envVars["TQSERVER_WORKER_UA"] = fmt.Sprintf("TQServer/%s", worker.Name)
+		if s.config.Socks5.HTTPSInspection != nil && s.config.Socks5.HTTPSInspection.Enabled {
+			caCert := s.config.Socks5.HTTPSInspection.CACert
+			if !filepath.IsAbs(caCert) {
+				caCert = filepath.Join(s.projectRoot, caCert)
+			}
+			envVars["SSL_CERT_FILE"] = caCert
+		}
 	}
 
 	cfg := &php.Config{

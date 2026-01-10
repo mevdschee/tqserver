@@ -64,6 +64,16 @@ func main() {
 	// Connect supervisor with proxy for reload broadcasting
 	supervisor.SetProxy(proxy)
 
+	// Initialize SOCKS5 proxy if enabled
+	var socks5Server *Socks5Server
+	if config.Socks5.Enabled {
+		socks5Server = NewSocks5Server(&config.Socks5, projectRoot)
+		if err := socks5Server.Start(); err != nil {
+			log.Fatalf("Failed to start SOCKS5 proxy: %v", err)
+		}
+		log.Printf("SOCKS5 proxy enabled on port %d", config.Socks5.Port)
+	}
+
 	// Start proxy in a goroutine
 	go func() {
 		if err := proxy.Start(); err != nil {
@@ -110,6 +120,9 @@ func main() {
 	log.Println("Shutting down...")
 
 	// Cleanup
+	if socks5Server != nil {
+		socks5Server.Stop()
+	}
 	supervisor.Stop()
 	proxy.Stop()
 

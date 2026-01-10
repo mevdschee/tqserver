@@ -97,6 +97,27 @@ type Config struct {
 	FileWatcher struct {
 		DebounceMs int `yaml:"debounce_ms"`
 	} `yaml:"file_watcher"`
+
+	Socks5 Socks5Config `yaml:"socks5"`
+}
+
+// Socks5Config represents the SOCKS5 proxy configuration
+type Socks5Config struct {
+	Enabled         bool                   `yaml:"enabled"`
+	Port            int                    `yaml:"port"`
+	LogFile         string                 `yaml:"log_file"`
+	LogFormat       string                 `yaml:"log_format"` // "json" | "text"
+	HTTPSInspection *HTTPSInspectionConfig `yaml:"https_inspection"`
+}
+
+// HTTPSInspectionConfig represents HTTPS MITM inspection settings
+type HTTPSInspectionConfig struct {
+	Enabled      bool   `yaml:"enabled"`
+	CACert       string `yaml:"ca_cert"`
+	CAKey        string `yaml:"ca_key"`
+	AutoGenerate bool   `yaml:"auto_generate"`
+	LogBody      bool   `yaml:"log_body"`
+	MaxBodySize  int    `yaml:"max_body_size"`
 }
 
 // LoadConfig loads configuration from a YAML file
@@ -117,6 +138,12 @@ func LoadConfig(configPath string) (*Config, error) {
 	config.Workers.HealthCheckWaitTimeoutMs = 5000 // Default 5s
 	config.Workers.HealthCheckTimeoutMs = 250      // Default 250ms
 	config.FileWatcher.DebounceMs = 50
+
+	// SOCKS5 proxy defaults
+	config.Socks5.Enabled = false
+	config.Socks5.Port = 1080
+	config.Socks5.LogFile = "logs/socks5_{date}.log"
+	config.Socks5.LogFormat = "json"
 
 	// Set mode from environment variable (defaults to "dev")
 	config.Mode = os.Getenv("TQSERVER_MODE")

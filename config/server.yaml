@@ -35,3 +35,21 @@ workers:
 file_watcher:
   # Debounce delay to avoid multiple rebuilds for rapid file changes
   debounce_ms: 50
+
+# SOCKS5 Proxy for outgoing API call logging
+# When enabled, all workers will route outgoing connections through this proxy
+socks5:
+  enabled: false  # Set to true to enable proxy
+  port: 1080
+  log_file: "logs/socks5_{date}.log"
+  log_format: "json"  # "json" | "text"
+
+  # HTTPS Inspection (MITM mode) - DEVELOPMENT ONLY
+  # Allows logging of HTTPS request/response bodies
+  # https_inspection:
+  #   enabled: true
+  #   ca_cert: "config/tqserver-ca.crt"
+  #   ca_key: "config/tqserver-ca.key"
+  #   auto_generate: true    # Generate CA if not exists
+  #   log_body: true         # Log request/response bodies
+  #   max_body_size: 1048576 # Max body size to log (1MB)

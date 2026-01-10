@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"log"
@@ -86,8 +87,23 @@ func (p *Proxy) Stop() error {
 	return nil
 }
 
+// generateCorrelationID creates a unique ID for request tracing
+func generateCorrelationID() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+}
+
 // handleRequest routes incoming requests to appropriate workers
 func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
+	// Generate or propagate correlation ID for SOCKS5 proxy tracing
+	correlationID := r.Header.Get("X-Correlation-ID")
+	if correlationID == "" {
+		correlationID = generateCorrelationID()
+		r.Header.Set("X-Correlation-ID", correlationID)
+	}
+	w.Header().Set("X-Correlation-ID", correlationID)
+
 	// Get worker for this route
 	worker := p.router.GetWorker(r.URL.Path)
 

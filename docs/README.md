@@ -37,6 +37,7 @@ Welcome to the TQServer documentation. TQServer is a high-performance function e
 **Monitoring**
 - [Logging](monitoring/logging.md) (TODO)
 - [Health Checks](monitoring/health-checks.md) (TODO)
+- [SOCKS5 Proxy](monitoring/socks5-proxy.md)
 - [Metrics](monitoring/metrics.md) (TODO)
 - [Debugging](monitoring/debugging.md) (TODO)
 - [Profiling](monitoring/profiling.md) (TODO)
