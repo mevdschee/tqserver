@@ -80,7 +80,7 @@ func (s *Supervisor) Start() error {
 
 	// Initialize and start all workers
 	for _, workerMeta := range s.workerConfigs {
-		if !workerMeta.Config.Enabled {
+		if !workerMeta.Config.IsEnabled(s.config.Mode) {
 			log.Printf("Worker %s is disabled, skipping", workerMeta.Name)
 			continue
 		}
@@ -123,6 +123,7 @@ func (s *Supervisor) Start() error {
 			if err := s.buildWorker(worker); err != nil {
 				log.Printf("Failed to build worker %s: %v", worker.Name, err)
 				worker.SetBuildError(err)
+				GetMetrics().RecordBuildError(worker.Name)
 				// Continue to start dispatcher anyway so we can serve error pages
 			}
 
@@ -524,6 +525,7 @@ func (s *Supervisor) reloadWorker(w *Worker) {
 	// Rebuild
 	if err := s.buildWorker(w); err != nil {
 		w.SetBuildError(err)
+		GetMetrics().RecordBuildError(w.Name)
 		log.Printf("Build failed for worker %s: %v", w.Name, err)
 		if s.proxy != nil {
 			s.proxy.BroadcastReload()
@@ -531,6 +533,9 @@ func (s *Supervisor) reloadWorker(w *Worker) {
 		return
 	}
 	w.SetBuildError(nil)
+
+	// Record restart metric
+	GetMetrics().RecordWorkerRestart(w.Name)
 
 	// Rolling Restart:
 	// For each instance, kill it. Logic in dispatcher will respawn it if needed.
@@ -670,6 +675,7 @@ func (s *Supervisor) handleFileEvent(path string) {
 			// Rebuild
 			if err := s.buildWorker(w); err != nil {
 				w.SetBuildError(err)
+				GetMetrics().RecordBuildError(w.Name)
 				log.Printf("Build failed: %v", err)
 				if s.proxy != nil {
 					s.proxy.BroadcastReload()
@@ -677,6 +683,9 @@ func (s *Supervisor) handleFileEvent(path string) {
 				return
 			}
 			w.SetBuildError(nil)
+
+			// Record restart metric
+			GetMetrics().RecordWorkerRestart(w.Name)
 
 			// Rolling Restart:
 			// For each instance, kill it. Logic in dispatcher will respawn it if needed.
@@ -1090,10 +1099,13 @@ func (s *Supervisor) checkHTTPHealth(worker *Worker) bool {
 	client := http.Client{
 		Timeout: 500 * time.Millisecond,
 	}
+	metrics := GetMetrics()
 
 	for _, inst := range instances {
+		start := time.Now()
 		url := fmt.Sprintf("http://localhost:%d/health", inst.Port)
 		resp, err := client.Get(url)
+		duration := time.Since(start)
 		isHealthy := false
 		if err == nil {
 			if resp.StatusCode == http.StatusOK {
@@ -1101,6 +1113,9 @@ func (s *Supervisor) checkHTTPHealth(worker *Worker) bool {
 			}
 			resp.Body.Close()
 		}
+
+		// Record health check metrics
+		metrics.RecordHealthCheck(worker.Name, duration, isHealthy)
 
 		if isHealthy {
 			healthyCount++
@@ -1111,6 +1126,9 @@ func (s *Supervisor) checkHTTPHealth(worker *Worker) bool {
 			go s.terminateInstance(inst)
 		}
 	}
+
+	// Update worker gauge metrics
+	metrics.UpdateWorkerMetrics(worker.Name, len(instances), healthyCount, len(worker.Queue), healthyCount > 0)
 
 	// If we have at least one healthy instance, or if we had 0 instances to start with (caught above),
 	// we say the worker "group" is fine (the bad ones are being killed).
@@ -1144,8 +1162,17 @@ func (s *Supervisor) checkPHPHealth(worker *Worker) bool {
 	}
 	addr := fmt.Sprintf("%s:%d", host, port)
 
+	start := time.Now()
 	conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
-	if err != nil {
+	duration := time.Since(start)
+	isHealthy := err == nil
+
+	// Record health check metrics
+	metrics := GetMetrics()
+	metrics.RecordHealthCheck(worker.Name, duration, isHealthy)
+	metrics.UpdateWorkerMetrics(worker.Name, len(worker.Instances), 1, 0, isHealthy)
+
+	if !isHealthy {
 		// Only log verbose if we want to debug, otherwise it spams if down
 		// log.Printf("Health check failed for PHP worker %s (%s): %v", worker.Name, addr, err)
 		return false

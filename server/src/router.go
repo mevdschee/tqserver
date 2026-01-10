@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -75,8 +76,7 @@ func (w *Worker) IsHealthy() bool {
 
 // IncrementRequestCount increments the global request counter
 func (w *Worker) IncrementRequestCount() int64 {
-	return 0 // Implemented via atomic or just unused? The LB tracks queue.
-	// We can keep a global counter for stats.
+	return atomic.AddInt64(&w.RequestCount, 1)
 }
 
 // GetStats returns current worker stats

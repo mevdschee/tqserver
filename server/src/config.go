@@ -14,8 +14,8 @@ import (
 type WorkerConfig struct {
 	Path    string `yaml:"path"`
 	Name    string `yaml:"name"`
-	Type    string `yaml:"type"` // "go", "bun" or "php"
-	Enabled bool   `yaml:"enabled"`
+	Type    string `yaml:"type"`     // "go", "bun" or "php"
+	Enabled string `yaml:"enabled"`  // "true", "false", or "development"
 	LogFile string `yaml:"log_file"` // Deprecated: use Logging.LogFile
 
 	Logging struct {
@@ -63,6 +63,23 @@ type WorkerConfig struct {
 	} `yaml:"php"`
 }
 
+// IsEnabled returns true if the worker is enabled based on the server mode.
+// Possible values for Enabled are: "true", "false", "development".
+// - "true" or "" (empty): always enabled
+// - "false": always disabled
+// - "development": only enabled when server is in dev mode
+func (wc *WorkerConfig) IsEnabled(serverMode string) bool {
+	switch wc.Enabled {
+	case "false":
+		return false
+	case "development":
+		return serverMode == "dev" || serverMode == "development"
+	default:
+		// "true" or empty string means enabled
+		return true
+	}
+}
+
 // WorkerConfigWithMeta includes config and metadata
 type WorkerConfigWithMeta struct {
 	Name       string
@@ -99,6 +116,11 @@ type Config struct {
 	} `yaml:"file_watcher"`
 
 	Socks5 Socks5Config `yaml:"socks5"`
+
+	Metrics struct {
+		Enabled bool   `yaml:"enabled"` // Default: true
+		Path    string `yaml:"path"`    // Default: "/metrics"
+	} `yaml:"metrics"`
 }
 
 // Socks5Config represents the SOCKS5 proxy configuration
@@ -144,6 +166,10 @@ func LoadConfig(configPath string) (*Config, error) {
 	config.Socks5.Port = 1080
 	config.Socks5.LogFile = "logs/socks5_{date}.log"
 	config.Socks5.LogFormat = "json"
+
+	// Metrics defaults
+	config.Metrics.Enabled = true
+	config.Metrics.Path = "/metrics"
 
 	// Set mode from environment variable (defaults to "dev")
 	config.Mode = os.Getenv("TQSERVER_MODE")

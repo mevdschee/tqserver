@@ -12,12 +12,14 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/mevdschee/tqserver/pkg/fastcgi"
 	"github.com/mevdschee/tqtemplate"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Proxy handles incoming HTTP requests and routes them to backend workers
@@ -52,12 +54,20 @@ func NewProxy(config *Config, router *Router, projectRoot string) *Proxy {
 // Start starts the HTTP server
 func (p *Proxy) Start() error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", p.handleRequest)
+	mux.HandleFunc("/", p.instrumentedHandler(p.handleRequest))
 
 	// Add WebSocket endpoint for live reload (dev mode only)
 	if p.config.IsDevelopmentMode() {
 		mux.HandleFunc("/ws/reload", p.reloadBroadcaster.HandleWebSocket)
 		log.Printf("Live reload WebSocket enabled at ws://localhost:%d/ws/reload", p.config.Server.Port)
+	}
+
+	// Add Prometheus metrics endpoint
+	if p.config.Metrics.Enabled {
+		// Initialize metrics
+		GetMetrics()
+		mux.Handle(p.config.Metrics.Path, promhttp.Handler())
+		log.Printf("Prometheus metrics enabled at http://localhost:%d%s", p.config.Server.Port, p.config.Metrics.Path)
 	}
 
 	p.server = &http.Server{
@@ -92,6 +102,52 @@ func generateCorrelationID() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+}
+
+// instrumentedHandler wraps a handler to record Prometheus metrics
+func (p *Proxy) instrumentedHandler(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Skip metrics for the metrics endpoint itself
+		if r.URL.Path == p.config.Metrics.Path {
+			next(w, r)
+			return
+		}
+
+		metrics := GetMetrics()
+		start := time.Now()
+
+		// Track active requests
+		metrics.ActiveRequests.Inc()
+		defer metrics.ActiveRequests.Dec()
+
+		// Wrap ResponseWriter to capture status code and bytes written
+		wrapped := &statusCapturingWriter{ResponseWriter: w, statusCode: 200}
+
+		// Call the actual handler
+		next(wrapped, r)
+
+		// Record metrics
+		duration := time.Since(start)
+		statusStr := strconv.Itoa(wrapped.statusCode)
+		statusGroup := GetStatusGroup(wrapped.statusCode)
+
+		// Normalize path to avoid high cardinality (use worker path if available)
+		path := p.normalizePathForMetrics(r.URL.Path)
+
+		metrics.RequestsTotal.WithLabelValues(r.Method, path, statusStr).Inc()
+		metrics.HTTPResponsesTotal.WithLabelValues(statusGroup).Inc()
+		metrics.RequestDuration.WithLabelValues(r.Method, path).Observe(duration.Seconds())
+		metrics.BytesOutTotal.Add(float64(wrapped.written))
+	}
+}
+
+// normalizePathForMetrics returns a normalized path to avoid high cardinality
+func (p *Proxy) normalizePathForMetrics(path string) string {
+	worker := p.router.GetWorker(path)
+	if worker != nil {
+		return worker.Path
+	}
+	return path
 }
 
 // handleRequest routes incoming requests to appropriate workers
