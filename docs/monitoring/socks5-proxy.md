@@ -7,7 +7,7 @@ TQServer includes a built-in SOCKS5 proxy for logging all outgoing API calls mad
 When enabled, the SOCKS5 proxy:
 - Runs on `127.0.0.1:1080` (configurable)
 - Logs all outgoing connections with metadata
-- Optionally inspects HTTPS traffic (dev mode only)
+- Optionally inspects HTTPS traffic
 
 ## Configuration
 
