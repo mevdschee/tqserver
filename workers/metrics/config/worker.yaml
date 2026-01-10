@@ -1,0 +1,23 @@
+# Worker Configuration for Metrics Dashboard
+# Scrapes Prometheus /metrics endpoint and displays graphs
+
+path: "/monitoring"
+type: "bun"
+enabled: "development"
+
+# Only need one instance for this internal tool
+scaling:
+  min_workers: 1
+  max_workers: 1
+  queue_threshold: 10
+  scale_down_delay: 60
+
+# Bun specific settings
+bun:
+  entrypoint: "index.ts"
+
+# Timeout settings
+timeouts:
+  read_timeout_seconds: 30
+  write_timeout_seconds: 30
+  idle_timeout_seconds: 120

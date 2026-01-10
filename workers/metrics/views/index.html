@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TQServer Metrics Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="public/dashboard.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 TQServer Metrics</h1>
+            <div class="status">
+                <span id="status-indicator" class="indicator"></span>
+                <span id="status-text">Connecting...</span>
+            </div>
+        </header>
+
+        <div class="controls">
+            <div class="metric-selector">
+                <label for="metric-search">Filter metrics:</label>
+                <input type="text" id="metric-search" placeholder="Type to filter...">
+            </div>
+            <div class="refresh-info">
+                <span>Auto-refresh: <strong>5s</strong></span>
+                <span id="last-update">Last update: --</span>
+            </div>
+        </div>
+
+        <div class="metrics-list" id="metrics-list">
+            <!-- Metric checkboxes will be added here -->
+        </div>
+
+        <div class="charts-container" id="charts-container">
+            <!-- Charts will be added here -->
+        </div>
+    </div>
+
+    <script src="public/dashboard.js"></script>
+</body>
+
+</html>
