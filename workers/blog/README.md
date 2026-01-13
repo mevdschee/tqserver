@@ -6,10 +6,13 @@ This is a test worker to demonstrate TQServer as a webserver with PHP support vi
 
 ```
 workers/blog/
+├── bin/                 # Build output directory
 ├── config/
 │   └── worker.yaml      # Worker configuration
 ├── public/
+│   ├── bench.php        # Simple benchmark endpoint
 │   ├── hello.php        # Simple hello world
+│   ├── index.php        # Main index page
 │   └── info.php         # PHP info page
 └── README.md            # This file
 ```
@@ -25,7 +28,7 @@ php -v
 php-fpm -v
 ```
 
-### 4. Test the setup
+### 2. Test the setup
 
 ```bash
 # Test hello.php
@@ -64,7 +67,7 @@ curl http://localhost:8080/info.php
 - [ ] Advanced metrics
 
 ### Phase 4: Advanced Features 🚧 IN PROGRESS
-- [ ] Hot reload support
+- [x] Hot reload support
 - [ ] Multiple PHP versions per route
 - [ ] Slow request logging
 - [ ] Performance metrics dashboard
@@ -122,7 +125,6 @@ for i in {1..10}; do curl http://localhost:8080/blog/hello.php & done; wait
 ## Next Steps
 
 ### Completed ✅
-### Completed ✅
 1. ✅ FastCGI client + php-fpm integration with TQServer
 2. ✅ php-fpm-first process management (legacy php-cgi spawning removed)
 3. ✅ Direct HTTP handling (no Nginx needed for dev)
@@ -140,5 +142,5 @@ for i in {1..10}; do curl http://localhost:8080/blog/hello.php & done; wait
 1. Multiple PHP version support (e.g., PHP 8.2 for /admin, PHP 8.3 for /api)
 2. Request queuing with overflow handling
 3. Advanced monitoring dashboard
-4. Hot reload for PHP configuration changes
+4. ✅ Hot reload for PHP configuration changes
 5. Production-ready error handling and logging
