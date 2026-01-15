@@ -66,3 +66,29 @@ done
 
 echo "------------------------------------------------"
 echo "Benchmark complete."
+
+# Generate graph
+graph_file="benchmark_results.png"
+echo "Generating graph: $graph_file"
+
+if ! command -v gnuplot &> /dev/null; then
+    echo "Warning: gnuplot is not installed. Skipping graph generation."
+    echo "Install with: sudo apt-get install gnuplot"
+else
+    gnuplot <<EOF
+set terminal pngcairo enhanced font 'Arial,12' size 800,600
+set output '$graph_file'
+set title 'TQServer Benchmark Results'
+set xlabel 'Concurrency'
+set ylabel 'Requests per Second'
+set grid
+set key top left
+set datafile separator ','
+
+# Filter and plot each worker
+plot '$results_file' using (stringcolumn(1) eq "index" ? \$2 : 1/0):3 with linespoints title 'index' lw 2 pt 7 ps 1.2, \
+     '$results_file' using (stringcolumn(1) eq "api" ? \$2 : 1/0):3 with linespoints title 'api' lw 2 pt 5 ps 1.2, \
+     '$results_file' using (stringcolumn(1) eq "blog" ? \$2 : 1/0):3 with linespoints title 'blog' lw 2 pt 9 ps 1.2
+EOF
+    echo "Graph saved to $graph_file"
+fi
