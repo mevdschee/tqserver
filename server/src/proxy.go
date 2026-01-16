@@ -170,7 +170,9 @@ func (p *Proxy) handleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Priority 1: Try to serve from worker's public directory
-	workerPublicPath := filepath.Join(p.projectRoot, p.config.Workers.Directory, worker.Name, "public", r.URL.Path)
+	// Strip the worker path prefix to get the file path relative to public/
+	staticPath := strings.TrimPrefix(r.URL.Path, worker.Path)
+	workerPublicPath := filepath.Join(p.projectRoot, p.config.Workers.Directory, worker.Name, "public", staticPath)
 	if p.serveFile(w, r, workerPublicPath) {
 		log.Printf("%s %s -> static file (worker: %s)", r.Method, r.URL.Path, worker.Name)
 		return

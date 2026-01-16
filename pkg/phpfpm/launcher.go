@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"syscall"
 
 	"github.com/mevdschee/tqserver/pkg/config/php"
 )
@@ -71,6 +72,8 @@ func (l *Launcher) Start() error {
 
 	l.ctx, l.cancel = context.WithCancel(context.Background())
 	l.cmd = exec.CommandContext(l.ctx, bin, args...)
+	// start php-fpm in its own process group so we can signal the entire group
+	l.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	// inherit environment and augment with any configured env
 	env := os.Environ()
@@ -123,9 +126,14 @@ func (l *Launcher) Stop(timeout time.Duration) error {
 		return nil
 	}
 
-	// attempt graceful shutdown
-	if err := l.cmd.Process.Signal(os.Interrupt); err != nil {
-		log.Printf("[phpfpm] failed to send interrupt: %v", err)
+	// attempt graceful shutdown by signalling the process group with SIGTERM
+	pid := l.cmd.Process.Pid
+	if err := syscall.Kill(-pid, syscall.SIGTERM); err != nil {
+		// fallback to single-process signal if group signalling fails
+		log.Printf("[phpfpm] failed to send SIGTERM to pgid %d: %v", pid, err)
+		if err2 := l.cmd.Process.Signal(os.Interrupt); err2 != nil {
+			log.Printf("[phpfpm] failed to send interrupt to php-fpm: %v", err2)
+		}
 	}
 
 	select {
@@ -133,9 +141,14 @@ func (l *Launcher) Stop(timeout time.Duration) error {
 		l.cleanup()
 		return err
 	case <-time.After(timeout):
-		// force kill
-		if killErr := l.cmd.Process.Kill(); killErr != nil {
-			return fmt.Errorf("failed to kill php-fpm: %w", killErr)
+		// force kill the process group
+		pid := l.cmd.Process.Pid
+		if killErr := syscall.Kill(-pid, syscall.SIGKILL); killErr != nil {
+			log.Printf("[phpfpm] failed to SIGKILL pgid %d: %v", pid, killErr)
+			// fallback to killing the individual process
+			if killErr2 := l.cmd.Process.Kill(); killErr2 != nil {
+				return fmt.Errorf("failed to kill php-fpm: %w", killErr2)
+			}
 		}
 		// wait after killing
 		select {

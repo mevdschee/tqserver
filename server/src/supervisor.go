@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -348,6 +349,8 @@ func (s *Supervisor) spawnWorkerInstance(w *Worker) (*WorkerInstance, error) {
 	}
 
 	cmd.Dir = workerRoot
+	// Start worker in its own process group so we can signal the entire group
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	// Environment
 	env := os.Environ()
@@ -494,11 +497,22 @@ func (s *Supervisor) waitForHealth(port int) error {
 	}
 }
 
-// terminateInstance stops a worker process
+// terminateInstance stops a worker process by signaling its process group
 func (s *Supervisor) terminateInstance(inst *WorkerInstance) {
-	if inst.Process != nil {
+	if inst.Process == nil {
+		return
+	}
+	pid := inst.Process.Pid
+	// Signal the entire process group with SIGTERM
+	if err := syscall.Kill(-pid, syscall.SIGTERM); err != nil {
+		log.Printf("[supervisor] failed to send SIGTERM to pgid %d: %v", pid, err)
+		// Fallback to single-process signal
 		inst.Process.Signal(os.Interrupt)
-		time.Sleep(100 * time.Millisecond)
+	}
+	time.Sleep(100 * time.Millisecond)
+	// Force kill the process group if still running
+	if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil {
+		// Fallback to killing individual process
 		inst.Process.Kill()
 	}
 }
