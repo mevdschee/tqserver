@@ -1,0 +1,410 @@
+/* Metrics Dashboard Styles - Grafana-Inspired Theme */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+    /* Grafana Dark Theme Colors */
+    --bg-canvas: #111217;
+    --bg-primary: #181b1f;
+    --bg-secondary: #22252b;
+    --bg-hover: #2c3039;
+    --border-weak: #2c3039;
+    --border-medium: #3d424d;
+    --text-primary: #eeeeee;
+    --text-secondary: #9ca3af;
+    --text-muted: #6e7681;
+
+    /* Grafana Accent Colors */
+    --color-blue: #3871dc;
+    --color-blue-light: #73a2f7;
+    --color-green: #56a64b;
+    --color-green-light: #8cd17d;
+    --color-yellow: #e0b400;
+    --color-orange: #eb7b18;
+    --color-red: #d10e49;
+    --color-purple: #8e44ad;
+
+    /* Panel Colors */
+    --panel-bg: #181b1f;
+    --panel-border: #2c3039;
+    --panel-header-bg: #1f2229;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-canvas);
+    color: var(--text-primary);
+    min-height: 100vh;
+    font-size: 14px;
+}
+
+/* Top Navigation Bar - Grafana Style */
+.top-bar {
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-weak);
+    padding: 0 16px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.top-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 18px;
+    color: var(--text-primary);
+}
+
+.logo-icon {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, var(--color-orange) 0%, var(--color-yellow) 100%);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+}
+
+.breadcrumb-item {
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.breadcrumb-item:hover {
+    background: var(--bg-hover);
+}
+
+.breadcrumb-separator {
+    color: var(--text-muted);
+}
+
+.top-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Time Range Picker - Grafana Style */
+.time-picker {
+    display: flex;
+    align-items: center;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-weak);
+    border-radius: 4px;
+    padding: 6px 12px;
+    gap: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+
+.time-picker:hover {
+    border-color: var(--border-medium);
+}
+
+.time-picker-icon {
+    color: var(--text-muted);
+}
+
+.time-picker-text {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+/* Status Indicator */
+.status-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-badge.connected {
+    background: rgba(86, 166, 75, 0.15);
+    color: var(--color-green-light);
+}
+
+.status-badge.disconnected {
+    background: rgba(209, 14, 73, 0.15);
+    color: var(--color-red);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.status-badge.connected .status-dot {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
+}
+
+/* Refresh Button */
+.refresh-btn {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-weak);
+    color: var(--text-secondary);
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    transition: all 0.15s;
+}
+
+.refresh-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-medium);
+    color: var(--text-primary);
+}
+
+/* Dashboard Container */
+.container {
+    padding: 16px;
+    max-width: 100%;
+}
+
+/* Dashboard Grid - Grafana Style Panels */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 8px;
+}
+
+/* Panel Card - Grafana Style */
+.chart-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-card:hover {
+    border-color: var(--border-medium);
+}
+
+.chart-card.wide {
+    grid-column: span 2;
+}
+
+@media (max-width: 900px) {
+    .chart-card.wide {
+        grid-column: span 1;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Panel Header - Grafana Style */
+.chart-card h2 {
+    background: var(--panel-header-bg);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin: 0;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.panel-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.panel-icon {
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.panel-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.chart-card:hover .panel-actions {
+    opacity: 1;
+}
+
+.panel-action-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 2px;
+    font-size: 12px;
+}
+
+.panel-action-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+/* Chart Area */
+.chart {
+    height: 240px;
+    padding: 8px;
+}
+
+/* Stats Panel - Grafana Stat Style */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+    height: 240px;
+    padding: 8px;
+}
+
+.stat-box {
+    background: var(--bg-secondary);
+    border-radius: 2px;
+    padding: 16px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-box::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+}
+
+.stat-box:nth-child(1)::before {
+    background: var(--color-blue);
+}
+
+.stat-box:nth-child(2)::before {
+    background: var(--color-green);
+}
+
+.stat-box:nth-child(3)::before {
+    background: var(--color-yellow);
+}
+
+.stat-box:nth-child(4)::before {
+    background: var(--color-orange);
+}
+
+.stat-value {
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1;
+    margin-bottom: 8px;
+}
+
+.stat-box:nth-child(1) .stat-value {
+    color: var(--color-blue-light);
+}
+
+.stat-box:nth-child(2) .stat-value {
+    color: var(--color-green-light);
+}
+
+.stat-box:nth-child(3) .stat-value {
+    color: var(--color-yellow);
+}
+
+.stat-box:nth-child(4) .stat-value {
+    color: var(--color-orange);
+}
+
+.stat-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-transform: none;
+    font-weight: 500;
+}
+
+/* Legacy Header Support (will be replaced by top-bar) */
+header {
+    display: none;
+}
+
+/* Scrollbar styling - Grafana Style */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-canvas);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-medium);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+/* Update Time Display */
+.last-update {
+    font-size: 11px;
+    color: var(--text-muted);
+}

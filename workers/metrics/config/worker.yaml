@@ -1,0 +1,16 @@
+# Worker Configuration for Metrics Dashboard
+
+# Path prefix for this worker (required)
+path: "/metrics-dashboard"
+type: "go"
+enabled: true
+
+# Worker Go runtime settings
+go:
+  go_max_procs: 1
+  go_mem_limit: ""
+  max_requests: 0
+
+# Logging
+logging:
+  log_file: "logs/worker_{name}_{date}.log"

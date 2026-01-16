@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{PageTitle}}</title>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <link rel="stylesheet" href="/metrics-dashboard/style.css">
+</head>
+
+<body>
+    <!-- Grafana-style Top Navigation Bar -->
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <div class="logo">
+                <div class="logo-icon">📊</div>
+                <span>TQServer</span>
+            </div>
+            <span class="breadcrumb-separator">/</span>
+            <div class="breadcrumb">
+                <span class="breadcrumb-item">Dashboards</span>
+                <span class="breadcrumb-separator">/</span>
+                <span class="breadcrumb-item" style="color: var(--text-primary);">Metrics Overview</span>
+            </div>
+        </div>
+        <div class="top-bar-right">
+            <div id="status-badge" class="status-badge">
+                <span class="status-dot"></span>
+                <span id="status-text">Connecting...</span>
+            </div>
+            <div class="time-picker">
+                <span class="time-picker-icon">🕐</span>
+                <span class="time-picker-text">Last 2 minutes</span>
+            </div>
+            <button class="refresh-btn" onclick="updateDashboard()">
+                <span>↻</span>
+                <span>Refresh</span>
+            </button>
+            <span class="last-update" id="last-update"></span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="dashboard-grid">
+            <!-- Row 1: Key Stats (HAProxy-inspired single stats) -->
+            <div class="chart-card">
+                <h2>
+                    <span class="panel-title"><span class="panel-icon">📈</span> Request Rate</span>
+                </h2>
+                <div id="request-rate-chart" class="chart"></div>
+            </div>
+
+            <div class="chart-card">
+                <h2>
+                    <span class="panel-title"><span class="panel-icon">⚡</span> Response Status</span>
+                </h2>
+                <div id="status-chart" class="chart"></div>
+            </div>
+
+            <div class="chart-card">
+                <h2>
+                    <span class="panel-title"><span class="panel-icon">🔧</span> Worker Instances</span>
+                </h2>
+                <div id="worker-chart" class="chart"></div>
+            </div>
+
+            <div class="chart-card">
+                <h2>
+                    <span class="panel-title"><span class="panel-icon">💾</span> Memory Usage</span>
+                </h2>
+                <div id="memory-chart" class="chart"></div>
+            </div>
+
+            <!-- Wide Panel: Request Duration Histogram -->
+            <div class="chart-card wide">
+                <h2>
+                    <span class="panel-title"><span class="panel-icon">⏱️</span> Request Duration (Histogram
+                        Buckets)</span>
+                </h2>
+                <div id="duration-chart" class="chart"></div>
+            </div>
+
+            <!-- System Stats Panel -->
+            <div class="chart-card">
+                <h2>
+                    <span class="panel-title"><span class="panel-icon">📊</span> System Stats</span>
+                </h2>
+                <div id="system-stats" class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-value" id="active-requests">-</div>
+                        <div class="stat-label">Active Requests</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="goroutines">-</div>
+                        <div class="stat-label">Goroutines</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="uptime">-</div>
+                        <div class="stat-label">Uptime</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="total-requests">-</div>
+                        <div class="stat-label">Total Requests</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Grafana-inspired dark chart configuration
+        const darkLayout = {
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent',
+            font: {
+                color: '#9ca3af',
+                family: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+                size: 11
+            },
+            margin: { t: 10, r: 16, b: 32, l: 48 },
+            xaxis: {
+                gridcolor: '#2c3039',
+                linecolor: '#2c3039',
+                tickcolor: '#2c3039',
+                zerolinecolor: '#2c3039'
+            },
+            yaxis: {
+                gridcolor: '#2c3039',
+                linecolor: '#2c3039',
+                tickcolor: '#2c3039',
+                zerolinecolor: '#2c3039'
+            },
+            showlegend: false
+        };
+
+        // Grafana color palette
+        const colors = {
+            blue: '#3871dc',
+            blueLight: '#73a2f7',
+            green: '#56a64b',
+            greenLight: '#8cd17d',
+            yellow: '#e0b400',
+            orange: '#eb7b18',
+            red: '#d10e49',
+            purple: '#8e44ad',
+            cyan: '#33b5e5'
+        };
+
+        // Time series data storage
+        const timeSeriesData = {
+            timestamps: [],
+            requestsTotal: [],
+            requestsPerSecond: [],
+            memoryHeap: [],
+            maxPoints: 60,
+            lastTotal: 0,
+            lastTimestamp: null
+        };
+
+        // Helper functions
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function formatDuration(seconds) {
+            if (seconds < 60) return Math.floor(seconds) + 's';
+            if (seconds < 3600) return Math.floor(seconds / 60) + 'm';
+            if (seconds < 86400) return Math.floor(seconds / 3600) + 'h';
+            return Math.floor(seconds / 86400) + 'd';
+        }
+
+        function formatNumber(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toFixed(0);
+        }
+
+        function getMetricValue(metrics, name, labels = {}) {
+            const group = metrics[name] || metrics[name.replace(/_total$/, '')] || [];
+            for (const m of group) {
+                if (m.name === name || m.name === name + '_total') {
+                    let match = true;
+                    for (const [k, v] of Object.entries(labels)) {
+                        if (m.labels[k] !== v) match = false;
+                    }
+                    if (match) return m.value;
+                }
+            }
+            return 0;
+        }
+
+        function sumMetricsByLabel(metrics, baseName, labelKey) {
+            const group = metrics[baseName] || [];
+            const sums = {};
+            for (const m of group) {
+                if (m.name === baseName + '_total' || m.name === baseName) {
+                    const label = m.labels[labelKey] || 'unknown';
+                    sums[label] = (sums[label] || 0) + m.value;
+                }
+            }
+            return sums;
+        }
+
+        // Update charts
+        async function updateDashboard() {
+            try {
+                const response = await fetch('/metrics-dashboard/api/metrics');
+                if (!response.ok) throw new Error('Failed to fetch metrics');
+
+                const data = await response.json();
+                const metrics = data.metrics;
+
+                // Update status
+                document.getElementById('status-badge').className = 'status-badge connected';
+                document.getElementById('status-text').textContent = 'Live';
+                document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+
+                // Calculate total requests
+                let totalRequests = 0;
+                const requestsGroup = metrics['tqserver_requests'] || [];
+                for (const m of requestsGroup) {
+                    if (m.name === 'tqserver_requests_total') {
+                        totalRequests += m.value;
+                    }
+                }
+
+                // Calculate requests per second
+                const now = new Date();
+                let rps = 0;
+                if (timeSeriesData.lastTimestamp) {
+                    const elapsed = (now - timeSeriesData.lastTimestamp) / 1000;
+                    if (elapsed > 0) {
+                        rps = (totalRequests - timeSeriesData.lastTotal) / elapsed;
+                    }
+                }
+                timeSeriesData.lastTotal = totalRequests;
+                timeSeriesData.lastTimestamp = now;
+
+                // Update time series
+                timeSeriesData.timestamps.push(now);
+                timeSeriesData.requestsTotal.push(totalRequests);
+                timeSeriesData.requestsPerSecond.push(Math.max(0, rps));
+
+                const heapMemory = getMetricValue(metrics, 'tqserver_process_memory_bytes', { type: 'heap' });
+                timeSeriesData.memoryHeap.push(heapMemory);
+
+                // Trim to max points
+                while (timeSeriesData.timestamps.length > timeSeriesData.maxPoints) {
+                    timeSeriesData.timestamps.shift();
+                    timeSeriesData.requestsTotal.shift();
+                    timeSeriesData.requestsPerSecond.shift();
+                    timeSeriesData.memoryHeap.shift();
+                }
+
+                // Request Rate Chart (Requests per Second)
+                Plotly.newPlot('request-rate-chart', [{
+                    x: [...timeSeriesData.timestamps],
+                    y: [...timeSeriesData.requestsPerSecond],
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: colors.green, width: 1.5 },
+                    fill: 'tozeroy',
+                    fillcolor: 'rgba(86, 166, 75, 0.15)'
+                }], {
+                    ...darkLayout,
+                    xaxis: { ...darkLayout.xaxis },
+                    yaxis: { ...darkLayout.yaxis, title: { text: 'req/s', font: { size: 10 } } }
+                }, { responsive: true, displayModeBar: false });
+
+                // Response Status Chart (Grafana-style donut)
+                const statusSums = sumMetricsByLabel(metrics, 'tqserver_http_responses', 'status_group');
+                const statusLabels = Object.keys(statusSums);
+                const statusValues = Object.values(statusSums);
+                const statusColors = statusLabels.map(s => {
+                    if (s === '2xx') return colors.green;
+                    if (s === '3xx') return colors.blue;
+                    if (s === '4xx') return colors.yellow;
+                    if (s === '5xx') return colors.red;
+                    return '#6e7681';
+                });
+
+                Plotly.react('status-chart', [{
+                    labels: statusLabels,
+                    values: statusValues,
+                    type: 'pie',
+                    hole: 0.6,
+                    marker: { colors: statusColors },
+                    textinfo: 'label+percent',
+                    textfont: { size: 11, color: '#eeeeee' },
+                    hoverinfo: 'label+value+percent'
+                }], {
+                    ...darkLayout,
+                    showlegend: false,
+                    margin: { t: 10, r: 10, b: 10, l: 10 }
+                }, { responsive: true, displayModeBar: false });
+
+                // Worker Instances Chart (HAProxy-style backend health)
+                const workerInstances = {};
+                const workerHealthy = {};
+                const instancesGroup = metrics['tqserver_worker_instances'] || [];
+                const healthyGroup = metrics['tqserver_worker_instances_healthy'] || [];
+
+                for (const m of instancesGroup) {
+                    if (m.name === 'tqserver_worker_instances') {
+                        workerInstances[m.labels.worker] = m.value;
+                    }
+                }
+                for (const m of healthyGroup) {
+                    if (m.name === 'tqserver_worker_instances_healthy') {
+                        workerHealthy[m.labels.worker] = m.value;
+                    }
+                }
+
+                const workerNames = Object.keys(workerInstances);
+                Plotly.react('worker-chart', [
+                    {
+                        x: workerNames,
+                        y: workerNames.map(w => workerHealthy[w] || 0),
+                        name: 'Healthy',
+                        type: 'bar',
+                        marker: { color: colors.green }
+                    },
+                    {
+                        x: workerNames,
+                        y: workerNames.map(w => workerInstances[w] - (workerHealthy[w] || 0)),
+                        name: 'Unhealthy',
+                        type: 'bar',
+                        marker: { color: colors.red }
+                    }
+                ], {
+                    ...darkLayout,
+                    barmode: 'stack',
+                    showlegend: true,
+                    legend: {
+                        x: 0,
+                        y: 1.15,
+                        orientation: 'h',
+                        font: { size: 10 }
+                    },
+                    xaxis: { ...darkLayout.xaxis, type: 'category' }
+                }, { responsive: true, displayModeBar: false });
+
+                // Memory Chart (time series)
+                Plotly.react('memory-chart', [{
+                    x: timeSeriesData.timestamps,
+                    y: timeSeriesData.memoryHeap.map(b => b / (1024 * 1024)),
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: colors.orange, width: 1.5 },
+                    fill: 'tozeroy',
+                    fillcolor: 'rgba(235, 123, 24, 0.15)'
+                }], {
+                    ...darkLayout,
+                    yaxis: { ...darkLayout.yaxis, title: { text: 'MB', font: { size: 10 } } }
+                }, { responsive: true, displayModeBar: false });
+
+                // Duration Histogram (Grafana bar chart style)
+                const durationGroup = metrics['tqserver_request_duration_seconds'] || [];
+                const buckets = durationGroup
+                    .filter(m => m.name === 'tqserver_request_duration_seconds_bucket')
+                    .sort((a, b) => parseFloat(a.labels.le || 0) - parseFloat(b.labels.le || 0));
+
+                if (buckets.length > 0) {
+                    // Calculate per-bucket counts (not cumulative)
+                    const bucketCounts = [];
+                    for (let i = 0; i < buckets.length; i++) {
+                        if (i === 0) {
+                            bucketCounts.push(buckets[i].value);
+                        } else {
+                            bucketCounts.push(Math.max(0, buckets[i].value - buckets[i - 1].value));
+                        }
+                    }
+
+                    Plotly.react('duration-chart', [{
+                        x: buckets.map(b => b.labels.le === '+Inf' ? '∞' : b.labels.le + 's'),
+                        y: bucketCounts,
+                        type: 'bar',
+                        marker: {
+                            color: bucketCounts.map((_, i) => {
+                                const ratio = i / (buckets.length - 1);
+                                if (ratio < 0.5) return colors.green;
+                                if (ratio < 0.75) return colors.yellow;
+                                return colors.red;
+                            })
+                        }
+                    }], {
+                        ...darkLayout,
+                        xaxis: { ...darkLayout.xaxis, type: 'category', title: { text: 'Latency Bucket', font: { size: 10 } } },
+                        yaxis: { ...darkLayout.yaxis, title: { text: 'Requests', font: { size: 10 } } }
+                    }, { responsive: true, displayModeBar: false });
+                }
+
+                // System Stats
+                document.getElementById('active-requests').textContent =
+                    getMetricValue(metrics, 'tqserver_active_requests').toFixed(0);
+                document.getElementById('goroutines').textContent =
+                    getMetricValue(metrics, 'tqserver_process_goroutines').toFixed(0);
+                document.getElementById('uptime').textContent =
+                    formatDuration(getMetricValue(metrics, 'tqserver_process_uptime_seconds'));
+                document.getElementById('total-requests').textContent = formatNumber(totalRequests);
+
+            } catch (error) {
+                console.error('Failed to update dashboard:', error);
+                document.getElementById('status-badge').className = 'status-badge disconnected';
+                document.getElementById('status-text').textContent = 'Disconnected';
+            }
+        }
+
+        // Initial update and auto-refresh
+        updateDashboard();
+        setInterval(updateDashboard, 2000);
+    </script>
+</body>
+
+</html>
