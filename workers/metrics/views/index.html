@@ -106,6 +106,23 @@
                 </div>
             </div>
         </div>
+
+        <!-- Live Server Logs -->
+        <div class="log-panel">
+            <div class="chart-card log-card">
+                <h2>📋 Server Logs</h2>
+                <div class="log-container" id="log-container">
+                    <div class="log-content" id="log-content">
+                        <div class="log-line log-info">Connecting to log stream...</div>
+                    </div>
+                </div>
+                <div class="log-status">
+                    <span id="log-status-indicator" class="status-dot"></span>
+                    <span id="log-status-text">Connecting...</span>
+                    <span id="log-line-count">0 lines</span>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -429,6 +446,85 @@
         // Initial update and auto-refresh
         updateDashboard();
         setInterval(updateDashboard, 2000);
+
+        // Log streaming via SSE
+        const logContainer = document.getElementById('log-container');
+        const logContent = document.getElementById('log-content');
+        const logStatusIndicator = document.getElementById('log-status-indicator');
+        const logStatusText = document.getElementById('log-status-text');
+        const logLineCount = document.getElementById('log-line-count');
+        let lineCount = 0;
+        const maxLines = 200;
+
+        function getLogClass(line) {
+            if (line.includes('error') || line.includes('Error') || line.includes('ERROR') || line.includes('Failed')) {
+                return 'log-error';
+            }
+            if (line.includes('warn') || line.includes('Warn') || line.includes('WARNING')) {
+                return 'log-warn';
+            }
+            if (line.includes('starting') || line.includes('Starting') || line.includes('ready') || line.includes('✅')) {
+                return 'log-info';
+            }
+            return '';
+        }
+
+        function addLogLine(line) {
+            const div = document.createElement('div');
+            div.className = 'log-line ' + getLogClass(line);
+            div.textContent = line;
+            logContent.appendChild(div);
+            lineCount++;
+
+            // Trim old lines
+            while (logContent.children.length > maxLines) {
+                logContent.removeChild(logContent.firstChild);
+            }
+
+            // Auto-scroll to bottom
+            logContainer.scrollTop = logContainer.scrollHeight;
+            logLineCount.textContent = lineCount + ' lines';
+        }
+
+        function connectLogStream() {
+            // First load recent logs
+            fetch('/api/logs/recent')
+                .then(r => r.json())
+                .then(logs => {
+                    logContent.innerHTML = '';
+                    lineCount = 0;
+                    logs.forEach(addLogLine);
+                })
+                .catch(err => console.error('Failed to load recent logs:', err));
+
+            // Then connect to SSE stream
+            const eventSource = new EventSource('/api/logs/stream');
+
+            eventSource.onopen = function () {
+                logStatusIndicator.style.color = 'var(--color-green)';
+                logStatusText.textContent = 'Connected';
+            };
+
+            eventSource.onmessage = function (event) {
+                addLogLine(event.data);
+            };
+
+            eventSource.addEventListener('connected', function (event) {
+                const data = JSON.parse(event.data);
+                logStatusText.textContent = 'Connected (' + data.clients + ' clients)';
+            });
+
+            eventSource.onerror = function () {
+                logStatusIndicator.style.color = 'var(--color-red)';
+                logStatusText.textContent = 'Disconnected';
+                eventSource.close();
+                // Reconnect after 3 seconds
+                setTimeout(connectLogStream, 3000);
+            };
+        }
+
+        // Start log streaming
+        connectLogStream();
     </script>
 </body>
 

@@ -32,6 +32,11 @@ func main() {
 		config.Mode = *mode
 	}
 
+	// Initialize log broadcaster for SSE streaming (captures all log output)
+	logBroadcaster := InitLogBroadcaster(os.Stderr, 200)
+	log.SetOutput(logBroadcaster)
+	log.SetFlags(log.LstdFlags) // Ensure timestamps are included
+
 	log.Printf("TQServer starting...")
 	log.Printf("Mode: %s", config.Mode)
 	log.Printf("Project root: %s", projectRoot)

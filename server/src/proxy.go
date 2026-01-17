@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -70,6 +71,10 @@ func (p *Proxy) Start() error {
 		log.Printf("Prometheus metrics enabled at http://localhost:%d%s", p.config.Server.Port, p.config.Metrics.Path)
 	}
 
+	// Add SSE log streaming endpoints
+	mux.HandleFunc("/api/logs/stream", p.handleLogStream)
+	mux.HandleFunc("/api/logs/recent", p.handleRecentLogs)
+
 	p.server = &http.Server{
 		Addr:         fmt.Sprintf(":%d", p.config.Server.Port),
 		Handler:      mux,
@@ -95,6 +100,69 @@ func (p *Proxy) Stop() error {
 		return p.server.Close()
 	}
 	return nil
+}
+
+// handleLogStream serves SSE log stream
+func (p *Proxy) handleLogStream(w http.ResponseWriter, r *http.Request) {
+	broadcaster := GetLogBroadcaster()
+	if broadcaster == nil {
+		http.Error(w, "Log streaming not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Set SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// Get flusher
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+		return
+	}
+
+	// Subscribe to log stream
+	ch := broadcaster.Subscribe()
+	defer broadcaster.Unsubscribe(ch)
+
+	// Send initial connection event
+	fmt.Fprintf(w, "event: connected\ndata: {\"clients\": %d}\n\n", broadcaster.ClientCount())
+	flusher.Flush()
+
+	// Stream logs
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case line, ok := <-ch:
+			if !ok {
+				return
+			}
+			// Send as SSE data event
+			fmt.Fprintf(w, "data: %s\n\n", line)
+			flusher.Flush()
+		}
+	}
+}
+
+// handleRecentLogs returns recent logs as JSON
+func (p *Proxy) handleRecentLogs(w http.ResponseWriter, r *http.Request) {
+	broadcaster := GetLogBroadcaster()
+	if broadcaster == nil {
+		http.Error(w, "Log streaming not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	logs := broadcaster.GetRecentLogs()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-cache")
+
+	if err := json.NewEncoder(w).Encode(logs); err != nil {
+		log.Printf("Failed to encode recent logs: %v", err)
+	}
 }
 
 // generateCorrelationID creates a unique ID for request tracing
