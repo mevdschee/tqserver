@@ -153,7 +153,8 @@
             requestsTotal: [],
             requestsPerSecond: [],
             memoryHeap: [],
-            maxPoints: 60,
+            maxPoints: 60,          // 60 data points
+            intervalMs: 2 * 60 * 1000, // 2 minute window
             lastTotal: 0,
             lastTimestamp: null
         };
@@ -257,7 +258,10 @@
                     timeSeriesData.memoryHeap.shift();
                 }
 
-                // Request Rate Chart (Requests per Second)
+                // Request Rate Chart (Requests per Second) - Fixed 2-minute window
+                const chartNow = new Date();
+                const windowStart = new Date(chartNow.getTime() - timeSeriesData.intervalMs);
+
                 Plotly.newPlot('request-rate-chart', [{
                     x: [...timeSeriesData.timestamps],
                     y: [...timeSeriesData.requestsPerSecond],
@@ -265,11 +269,16 @@
                     mode: 'lines',
                     line: { color: colors.green, width: 1.5 },
                     fill: 'tozeroy',
-                    fillcolor: 'rgba(86, 166, 75, 0.15)'
+                    fillcolor: 'rgba(86, 166, 75, 0.15)',
+                    connectgaps: false
                 }], {
                     ...darkLayout,
-                    xaxis: { ...darkLayout.xaxis },
-                    yaxis: { ...darkLayout.yaxis, title: { text: 'req/s', font: { size: 10 } } }
+                    xaxis: {
+                        ...darkLayout.xaxis,
+                        range: [windowStart, chartNow],
+                        type: 'date'
+                    },
+                    yaxis: { ...darkLayout.yaxis, title: { text: 'req/s', font: { size: 10 } }, rangemode: 'tozero' }
                 }, { responsive: true, displayModeBar: false });
 
                 // Response Status Chart (Grafana-style donut)
@@ -345,18 +354,24 @@
                     xaxis: { ...darkLayout.xaxis, type: 'category' }
                 }, { responsive: true, displayModeBar: false });
 
-                // Memory Chart (time series)
-                Plotly.react('memory-chart', [{
-                    x: timeSeriesData.timestamps,
-                    y: timeSeriesData.memoryHeap.map(b => b / (1024 * 1024)),
+                // Memory Chart (time series) - Fixed 2-minute window
+                Plotly.newPlot('memory-chart', [{
+                    x: [...timeSeriesData.timestamps],
+                    y: [...timeSeriesData.memoryHeap.map(b => b / (1024 * 1024))],
                     type: 'scatter',
                     mode: 'lines',
                     line: { color: colors.orange, width: 1.5 },
                     fill: 'tozeroy',
-                    fillcolor: 'rgba(235, 123, 24, 0.15)'
+                    fillcolor: 'rgba(235, 123, 24, 0.15)',
+                    connectgaps: false
                 }], {
                     ...darkLayout,
-                    yaxis: { ...darkLayout.yaxis, title: { text: 'MB', font: { size: 10 } } }
+                    xaxis: {
+                        ...darkLayout.xaxis,
+                        range: [windowStart, chartNow],
+                        type: 'date'
+                    },
+                    yaxis: { ...darkLayout.yaxis, title: { text: 'MB', font: { size: 10 } }, rangemode: 'tozero' }
                 }, { responsive: true, displayModeBar: false });
 
                 // Duration Histogram (Grafana bar chart style)
