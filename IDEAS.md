@@ -12,6 +12,8 @@ This idea imagines a unified data layer that sits between applications and their
 
 To make adoption effortless, the system includes six client libraries—Go, PHP, and TypeScript for both MySQL and PostgreSQL. Each wraps the existing native driver, preserving its familiar interface while adding a small optional cache‑TTL parameter and automatically attaching caller metadata. The result is a consistent, language‑agnostic way to instrument database access, reduce load through caching, and gain observability across an entire stack. It turns database access into something measurable, optimizable, and shared across all services.
 
+See: https://github.com/mevdschee/tqdbproxy
+
 ### tqapiproxy
 
 A small-but-critical feature for any API proxy is full, human-friendly recording of every outbound and inbound API call. When your application calls HTTP endpoints you should keep a log of all calls and results in an easy-to-read format (for example a `.http` file that records request line, headers, body, response status, headers, body, timestamps and duration). When debugging an application it's essential to be able to see the exact API calls that were executed: the full request and response bodies, correlated IDs, and timing information.
