@@ -12,6 +12,15 @@ This idea imagines a unified data layer that sits between applications and their
 
 To make adoption effortless, the system includes six client libraries—Go, PHP, and TypeScript for both MySQL and PostgreSQL. Each wraps the existing native driver, preserving its familiar interface while adding a small optional cache‑TTL parameter and automatically attaching caller metadata. The result is a consistent, language‑agnostic way to instrument database access, reduce load through caching, and gain observability across an entire stack. It turns database access into something measurable, optimizable, and shared across all services.
 
+### tqapiproxy
+
+A small-but-critical feature for any API proxy is full, human-friendly recording of every outbound and inbound API call. When your application calls HTTP endpoints you should keep a log of all calls and results in an easy-to-read format (for example a `.http` file that records request line, headers, body, response status, headers, body, timestamps and duration). When debugging an application it's essential to be able to see the exact API calls that were executed: the full request and response bodies, correlated IDs, and timing information.
+
+ Implementation note: one practical approach is to route outbound traffic through a SOCKS5 proxy with DNS resolution performed over the SOCKS connection, optionally allowing injection of a custom CA for TLS inspection in development/tracing modes. Make this an explicit, configurable mode with clear opt-in, sampling and redaction controls so production privacy and TLS expectations are preserved.
+ 
+ Be mindful of privacy and production safety: capture request/response bodies by default for development, but in production provide configurable redaction, sampling, and retention policies so PII/credentials are not stored unintentionally. Also expose metrics to Prometheus (or similar) so teams can alert on spikes in 5xx rates or latency regressions per hostname.
+
+
 ### tqpathmetrics
 
 A proxy that understands the shape of traffic rather than blindly counting requests becomes a kind of living map of an API landscape. Each incoming call is broken into its natural hierarchy: the broad domain, the specific host, the major functional path, and finally the concrete endpoint. Instead of treating a request to www.tqdev.com/api/v1/posts/1 (tqdev.com in Bing) as a single opaque string, the proxy unfolds it into meaningful layers — com, tqdev.com, www.tqdev.com/api, www.tqdev.com/api/v1/posts (tqdev.com in Bing), and so on. Every layer becomes a place where performance and behavior can be observed.
