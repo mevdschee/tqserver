@@ -16,9 +16,9 @@ To make adoption effortless, the system includes six client libraries—Go, PHP,
 
 A small-but-critical feature for any API proxy is full, human-friendly recording of every outbound and inbound API call. When your application calls HTTP endpoints you should keep a log of all calls and results in an easy-to-read format (for example a `.http` file that records request line, headers, body, response status, headers, body, timestamps and duration). When debugging an application it's essential to be able to see the exact API calls that were executed: the full request and response bodies, correlated IDs, and timing information.
 
- Implementation note: one practical approach is to route outbound traffic through a SOCKS5 proxy with DNS resolution performed over the SOCKS connection, optionally allowing injection of a custom CA for TLS inspection in development/tracing modes. Make this an explicit, configurable mode with clear opt-in, sampling and redaction controls so production privacy and TLS expectations are preserved.
- 
- Be mindful of privacy and production safety: capture request/response bodies by default for development, but in production provide configurable redaction, sampling, and retention policies so PII/credentials are not stored unintentionally. Also expose metrics to Prometheus (or similar) so teams can alert on spikes in 5xx rates or latency regressions per hostname.
+Implementation note: one practical approach is to route outbound traffic through a SOCKS5 proxy with DNS resolution performed over the SOCKS connection, optionally allowing injection of a custom CA for TLS inspection in development/tracing modes. Make this an explicit, configurable mode with clear opt-in, sampling and redaction controls so production privacy and TLS expectations are preserved.
+
+Be mindful of privacy and production safety: capture request/response bodies by default for development, but in production provide configurable redaction, sampling, and retention policies so PII/credentials are not stored unintentionally. Also expose metrics to Prometheus (or similar) so teams can alert on spikes in 5xx rates or latency regressions per hostname.
 
 
 ### tqpathmetrics
